@@ -174,7 +174,8 @@ class OfflinePPEncoder(object):
         """
         occupancy, occ_bin_edges = np.histogram(lin_obj['linpos_flat'], bins=enc_settings.pos_bin_edges,
                                                 normed=True)
-        occupancy = np.convolve(occupancy, enc_settings.pos_kernel, mode='same')
+        # dont use convovle becuase of boundary problems
+        #occupancy = np.convolve(occupancy, enc_settings.pos_kernel, mode='same')
 
         # occupancy
         occupancy = apply_no_anim_boundary(enc_settings.pos_bins, enc_settings.arm_coordinates, occupancy, np.nan)
@@ -192,7 +193,8 @@ class OfflinePPEncoder(object):
             tet_pos_hist, _ = np.histogram(tet_spikes, bins=enc_settings.pos_bin_edges)
             firing_rate[tet_id] = tet_pos_hist
         for fr_key in firing_rate.keys():
-            firing_rate[fr_key] = np.convolve(firing_rate[fr_key], enc_settings.pos_kernel, mode='same')
+            # dont use convovle because of boundary problems at 0
+            #firing_rate[fr_key] = np.convolve(firing_rate[fr_key], enc_settings.pos_kernel, mode='same')
             firing_rate[fr_key] = apply_no_anim_boundary(enc_settings.pos_bins, enc_settings.arm_coordinates,
                                                          firing_rate[fr_key])
             firing_rate[fr_key] = firing_rate[fr_key] / (firing_rate[fr_key].sum() * enc_settings.pos_bin_delta)
