@@ -171,7 +171,7 @@ class TrodesImport:
 		allrips = allrips.append(rippd)
 		return allrips
 
-def convert_dan_posterior_to_xarray(posterior_df, tetrode_dictionary, velocity_filter, encode_settings, decode_settings, transition_matrix, shuffle_offset, trial_order, marks_time_shift_amount, position_bin_centers=None):
+def convert_dan_posterior_to_xarray(posterior_df, tetrode_dictionary, velocity_filter, encode_settings, decode_settings, transition_matrix, trial_order, marks_time_shift_amount, position_bin_centers=None):
     '''Converts pandas dataframe from Dan's 1D decoder to xarray Dataset
     
     Parameters
@@ -206,7 +206,6 @@ def convert_dan_posterior_to_xarray(posterior_df, tetrode_dictionary, velocity_f
 	     'velocity filter encode': velocity_filter,
 	     'velocity filter decode': velocity_filter,
 	     'tetrodes': tetrode_dictionary,
-	     'shuffle offset': shuffle_offset,
 	     'marks_time_shift_amount': marks_time_shift_amount,
 	     'trial_order': trial_order,
 	     'sampling_rate': encode_settings['sampling_rate'],
