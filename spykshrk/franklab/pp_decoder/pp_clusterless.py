@@ -59,10 +59,12 @@ class OfflinePPEncoder(object):
         self.calc_firing_rate()
         self.calc_prob_no_spike()
 
-        self.trans_mat = dict.fromkeys(['learned', 'simple', 'uniform'])
+        self.trans_mat = dict.fromkeys(['learned', 'simple', 'uniform','sungod'])
         self.trans_mat['learned'] = self.calc_learned_state_trans_mat(self.linflat,self.encode_settings, self.decode_settings)
         self.trans_mat['simple'] = self.calc_simple_trans_mat(self.encode_settings)
         self.trans_mat['uniform'] = self.calc_uniform_trans_mat(self.encode_settings)
+        self.trans_mat['sungod'] = self.calc_sungod_trans_mat(self.encode_settings,self.decode_settings)
+
 
     def run_encoder(self):
         logging.info("Setting up encoder dask task.")
@@ -216,6 +218,7 @@ class OfflinePPEncoder(object):
         prob_no_spike = {}
         for tet_id, tet_fr in firing_rate.items():
             prob_no_spike[tet_id] = np.exp(-dec_settings.time_bin_size/enc_settings.sampling_rate * tet_fr / occupancy)
+            # prob_no_spike[tet_id] = np.nan_to_num(prob_no_spike[tet_id], copy=False)
         return prob_no_spike
 
     
@@ -345,7 +348,53 @@ class OfflinePPEncoder(object):
         transition_mat = np.nan_to_num(transition_mat)
 
         return transition_mat
-    
+
+    @staticmethod
+    def calc_sungod_trans_mat(enc_settings, dec_settings):
+
+        from scipy.sparse import diags
+        n = len(enc_settings.pos_bins)
+        transition_mat = np.zeros([n,n])
+        k = np.array([(1/3)*np.ones(n-1),(1/3)*np.ones(n),(1/3)*np.ones(n-1)])
+        offset = [-1,0,1]
+        transition_mat = diags(k,offset).toarray()
+        for x in enc_settings.arm_coordinates[:,0]:
+            transition_mat[int(x),int(x)] = (5/9)
+            transition_mat[8,int(x)] = (1/9)
+            transition_mat[int(x),8] = (1/9)
+        for y in enc_settings.arm_coordinates[:,1]:
+            transition_mat[int(y),int(y)] = (2/3)
+        transition_mat[8,0] = 0
+        transition_mat[0,8] = 0
+        transition_mat[8,8] = 0
+        transition_mat[0,0] = (2/3)
+        transition_mat[7,7] = (5/9)
+        transition_mat[7,8] = (1/9)
+        transition_mat[8,7] = (1/9)
+
+                # uniform offset (gain, currently 0.0001)
+                # needs to be set before running the encoder cell
+                # normally: decode_settings.trans_uniform_gain
+        uniform_gain = dec_settings.trans_uniform_gain
+        uniform_dist = np.ones(transition_mat.shape)*uniform_gain
+
+                # apply uniform offset
+        transition_mat = transition_mat + uniform_dist
+
+                # apply no animal boundary - make gaps between arms
+        transition_mat = apply_no_anim_boundary(enc_settings.pos_bins, enc_settings.arm_coordinates, transition_mat)
+
+                # to smooth: take the transition matrix to a power
+        transition_mat = np.linalg.matrix_power(transition_mat,1)
+
+                # apply no animal boundary - make gaps between arms
+        transition_mat = apply_no_anim_boundary(enc_settings.pos_bins, enc_settings.arm_coordinates, transition_mat)
+
+                # normalize transition matrix
+        transition_mat = transition_mat/(transition_mat.sum(axis=0)[None, :])
+        transition_mat[np.isnan(transition_mat)] = 0
+
+        return transition_mat
 
 
 class OfflinePPDecoder(object):
@@ -522,7 +571,7 @@ class OfflinePPDecoder(object):
                                      prob_no_spike, time_bin_size, enc_settings):
 
         global_prob_no_spike = np.prod(list(prob_no_spike.values()), axis=0)
-        global_prob_no_spike = global_prob_no_spike/sum(global_prob_no_spike)  # AKG added; normalize
+        global_prob_no_spike = global_prob_no_spike/np.nansum(global_prob_no_spike)  # AKG added; normalize
         results = []
         #parallel_id = spikes_in_parallel['parallel_bin'].iloc[0]
         #dec_grp = spikes_in_parallel.groupby('dec_bin')
