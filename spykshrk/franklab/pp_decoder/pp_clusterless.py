@@ -522,7 +522,7 @@ class OfflinePPDecoder(object):
                                      prob_no_spike, time_bin_size, enc_settings):
 
         global_prob_no_spike = np.prod(list(prob_no_spike.values()), axis=0)
-
+        global_prob_no_spike = global_prob_no_spike/sum(global_prob_no_spike)  # AKG added; normalize
         results = []
         #parallel_id = spikes_in_parallel['parallel_bin'].iloc[0]
         #dec_grp = spikes_in_parallel.groupby('dec_bin')
@@ -571,6 +571,7 @@ class OfflinePPDecoder(object):
             # Contribution for electrodes that no spikes in this bin
             for elec_grp_id in elec_set.symmetric_difference(elec_grp_list):
                 obv_in_bin = obv_in_bin * prob_no_spike[elec_grp_id]
+                obv_in_bin = obv_in_bin / (np.nansum(obv_in_bin) * enc_settings.pos_bin_delta)   # AKG added, normalize
 
             # Checking if missing bin has more than 1 whole number (and the rest are zeros)
             missing_bins_list = np.array(missing_bins_list)
