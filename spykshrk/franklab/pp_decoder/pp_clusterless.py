@@ -185,20 +185,29 @@ class OfflinePPEncoder(object):
         #return occupancy
 
         # KDE method to get around boundary problem at 0 bin
-        from scipy import stats
+        # don't use this because with std = 1, home and rip/wait get smashed together
+        #from scipy import stats
 
-        bandwidth = enc_settings.pos_kernel_std
-        support = enc_settings.pos_bin_edges[0:-1]
-        kernels = []
-        for x_i in lin_obj['linpos_flat']:
-            kernel = stats.norm(x_i, bandwidth).pdf(support)
-            kernels.append(kernel)
-        from scipy.integrate import trapz
-        density = np.sum(kernels, axis=0)
-        density /= trapz(density, support)
-        density += 1e-10
-        occupancy = apply_no_anim_boundary(enc_settings.pos_bins, enc_settings.arm_coordinates, density, np.nan)
-        return occupancy
+        #bandwidth = enc_settings.pos_kernel_std
+        #support = enc_settings.pos_bin_edges[0:-1]
+        #kernels = []
+        #for x_i in lin_obj['linpos_flat']:
+        #    kernel = stats.norm(x_i, bandwidth).pdf(support)
+        #    kernels.append(kernel)
+        #from scipy.integrate import trapz
+        #density = np.sum(kernels, axis=0)
+        #density /= trapz(density, support)
+        #density += 1e-10
+        #occupancy = apply_no_anim_boundary(enc_settings.pos_bins, enc_settings.arm_coordinates, density, np.nan)
+        #return occupancy
+
+        # just use a histogram of position for the occupancy
+        # now need to make sure pos_bin_edges has exactly the correct number of bins - dont want any empty bins at end
+        occupancy, occ_bin_edges = np.histogram(lin_obj['linpos_flat'], bins=enc_settings.pos_bin_edges,
+                                                normed=True)
+        occupancy = apply_no_anim_boundary(enc_settings.pos_bins, enc_settings.arm_coordinates, occupancy, np.nan)
+        occupancy += 1e-10
+        return occupancy        
 
     @staticmethod
     def _calc_firing_rate_tet(observ: SpikeObservation, lin_obj: FlatLinearPosition, enc_settings: EncodeSettings):
@@ -532,7 +541,7 @@ class OfflinePPDecoder(object):
         linflat_spkindex_encode_velthresh = linflat_spkindex.query('linvel_flat > @self.velocity_filter')
         self.velocity_mask = linflat_spkindex_encode_velthresh
         #self.likelihoods.fillna(0, inplace=True)
-        self.likelihoods.loc[self.velocity_mask.index,'x050'] = np.NaN
+        self.likelihoods.loc[self.velocity_mask.index] = np.nan
 
         print("Beginning posterior calculation")
         self.recalc_posterior()
@@ -747,15 +756,27 @@ class OfflinePPDecoder(object):
         posteriors = np.zeros(likelihoods.shape)
 
         for like_ii, like in enumerate(likelihoods):
-             if np.isnan(like).any():
-                 posteriors[like_ii, :] = np.NaN
+            #posteriors[like+ii, :] = like*np.matmul(transition_mat, last_posterior)
+            posteriors[like_ii, :] = like * np.matmul(transition_mat, np.nan_to_num(last_posterior))
+            posteriors[like_ii, :] = posteriors[like_ii, :] / (np.nansum(posteriors[like_ii, :]) * pos_delta)
 
-                 last_posterior = np.ones(pos_num_bins)
-             else:
-                 posteriors[like_ii, :] = like * np.matmul(transition_mat, np.nan_to_num(last_posterior))
-                 posteriors[like_ii, :] = posteriors[like_ii, :] / (np.nansum(posteriors[like_ii, :]) * pos_delta)
+            if np.isnan(like).all():
+                last_posterior = np.ones(pos_num_bins)
 
-                 last_posterior = posteriors[like_ii, :]
+            #this should be: posteriors[like_ii, :]
+            else:
+                last_posterior = posteriors[like_ii, :]
+
+            #last_posterior = posteriors[like_ii, :]            
+             #if np.isnan(like).any():
+             #    posteriors[like_ii, :] = np.NaN
+
+             #    last_posterior = np.ones(pos_num_bins)
+             #else:
+             #    posteriors[like_ii, :] = like * np.matmul(transition_mat, np.nan_to_num(last_posterior))
+             #    posteriors[like_ii, :] = posteriors[like_ii, :] / (np.nansum(posteriors[like_ii, :]) * pos_delta)
+
+             #    last_posterior = posteriors[like_ii, :]
         # copy observ DataFrame and replace with likelihoods, preserving other columns
 
         return posteriors
