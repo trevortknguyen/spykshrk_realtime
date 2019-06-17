@@ -7,10 +7,8 @@ import uuid
 import enum
 import os
 import warnings
-import traceback
-import pickle
 
-from spykshrk.franklab import print_util
+#from spykshrk.franklab import print_util
 
 from spykshrk.franklab.warnings import ConstructorWarning, OverridingAttributeWarning
 from spykshrk.franklab.errors import HDFKeyExistsError
@@ -28,19 +26,11 @@ class UnitTime(EnumMapping):
     MILLISECOND = 3
 
 
-def partialclass(cls, parent_class=None, *args, **kwds):
+def partialclass(cls, *args, **kwds):
 
-    if parent_class is not None:
-
-        NewCls = type('_' + cls.__name__, (cls,),
-                      {'__init__': functools.partialmethod(cls.__init__, *args, **kwds),
-                       '__module__': __name__,
-                       '_parent_class': parent_class})
-    else:
-        NewCls = type('_' + cls.__name__, (cls,),
-                      {'__init__': functools.partialmethod(cls.__init__, *args, **kwds),
-                       '__module__': __name__,
-                       '_parent_class': cls})
+    NewCls = type('_' + cls.__name__, (cls,),
+                  {'__init__': functools.partialmethod(cls.__init__, *args, **kwds),
+                   '__module__': __name__})
 
     return NewCls
 
@@ -64,8 +54,7 @@ class SeriesClass(pd.Series):
 
     @property
     def _constructor(self):
-        cls = partialclass(type(self), history=self.history, **self.kwds)
-        return cls
+        return partialclass(type(self), history=self.history, **self.kwds)
 
     @property
     def _constructor_expanddim(self):
@@ -94,8 +83,8 @@ class DataFrameClass(pd.DataFrame):
                 Overrides both the history of the parent and data source.
             **kwds: 
         """
-
-        if custom_uuid is None:
+        # print('called for {} with shape {}'.format(type(data), data.shape))
+        if uuid is None:
             self.uuid = uuid.uuid4()
         else:
             self.uuid = custom_uuid
@@ -121,15 +110,7 @@ class DataFrameClass(pd.DataFrame):
                 self.history = [data]
         #self.history.append(self)
 
-        if '_parent_class' not in type(self).__dict__:
-            setattr(type(self), '_parent_class', self.__class__)
-
         super().__init__(data, index, columns, dtype, copy)
-
-    def __reduce__(self):
-        parent_class = type(self).__dict__['_parent_class']
-        return (parent_class, (self.to_dict(), None, None, None, None, False, self.history,
-                               self.uuid, self.user_key, self.desc, self.kwds))
 
     def __setstate__(self, state):
         # Insert new uuid (internal value)
@@ -147,7 +128,7 @@ class DataFrameClass(pd.DataFrame):
     @property
     def _constructor(self):
         if hasattr(self, 'history'):
-            return partialclass(type(self), parent_class=self._parent_class, history=self.history, **self.kwds)
+            return partialclass(type(self), history=self.history, **self.kwds)
         else:
             return type(self, **self.kwds)
 
@@ -189,7 +170,7 @@ class DataFrameClass(pd.DataFrame):
 
             main_storer.attrs.user_key = self.user_key
 
-            main_storer.attrs.classtype = type(self._parent_class)
+            main_storer.attrs.classtype = type(self)
 
     @classmethod
     def _from_hdf_store(cls, file_path, hdf_base, hdf_grps, hdf_label):
@@ -214,8 +195,9 @@ class DataFrameClass(pd.DataFrame):
 
 
 class DayDataFrame(DataFrameClass):
-    def __init__(self, data=None, index=None, columns=None, dtype=None, copy=False, parent=None, history=None,
-                 custom_uuid=None, user_key=None, desc='', **kwds):
+    def __init__(self, **kwds):
+        data = kwds['data']
+        index = kwds['index']
 
         if isinstance(data, pd.DataFrame):
 
@@ -226,17 +208,16 @@ class DayDataFrame(DataFrameClass):
             day_level = data.index.names.index('day')
             data.index.set_levels(data.index.levels[day_level].astype('int'), level=day_level, inplace=True)
 
-        super().__init__(data=data, index=index, columns=columns, dtype=dtype,
-                         copy=copy, parent=parent, history=history, custom_uuid=custom_uuid,
-                         user_key=user_key, desc=desc, **kwds)
+        super().__init__(**kwds)
 
 
 class DayEpochEvent(DayDataFrame):
     _metadata = DayDataFrame._metadata + ['time_unit']
 
-    def __init__(self, data=None, index=None, columns=None, dtype=None, copy=False, parent=None, history=None,
-                 custom_uuid=None, user_key=None, desc='', **kwds):
+    def __init__(self, **kwds):
         self.time_unit = kwds['time_unit']  # type: UnitTime
+        data = kwds['data']
+        index = kwds['index']
 
         if isinstance(data, pd.DataFrame):
             if not isinstance(data.index, pd.MultiIndex):
@@ -253,9 +234,7 @@ class DayEpochEvent(DayDataFrame):
             epoch_level = data.index.names.index('epoch')
             data.index.set_levels(data.index.levels[epoch_level].astype('int'), level=epoch_level, inplace=True)
 
-        super().__init__(data=data, index=index, columns=columns, dtype=dtype,
-                         copy=copy, parent=parent, history=history, custom_uuid=custom_uuid,
-                         user_key=user_key, desc=desc, **kwds)
+        super().__init__(**kwds)
 
         if index is not None and not isinstance(index, pd.MultiIndex):
             raise DataFormatError("Index to be set must be MultiIndex.")
@@ -280,16 +259,19 @@ class DayEpochTimeSeries(DayDataFrame):
 
     _metadata = DayDataFrame._metadata + ['sampling_rate']
 
-    def __init__(self, data=None, index=None, columns=None, dtype=None, copy=False, parent=None, history=None,
-                 custom_uuid=None, user_key=None, desc='', sampling_rate=0, **kwds):
+    def __init__(self, **kwds):
 
-        if isinstance(data, DayEpochTimeSeries):
-            pass
-        elif isinstance(data, DataFrameClass):
+        if isinstance(kwds['data'], DayEpochTimeSeries):
+            self.sampling_rate = kwds['data'].sampling_rate
+            kwds['sampling_rate'] = self.sampling_rate
+        elif isinstance(kwds['data'], DataFrameClass):
             warnings.warn(ConstructorWarning('Trying to create a DataEpochTimeSeries from a {}. '
                                              'Not guarenteed to be compatible'.format(kwds['data'].__name__)))
-        self.sampling_rate = sampling_rate
-        kwds['sampling_rate'] = self.sampling_rate
+        if 'sampling_rate' in kwds:
+            self.sampling_rate = kwds['sampling_rate']
+
+        data = kwds['data']
+        index = kwds['index']
 
         if isinstance(data, pd.DataFrame):
             if not isinstance(data.index, pd.MultiIndex):
@@ -317,9 +299,7 @@ class DayEpochTimeSeries(DayDataFrame):
         if index is not None and not isinstance(index, pd.MultiIndex):
             raise DataFormatError("Index to be set must be MultiIndex.")
 
-        super().__init__(data=data, index=index, columns=columns, dtype=dtype,
-                         copy=copy, parent=parent, history=history, custom_uuid=custom_uuid,
-                         user_key=user_key, desc=desc, **kwds)
+        super().__init__(**kwds)
 
     @classmethod
     @abstractclassmethod
@@ -467,8 +447,9 @@ class DayEpochElecTimeChannelSeries(DayEpochTimeSeries):
 
     _metadata = DayEpochTimeSeries._metadata
 
-    def __init__(self, data=None, index=None, columns=None, dtype=None, copy=False, parent=None, history=None,
-                 custom_uuid=None, user_key=None, desc='', sampling_rate=0, **kwds):
+    def __init__(self, sampling_rate, **kwds):
+        data = kwds['data']
+        index = kwds['index']
 
         if isinstance(data, pd.DataFrame):
             if not isinstance(data.index, pd.MultiIndex):
@@ -482,18 +463,16 @@ class DayEpochElecTimeChannelSeries(DayEpochTimeSeries):
         if index is not None and not isinstance(index, pd.MultiIndex):
             raise DataFormatError("Index to be set must be MultiIndex.")
 
-        super().__init__(data=data, index=index, columns=columns, dtype=dtype,
-                         copy=copy, parent=parent, history=history, custom_uuid=custom_uuid,
-                         user_key=user_key, desc=desc, sampling_rate=sampling_rate, **kwds)
-
+        super().__init__(sampling_rate=sampling_rate, **kwds)
 
 
 class DayEpochElecTimeSeries(DayEpochTimeSeries):
 
     _metadata = DayEpochTimeSeries._metadata
 
-    def __init__(self, data=None, index=None, columns=None, dtype=None, copy=False, parent=None, history=None,
-                 custom_uuid=None, user_key=None, desc='', sampling_rate=0, **kwds):
+    def __init__(self, sampling_rate, **kwds):
+        data = kwds['data']
+        index = kwds['index']
 
         if isinstance(data, pd.DataFrame):
             if not isinstance(data.index, pd.MultiIndex):
@@ -506,9 +485,7 @@ class DayEpochElecTimeSeries(DayEpochTimeSeries):
         if index is not None and not isinstance(index, pd.MultiIndex):
             raise DataFormatError("Index to be set must be MultiIndex.")
 
-        super().__init__(data=data, index=index, columns=columns, dtype=dtype,
-                         copy=copy, parent=parent, history=history, custom_uuid=custom_uuid,
-                         user_key=user_key, desc=desc, sampling_rate=sampling_rate, **kwds)
+        super().__init__(sampling_rate=sampling_rate, **kwds)
 
 
 class EncodeSettings:
@@ -598,12 +575,11 @@ class SpikeWaves(DayEpochElecTimeChannelSeries):
     _metadata = DayEpochElecTimeChannelSeries._metadata
 
     def __init__(self, data=None, index=None, columns=None, dtype=None,
-                 copy=False, parent=None, history=None, custom_uuid=None,
-                 user_key=None, desc='', sampling_rate=0, **kwds):
+                 copy=False, parent=None, history=None, sampling_rate=0, **kwds):
 
-        super().__init__(data=data, index=index, columns=columns, dtype=dtype,
-                         copy=copy, parent=parent, history=history, custom_uuid=custom_uuid,
-                         user_key=user_key, desc=desc, sampling_rate=sampling_rate, **kwds)
+        super().__init__(sampling_rate=sampling_rate, data=data, index=index, columns=columns,
+                         dtype=dtype, copy=copy, parent=parent,
+                         history=history, **kwds)
 
     @classmethod
     def create_default(cls, df, sampling_rate, parent=None, **kwds):
@@ -626,12 +602,9 @@ class SpikeFeatures(DayEpochElecTimeSeries):
     _metadata = DayEpochElecTimeSeries._metadata
 
     def __init__(self, data=None, index=None, columns=None, dtype=None,
-                 copy=False, parent=None, history=None, custom_uuid=None,
-                 user_key=None, desc='', sampling_rate=0, **kwds):
-
-        super().__init__(data=data, index=index, columns=columns, dtype=dtype,
-                         copy=copy, parent=parent, history=history, custom_uuid=custom_uuid,
-                         user_key=user_key, desc=desc, sampling_rate=sampling_rate, **kwds)
+                 copy=False, parent=None, history=None, sampling_rate=0, **kwds):
+        super().__init__(sampling_rate=sampling_rate, data=data, index=index, columns=columns,
+                         dtype=dtype, copy=copy, parent=parent, history=history, **kwds)
 
     @classmethod
     def create_default(cls, df, sampling_rate, parent=None, **kwds):
@@ -674,12 +647,9 @@ class LinearPosition(DayEpochTimeSeries):
     _metadata = DayEpochTimeSeries._metadata + ['arm_coord']
 
     def __init__(self, data=None, index=None, columns=None, dtype=None,
-                 copy=False, parent=None, history=None, custom_uuid=None, user_key=None, desc='',
-                 sampling_rate=0, **kwds):
-
-        super().__init__(data=data, index=index, columns=columns, dtype=dtype,
-                         copy=copy, parent=parent, history=history, custom_uuid=custom_uuid,
-                         user_key=user_key, desc=desc, sampling_rate=sampling_rate, **kwds)
+                 copy=False, parent=None, history=None, sampling_rate=0, **kwds):
+        super().__init__(sampling_rate=sampling_rate, data=data, index=index, columns=columns,
+                         dtype=dtype, copy=copy, parent=parent, history=history, **kwds)
 
         try:
             self.arm_coord = kwds['arm_coord']
@@ -817,12 +787,9 @@ class SpikeObservation(DayEpochTimeSeries):
     _metadata = DayEpochTimeSeries._metadata + ['enc_settings', 'observation_bin_size', 'parallel_bin_size']
 
     def __init__(self, data=None, index=None, columns=None, dtype=None, copy=False,
-                 parent=None, history=None, custom_uuid=None, user_key=None, desc='',
-                 sampling_rate=0, enc_settings=None, **kwds):
-
-        super().__init__(data=data, index=index, columns=columns, dtype=dtype,
-                         copy=copy, parent=parent, history=history, custom_uuid=custom_uuid,
-                         user_key=user_key, desc=desc, sampling_rate=sampling_rate,
+                 parent=None, history=None, sampling_rate=0, enc_settings=None, **kwds):
+        super().__init__(data=data, index=index, columns=columns, dtype=dtype, copy=copy,
+                         parent=parent, history=history, sampling_rate=sampling_rate,
                          enc_settings=enc_settings, **kwds)
 
         self.enc_settings = enc_settings
@@ -919,8 +886,7 @@ class Posteriors(DayEpochTimeSeries):
 
     _metadata = DayEpochTimeSeries._metadata + ['enc_settings', 'dec_settings']
 
-    def __init__(self, data=None, index=None, columns=None, dtype=None, copy=False,
-                 parent=None, history=None,custom_uuid=None, user_key=None, desc='',
+    def __init__(self, data=None, index=None, columns=None, dtype=None, copy=False, parent=None, history=None,
                  sampling_rate=None, enc_settings=None, dec_settings=None, **kwds):
 
         self.enc_settings = enc_settings
@@ -949,10 +915,9 @@ class Posteriors(DayEpochTimeSeries):
             else:
                 self.sampling_rate = data.kwds['sampling_rate']
 
-        super().__init__(data=data, index=index, columns=columns, dtype=dtype,
-                         copy=copy, parent=parent, history=history, custom_uuid=custom_uuid,
-                         user_key=user_key, desc=desc, sampling_rate=sampling_rate,
-                         enc_settings=enc_settings, dec_settings=dec_settings, **kwds)
+        super().__init__(sampling_rate=sampling_rate, data=data, index=index, columns=columns,
+                         dtype=dtype, copy=copy, parent=parent, history=history, enc_settings=self.enc_settings,
+                         dec_settings=self.dec_settings, **kwds)
 
     #@property
     #def _constructor(self):
@@ -1057,12 +1022,9 @@ class Posteriors(DayEpochTimeSeries):
 
 class RippleTimes(DayEpochEvent):
 
-    def __init__(self, data=None, index=None, columns=None, dtype=None, copy=False,
-                 parent=None, history=None, custom_uuid=None, user_key=None, desc='', **kwds):
-
-        super().__init__(data=data, index=index, columns=columns, dtype=dtype,
-                         copy=copy, parent=parent, history=history, custom_uuid=custom_uuid,
-                         user_key=user_key, desc=desc, **kwds)
+    def __init__(self, data=None, index=None, columns=None, dtype=None, copy=False, parent=None, history=None, **kwds):
+        super().__init__(data=data, index=index, columns=columns, dtype=dtype, copy=copy, parent=parent,
+                         history=history, **kwds)
 
         if isinstance(data, pd.DataFrame):
             if not 'maxthresh' in data.columns:
@@ -1083,12 +1045,8 @@ class StimLockout(DataFrameClass):
 
     _metadata = DataFrameClass._metadata
 
-    def __init__(self, data=None, index=None, columns=None, dtype=None, copy=False,
-                 parent=None, history=None, custom_uuid=None, user_key=None, desc='', **kwds):
-
-        super().__init__(data=data, index=index, columns=columns, dtype=dtype,
-                         copy=copy, parent=parent, history=history, custom_uuid=custom_uuid,
-                         user_key=user_key, desc=desc, **kwds)
+    def __init__(self, data=None, index=None, columns=None, dtype=None, copy=False, parent=None, history=None, **kwds):
+        super().__init__(data, index, columns, dtype, copy, parent, history, **kwds)
 
     @classmethod
     def create_default(cls, df, sampling_rate, parent=None, **kwds):
@@ -1132,11 +1090,9 @@ class FlatLinearPosition(LinearPosition):
     _metadata = LinearPosition._metadata + ['arm_coord']
 
     def __init__(self, data=None, index=None, columns=None, dtype=None,
-                 copy=False, parent=None, history=None, custom_uuid=None,
-                 user_key=None, desc='', sampling_rate=0, **kwds):
-        super().__init__(data=data, index=index, columns=columns, dtype=dtype,
-                         copy=copy, parent=parent, history=history, custom_uuid=custom_uuid,
-                         user_key=user_key, desc=desc, sampling_rate=sampling_rate, **kwds)
+                 copy=False, parent=None, history=None, sampling_rate=0, **kwds):
+        super().__init__(sampling_rate=sampling_rate, data=data, index=index, columns=columns,
+                         dtype=dtype, copy=copy, parent=parent, history=history, **kwds)
 
         if isinstance(data, pd.DataFrame) and 'linvel_flat' not in data.columns:
             raise DataFormatError("Missing 'linvel_flat' column.")
