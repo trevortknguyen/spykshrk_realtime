@@ -128,9 +128,19 @@ class OfflinePPEncoder(object):
 
     def compute_observ_tet(self, dec_spk, enc_spk, tet_lin_pos, occupancy, encode_settings, mark_columns, index_columns):
         import sys
-        pos_distrib_tet = sp.stats.norm.pdf(np.expand_dims(encode_settings.pos_bins, 0),
-                                            np.expand_dims(tet_lin_pos['linpos_flat'], 1),
-                                            encode_settings.pos_kernel_std)
+        # pos_distrib_tet needs to be replaced by looking up tet_lin_pos['linpos_flat'] in the histogram
+        # of positions during encoding time, not the gaussian smoothing with sp.stats.norm.pdf
+        # also with the gaussian smoothing, the pdf does not add to 1 when position = 0 or 1, there it is
+        # only part of the distribution
+
+        # this is the new version of pos_distrib_tet
+        enc_spikes_range = np.arange(0,len(tet_lin_pos['linpos_flat']),1)
+        pos_distrib_tet = np.zeros((len(tet_lin_pos['linpos_flat']),len(encode_settings.pos_bins)))
+        pos_distrib_tet[np.expand_dims(enc_spikes_range, 1),np.expand_dims(tet_lin_pos['linpos_flat'], 1)] = 1
+
+        #pos_distrib_tet = sp.stats.norm.pdf(np.expand_dims(encode_settings.pos_bins, 0),
+        #                                    np.expand_dims(tet_lin_pos['linpos_flat'], 1),
+        #                                    encode_settings.pos_kernel_std)
         mark_contrib = normal_pdf_int_lookup(np.expand_dims(dec_spk[mark_columns], 1),
                                              np.expand_dims(enc_spk, 0),
                                              encode_settings.mark_kernel_std)
@@ -572,6 +582,7 @@ class OfflinePPDecoder(object):
 
         global_prob_no_spike = np.prod(list(prob_no_spike.values()), axis=0)
         global_prob_no_spike = global_prob_no_spike/np.nansum(global_prob_no_spike)  # AKG added; normalize
+
         results = []
         #parallel_id = spikes_in_parallel['parallel_bin'].iloc[0]
         #dec_grp = spikes_in_parallel.groupby('dec_bin')
