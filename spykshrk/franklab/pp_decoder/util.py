@@ -27,6 +27,9 @@ def apply_no_anim_boundary(x_bins, arm_coor, image, fill=0):
         image: the image or array to apply
         fill: value to fill in outside of boundary
 
+    Note: this does not enforce the end boundary! (ie, positions beyond 
+        the final arm coordinate do not get filled)
+
     Returns:
 
     """
