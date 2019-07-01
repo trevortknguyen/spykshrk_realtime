@@ -128,19 +128,25 @@ class OfflinePPEncoder(object):
 
     def compute_observ_tet(self, dec_spk, enc_spk, tet_lin_pos, occupancy, encode_settings, mark_columns, index_columns):
         import sys
-        # pos_distrib_tet needs to be replaced by looking up tet_lin_pos['linpos_flat'] in the histogram
-        # of positions during encoding time, not the gaussian smoothing with sp.stats.norm.pdf
-        # also with the gaussian smoothing, the pdf does not add to 1 when position = 0 or 1, there it is
-        # only part of the distribution
+        # MEC added 6-22-19
+        # make an optional switch for using a histogram or gaussian smoothing for pos_distrib_tet
+        # the histogram option is activated if encoder_settings.pos_kernel_std = 0
+        # the (original) gaussian smoothing option is activated in all other cases
 
-        # this is the new version of pos_distrib_tet
-        enc_spikes_range = np.arange(0,len(tet_lin_pos['linpos_flat']),1)
-        pos_distrib_tet = np.zeros((len(tet_lin_pos['linpos_flat']),len(encode_settings.pos_bins)))
-        pos_distrib_tet[np.expand_dims(enc_spikes_range, 1),np.expand_dims(tet_lin_pos['linpos_flat'], 1)] = 1
+        # this is the new version of pos_distrib_tet with a histogram
+        if encode_settings.pos_kernel_std == 0:
+            #print('histogram')
+            enc_spikes_range = np.arange(0,len(tet_lin_pos['linpos_flat']),1)
+            pos_distrib_tet = np.zeros((len(tet_lin_pos['linpos_flat']),len(encode_settings.pos_bins)))
+            pos_distrib_tet[np.expand_dims(enc_spikes_range, 1),np.expand_dims(tet_lin_pos['linpos_flat'], 1)] = 1
 
-        #pos_distrib_tet = sp.stats.norm.pdf(np.expand_dims(encode_settings.pos_bins, 0),
-        #                                    np.expand_dims(tet_lin_pos['linpos_flat'], 1),
-        #                                    encode_settings.pos_kernel_std)
+        # this is the original gaussian smoothing version
+        else:
+            #print('gaussian')
+            pos_distrib_tet = sp.stats.norm.pdf(np.expand_dims(encode_settings.pos_bins, 0),
+                                                np.expand_dims(tet_lin_pos['linpos_flat'], 1),
+                                                encode_settings.pos_kernel_std)
+
         mark_contrib = normal_pdf_int_lookup(np.expand_dims(dec_spk[mark_columns], 1),
                                              np.expand_dims(enc_spk, 0),
                                              encode_settings.mark_kernel_std)
@@ -150,6 +156,7 @@ class OfflinePPEncoder(object):
         del all_contrib
 
         # occupancy normalize 
+        # AKG added enc_settings.pos_bin_delta to take into account different bin delta values
         observ = observ / (occupancy * encode_settings.pos_bin_delta)
 
         # normalize factor for each row (#dec spks x #pos_bins)
