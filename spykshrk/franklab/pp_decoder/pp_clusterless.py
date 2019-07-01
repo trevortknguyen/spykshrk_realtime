@@ -375,19 +375,20 @@ class OfflinePPEncoder(object):
         k = np.array([(1/3)*np.ones(n-1),(1/3)*np.ones(n),(1/3)*np.ones(n-1)])
         offset = [-1,0,1]
         transition_mat = diags(k,offset).toarray()
+        box_end_bin = enc_settings.arm_coordinates[0,1]
         for x in enc_settings.arm_coordinates[:,0]:
             transition_mat[int(x),int(x)] = (5/9)
-            transition_mat[8,int(x)] = (1/9)
-            transition_mat[int(x),8] = (1/9)
+            transition_mat[box_end_bin,int(x)] = (1/9)
+            transition_mat[int(x),box_end_bin] = (1/9)
         for y in enc_settings.arm_coordinates[:,1]:
             transition_mat[int(y),int(y)] = (2/3)
-        transition_mat[8,0] = 0
-        transition_mat[0,8] = 0
-        transition_mat[8,8] = 0
+        transition_mat[box_end_bin,0] = 0
+        transition_mat[0,box_end_bin] = 0
+        transition_mat[box_end_bin,box_end_bin] = 0
         transition_mat[0,0] = (2/3)
-        transition_mat[7,7] = (5/9)
-        transition_mat[7,8] = (1/9)
-        transition_mat[8,7] = (1/9)
+        transition_mat[box_end_bin-1, box_end_bin-1] = (5/9)
+        transition_mat[box_end_bin-1,box_end_bin] = (1/9)
+        transition_mat[box_end_bin, box_end_bin-1] = (1/9)
 
                 # uniform offset (gain, currently 0.0001)
                 # needs to be set before running the encoder cell
