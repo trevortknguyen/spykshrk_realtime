@@ -5,7 +5,8 @@ from mpi4py import MPI
 from spykshrk.realtime import realtime_base, realtime_logging, binary_record, datatypes
 from spykshrk.realtime.simulator import simulator_process
 
-from spykshrk.realtime.datatypes import SpikePoint, LinearPosPoint
+from spykshrk.realtime.datatypes import SpikePoint, LinearPosPoint, CameraModulePoint
+from spykshrk.realtime.camera_process import VelocityCalculator, LinearPositionAssignment
 from spykshrk.realtime.realtime_base import ChannelSelection, TurnOnDataStream
 from spykshrk.realtime.tetrode_models import kernel_encoder
 import spykshrk.realtime.rst.RSTPython as RST
@@ -101,6 +102,10 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
         self.mpi_send = send_interface
         self.spike_interface = spike_interface
         self.pos_interface = pos_interface
+
+        #initialize velocity calc and linear position assignment functions
+        self.velCalc = VelocityCalculator()
+        self.linPosAssign = LinearPositionAssignment()
 
         kernel = RST.kernel_param(mean=config['encoder']['mark_kernel']['mean'],
                                   stddev=config['encoder']['mark_kernel']['std'],
@@ -209,7 +214,9 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
         else:
             datapoint = msgs[0]
             timing_msg = msgs[1]
+
             if isinstance(datapoint, LinearPosPoint):
+                #print('linearpospoint x value: ',datapoint.x)
                 self.pos_counter += 1
 
                 self.current_pos = datapoint.x
@@ -220,6 +227,22 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
                 if self.pos_counter % 1000 == 0:
                     self.class_log.info('Received {} pos datapoints.'.format(self.pos_counter))
                 pass
+            
+            if isinstance(datapoint, CameraModulePoint):
+                self.pos_counter += 1
+
+                # run positionassignment and velocity calculator functions
+                self.current_vel = self.velCalc.calculator(datapoint.x, datapoint.y)
+                self.current_pos = self.linPosAssign.assign_position(datapoint.segment, datapoint.position)
+                #print('linear position: ',self.current_pos, ' velocity: ',self.current_vel)
+                print('segment: ',datapoint.segment)
+
+                for encoder in self.encoders.values():
+                    encoder.update_covariate(self.current_pos)
+
+                if self.pos_counter % 1000 == 0:
+                    self.class_log.info('Received {} pos datapoints.'.format(self.pos_counter))
+                pass                
 
 
 class EncoderMPIRecvInterface(realtime_base.RealtimeMPIClass):

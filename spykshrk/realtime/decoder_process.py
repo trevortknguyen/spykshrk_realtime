@@ -3,6 +3,7 @@ import math
 import numpy as np
 from spykshrk.realtime import realtime_base, realtime_logging, binary_record, datatypes, encoder_process
 from spykshrk.realtime.simulator import simulator_process
+from spykshrk.realtime.camera_process import VelocityCalculator, LinearPositionAssignment
 
 from spykshrk.franklab.pp_decoder.util import apply_no_anim_boundary
 
@@ -125,6 +126,7 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         # Convert position to bin index in histogram count
         self.cur_pos_time = pos_timestamp
         self.cur_pos = pos_data
+        #print('update position result:',self.cur_pos)
         self.cur_pos_ind = int((self.cur_pos - self.pos_range[0]) /
                                self.pos_delta)
         self.occ[self.cur_pos_ind] += 1
@@ -217,6 +219,10 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
         self.spike_dec_interface = spike_decode_interface
         self.pos_interface = pos_interface
 
+        #initialize velocity calc and linear position assignment functions
+        self.velCalc = VelocityCalculator()
+        self.linPosAssign = LinearPositionAssignment()
+
         # Send binary record register message
         # self.mpi_send.send_record_register_messages(self.get_record_register_messages())
 
@@ -239,7 +245,8 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
         self.pos_interface.register_datatype_channel(-1)
         if self.config['datasource'] == 'trodes':
             self.trodessource = True
-            self.class_log.warning("*****Position data subscribed, but update_position() needs to be changed to fit CameraModule position data. Delete this message when implemented*****")
+            #done, MEC 6-30-19
+            #self.class_log.warning("*****Position data subscribed, but update_position() needs to be changed to fit CameraModule position data. Delete this message when implemented*****")
         else:
             self.trodessource = False
 
@@ -324,9 +331,17 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
         if pos_msg is not None:
             # self.class_log.debug("Pos msg received.")
             pos_data = pos_msg[0]
+            #print(pos_data)
             if not self.trodessource:
                 self.pp_decoder.update_position(pos_timestamp=pos_data.timestamp, pos_data=pos_data.x)
             else:
+                #self.pp_decoder.update_position(pos_timestamp=pos_data.timestamp, pos_data=pos_data.x)
+                # we want to use linearized position here
+                current_pos = self.linPosAssign.assign_position(pos_data.segment, pos_data.position)
+                self.pp_decoder.update_position(pos_timestamp=pos_data.timestamp, pos_data=current_pos)
+
+
+                #print(pos_data.x, pos_data.segment)
                 #TODO implement trodes cameramodule update position function
                 #If data source is trodes, then pos_data is of class CameraModulePoint, in datatypes.py
                 #   pos_data.timestamp: trodes timestamp
