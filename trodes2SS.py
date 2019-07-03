@@ -116,7 +116,7 @@ class TrodesImport:
 		spk_amps.sampling_rate = self.Fs
 		return spk_amps
 
-	def import_pos(self, encode_settings, xy = 'x'):
+	def import_pos(self, xy = 'x'):
 
 		allpos = pd.DataFrame()
 
@@ -132,10 +132,10 @@ class TrodesImport:
 
 				if 'x' in xy:
 					pos_obj = FlatLinearPosition.from_numpy_single_epoch(day, ep, pos_time, pos_runx, pos_vel, self.Fs,
-                                                               encode_settings.arm_coordinates)
+                                                               [[0,0]])
 				if 'y' in xy:
 					pos_obj = FlatLinearPosition.from_numpy_single_epoch(day, ep, pos_time, pos_runy, pos_vel, self.Fs,
-                                                               encode_settings.arm_coordinates)
+                                                               [[0,0]])
 				allpos = allpos.append(pos_obj)
 
 		allpos.sampling_rate = self.Fs
