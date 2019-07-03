@@ -373,6 +373,7 @@ class RippleManager(realtime_base.BinaryRecordBaseWithTiming, rt_logging.Logging
         self.class_log.info('Set number of ntrodes: {:d}'.format(self.num_ntrodes))
 
     def select_ntrodes(self, ntrode_list):
+        # currently we use all tetrodes for ripple detection - where can we specify only using a subset???
         self.class_log.debug("Registering continuous channels: {:}.".format(ntrode_list))
         for electrode_group in ntrode_list:
             self.data_interface.register_datatype_channel(channel=electrode_group)

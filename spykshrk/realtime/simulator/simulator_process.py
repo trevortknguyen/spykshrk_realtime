@@ -63,7 +63,8 @@ class TrodesDataReceiver(realtime_base.DataSourceReceiver):
             self.DataPointCls = datatypes.SpikePoint
 
         elif self.datatype is datatypes.Datatypes.LINEAR_POSITION:
-            self.DataPointCls = datatypes.LinearPosPoint
+            #self.DataPointCls = datatypes.LinearPosPoint
+            self.DataPointCls = datatypes.CameraModulePoint
 
         else:
             raise SimulatorError('{} is not a valid datatype.'.format(self.datatype))
@@ -115,35 +116,50 @@ class TrodesDataReceiver(realtime_base.DataSourceReceiver):
             return None
 
         #if is lfp and curntrode is less than total subbed ntrodes
+        #print('1')
         if self.datatype is datatypes.Datatypes.LFP:
+            #print(self.curntrode, self.subbedntrodes)
             # if haven't gotten anything yet, curntrode = -1. if already sent all in one packet, curntrode = subbedntrodes
             if self.curntrode > 0 and self.curntrode < self.subbedntrodes:
+                #print('3')
+                #print(curntrode)
+                #print(subbedntrodes)
                 pt = datatypes.LFPPoint(self.timestamp.trodes_timestamp, self.channels[self.curntrode], self.channels[self.curntrode], self.buf[self.curntrode])
+                #print('pt = ',pt)
                 self.curntrode = self.curntrode + 1
                 return pt, None
-        
+        #print('4')
         
         n = self.datastream.available(0)
         if n:
+            #print('5')
             byteswritten = 0
             systime = tnp.systemTimeMSecs()
             if self.datatype is datatypes.Datatypes.LFP:
+                #print('6')
                 self.timestamp = self.datastream.getData()
                 # Reset curntrode value. If lfp buffer is more than 1, then above code will read from buffer before reading from Trodes stream
                 self.curntrode = 0
                 pt = datatypes.LFPPoint(self.timestamp.trodes_timestamp, self.channels[self.curntrode], self.channels[self.curntrode], self.buf[self.curntrode])
+                #print(pt)
+                #print('lfp: ',self.buf)
+                #print(self.channels)
+                #print(self.curntrode)
                 self.curntrode = 1
                 return pt, None
                 
             elif self.datatype is datatypes.Datatypes.SPIKES:
                 self.timestamp = self.datastream.getData() #Data is [(ntrode, cluster, timestamp, [0-159 data - (i,data)] ) ]
                 # Reshape data to look like what spykshrk expects
+                #print('spikes: ',self.buf)
                 d = self.buf[0][3][:,1]
                 newshape = (int(len(d)/40), 40)
+                #print(datatypes.SpikePoint(self.timestamp.trodes_timestamp, self.buf[0][0], np.reshape(d, newshape)))
                 return datatypes.SpikePoint(self.timestamp.trodes_timestamp, self.buf[0][0], np.reshape(d, newshape)), None
                 
             elif self.datatype is datatypes.Datatypes.LINEAR_POSITION:
                 byteswritten = self.datastream.readData(self.buf) #Data is [(timestamp, linear segment, position, x location, y location)]
+                #print(self.buf[0][0], self.buf[0][1], self.buf[0][2])
                 return datatypes.CameraModulePoint(self.buf[0][0], self.buf[0][1], self.buf[0][2], self.buf[0][3], self.buf[0][4]), None
 
             # # Option to return timing message but disabled
