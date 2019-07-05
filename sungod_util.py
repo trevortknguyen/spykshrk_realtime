@@ -345,7 +345,7 @@ def decode_with_classifier(likelihoods_obj, sungod_transmat, occupancy, discrete
 
     return causal_state1, causal_state2, causal_state3, acausal_state1, acausal_state2, acausal_state3
             
-def convert_classifier_output_and_save(save_path, fname, classifier_output)
+def convert_classifier_output_and_save(save_path, fname, classifier_output):
 
     raise Exception('not done yet!')
     causal_state1['num_spikes'] = decoder.likelihoods['num_spikes']
