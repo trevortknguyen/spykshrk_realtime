@@ -12,7 +12,7 @@ import networkx as nx
 import loren_frank_data_processing as lfdp
 import scipy.io as sio # for saving .mat files 
 import inspect # for inspecting files (e.g. finding file source)
-
+import pandas as pd
 import json
 import functools
 from replay_trajectory_classification.state_transition import strong_diagonal_discrete
@@ -250,21 +250,41 @@ def reorder_data_by_random_trial_order(trials, pos_obj, marks_obj):
 
 def assign_enc_dec_set_by_velocity(pos_obj, marks_obj, velthresh, buffer = 0):
     '''
-    Add column to marks object which designated whether mark is part of encoding set (1) or decoding set 0)
+    Add column to marks object and pos object which designates whether data is part of encoding set (1) or decoding set (0)
     Based on velocity threshold
     Optional buffer, which will include n seconds after the rat slows down in the encoding set
     '''
 
-    posinfo_at_mark_times = pos_obj.get_irregular_resampled(marks_obj)
-    marks_obj['encoding_set']=0   # add a new column to object, fill with zeros
+    posinfo_at_mark_times = pos_obj.get_irregular_resampled(marks_obj).reset_index()
+
     if buffer:
-        raise Exception('not done yet!')
+        # calculate buffer times for marks
+        above = posinfo_at_mark_times['linvel_flat']>velthresh  # generate boolean of above/below velocity threshold
+        abovediff = np.insert(np.diff(above.astype(int)),0,0)   # convert boolean to int, calc diff, add a leading 0 to restore array length
+        not_transition_inds = np.where(abovediff!=-1)  # find indexes of everything OTHER THAN transitions from above threshold to below 
+        transition_times = pd.DataFrame({'time':posinfo_at_mark_times['time']})   # initialize a df to track the transision times 
+        transition_times['time'].iloc[not_transition_inds]=np.nan    # turn everything in that df to nans except for the transition times
+        transition_times = transition_times.ffill().fillna(0)     # forward fill the nans with the most recent transistion times. turn remaining nans (at beginning) to 0s 
+        inBuffer = (posinfo_at_mark_times['time']-transition_times['time'])<=buffer   # any thing within 2s after a transition time will be in buffer
+        mark_assignments = (above|inBuffer).astype(int)              # assign anything above velthresh or in buffer to enc set
+        # calculate buffer times for pos
+        pos_obj.reset_index(level=['time'], inplace=True)   
+        above = pos_obj['linvel_flat']>velthresh    # generate boolean of above/below velocity threshold
+        abovediff = np.insert(np.diff(above.astype(int)),0,0)   # convert boolean to int, calc diff, add a leading 0 to restore array length
+        not_transition_inds = np.where(abovediff!=-1)  # find indexes of everything OTHER THAN transitions from above threshold to below 
+        transition_times = pd.DataFrame({'time':pos_obj['time']})   # initialize a df to track the transision times 
+        transition_times['time'].iloc[not_transition_inds]=np.nan    # turn everything in that df to nans except for the transition times
+        transition_times = transition_times.ffill().fillna(0)     # forward fill the nans with the most recent transistion times. turn remaining nans (at beginning) to 0s 
+        inBuffer = (pos_obj['time']-transition_times['time'])<=buffer   # any thing within 2s after a transition time will be in buffer
+        pos_assignments = (above|inBuffer).astype(int)              # assign anything above velthresh or in buffer to enc set\
+        pos_obj.set_index(['time'], drop=True, append=True, inplace=True)
+
     else:
-        assignments = (posinfo_at_mark_times['linvel_flat'].values>velthresh).astype(int)   # get boolean of above thresh, convert to int
+        mark_assignments = (posinfo_at_mark_times['linvel_flat'].values>velthresh).astype(int)   # get boolean of above thresh, convert to int
+        pos_assignments = (pos_obj['linvel_flat'].values>velthresh).astype(int)
 
-    marks_obj['encoding_set'] = assignments  
-
-    pos_obj['encoding_set'] = (pos_obj['linvel_flat'].values>velthresh).astype(int)
+    marks_obj['encoding_set'] = mark_assignments.values  
+    pos_obj['encoding_set'] = pos_assignments
 
     return marks_obj, pos_obj
 
@@ -273,6 +293,9 @@ def shift_enc_marks_for_shuffle(marks_obj, shift=0):
     '''
     shift encoding marks by a fraction of total epoch time in order to break relationship between position and spikes
     returns a new marks object with marks shifted by a certain number of indices (shift_amount)
+
+    Note that the shift amount is approximate; it is based on the # of spikes that happen in the original order (and this
+    may be slightly different after the trials are reordered) but this should not be a problem
 
     '''
 
@@ -284,8 +307,8 @@ def shift_enc_marks_for_shuffle(marks_obj, shift=0):
     print('Total epoch time (sec): ',epoch_length)
 
     shift_target_time = min_time + shift * epoch_length
-    target_idx = np.abs(encoding_marks_shifted['time']-shift_target_time).idxmin()   # calculate multiindex of closest value to shift target
-    shift_amount = encoding_marks_shifted.index.get_loc(target_idx)    # get the row number of the target 
+    timediffs = np.abs(encoding_marks_shifted['time'].values-shift_target_time)
+    shift_amount = np.argmin(timediffs.sort())   # calculate rowindex of closest value of minimum time difference (sorted)
 
     encoding_marks_shifted['c00'] = np.roll(encoding_marks_shifted['c00'],shift_amount)
     encoding_marks_shifted['c01'] = np.roll(encoding_marks_shifted['c01'],shift_amount)
