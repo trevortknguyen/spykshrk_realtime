@@ -26,7 +26,7 @@ import dask.dataframe as dd
 import dask.array as da
 
 from spykshrk.franklab.data_containers import FlatLinearPosition, SpikeFeatures, \
-        EncodeSettings, pos_col_format, SpikeObservation, RippleTimes
+        EncodeSettings, pos_col_format, SpikeObservation, RippleTimes, Posteriors
 
 def get_all_below_threshold(self, threshold):
     ind = np.nonzero(np.all(self.values < threshold, axis=1))
@@ -179,7 +179,7 @@ class TrodesImport:
 				#use get_irregular_resampled to identify velocity at the time of ripple start, identify those that occur below the speed threshold
 				posinfo_at_rip_times = pos_obj.get_irregular_resampled(rips)
 				ripidx_below_vel = posinfo_at_rip_times['linvel_flat'] < velthresh
-				rips_below_thresh = rips.loc[ripidx_below_vel]
+				rips_below_thresh = rips.loc[ripidx_below_vel].copy()
 
 				#reformat multiindex and cast to RippleTimes object 
 				rips_below_thresh.reset_index(level=['timestamp','time'], inplace=True)
@@ -266,3 +266,89 @@ def convert_dan_posterior_to_xarray(posterior_df, tetrode_dictionary, velocity_f
 	     'multiindex': ['day','epoch','timestamp','time'],
 	     'transition_matrix': (('position','position'), transition_matrix)},
 	    coords=coords)
+
+def convert_save_classifier(base_name, fname, state1, state2, state3, tetrode_dictionary, likelihoods, encode_settings, decode_settings, rips, velthresh, vel_buffer, transition_matrix, trial_order, shift_amount, position_bin_centers=None):
+    
+    '''Converts pandas dataframe from Dan's 1D decoder to xarray Dataset
+    
+    Parameters
+    ----------
+    posterior_df : pandas.DataFrame, shape (n_time, n_columns)
+    position_bin_centers : None or ndarray, shape (n_position_bins,), optional
+    
+    Returns
+    -------
+    results : xarray.Dataset
+    
+    '''
+	#classifier_out['num_spikes'] = likelihoods['num_spikes']
+    #classifier_out['dec_bin'] = likelihoods['dec_bin']
+    state1_obj = Posteriors.from_dataframe(state1, enc_settings=encode_settings,
+                                                            		dec_settings=decode_settings,
+                                                            		user_key={'encode_settings': encode_settings,
+                                                                      'decode_settings': decode_settings,
+                                                                      'multi_index_keys': state1.index.names})
+
+    state2_obj = Posteriors.from_dataframe(state2, enc_settings=encode_settings,
+                                                            		dec_settings=decode_settings,
+                                                            		user_key={'encode_settings': encode_settings,
+                                                                      'decode_settings': decode_settings,
+                                                                      'multi_index_keys': state2.index.names})
+    state3_obj = Posteriors.from_dataframe(state3, enc_settings=encode_settings,
+                                                            		dec_settings=decode_settings,
+                                                            		user_key={'encode_settings': encode_settings,
+                                                                      'decode_settings': decode_settings,
+                                                                      'multi_index_keys': state3.index.names})
+    
+    #use state1 to populate these details (will apply to all)
+    ripmask = state1_obj.apply_time_event(rips, event_mask_name='ripple_grp')
+    s1_nomulti= state1_obj.reset_index()
+    s2_nomulti = state2_obj.reset_index()
+    s3_nomulti = state3_obj.reset_index()
+
+    likelihoods.reset_index(inplace=True)
+
+    is_position_bin = s1_nomulti.columns.str.startswith('x')
+    
+    if position_bin_centers is None:
+        n_position_bins = is_position_bin.sum()
+        position_bin_centers = np.arange(n_position_bins)
+    
+    coords = dict(
+        day=s1_nomulti['day'].values,
+        epoch=s1_nomulti['epoch'].values,
+        timestamp=s1_nomulti['timestamp'].values,
+        time=s1_nomulti['time'].values,
+        position=position_bin_centers,
+        num_spikes=likelihoods['num_spikes'].values,
+        dec_bin=likelihoods['dec_bin'].values,
+        ripple_grp=s1_nomulti['ripple_grp'].values,
+    )
+
+    xr_obj =  xr.Dataset(
+	    {'state1_posterior': (('time','position'), s1_nomulti.loc[:, is_position_bin].values),
+	    'state2_posterior': (('time','position'), s2_nomulti.loc[:, is_position_bin].values),
+	    'state3_posterior': (('time','position'), s3_nomulti.loc[:, is_position_bin].values),
+	     'velocity_filter': velthresh,
+	     'velocity_buffer': vel_buffer,
+	     'tetrodes': tetrode_dictionary,
+	     'shift_amount':shift_amount,
+	     'trial_order': trial_order,
+	     'sampling_rate': encode_settings['sampling_rate'],
+	     'pos_bins': encode_settings['pos_bins'],
+	     'pos_bin_edges': encode_settings['pos_bin_edges'],
+	     'pos_bin_delta': encode_settings['pos_bin_delta'],
+	     'pos_kernel': encode_settings['pos_kernel'],
+	     'pos_kernel_std': encode_settings['pos_kernel_std'],
+	     'mark_kernel_std': encode_settings['mark_kernel_std'],
+	     'pos_num_bins': encode_settings['pos_num_bins'],
+	     'arm_coordinates': (encode_settings['arm_coordinates'][0]),
+	     'trans_smooth_std': decode_settings['trans_smooth_std'],
+	     'trans_uniform_gain': decode_settings['trans_uniform_gain'],
+	     'time_bin_size': decode_settings['time_bin_size'],
+	     'transition_matrix_name': 'flat powered',
+	     'multiindex': ['day','epoch','timestamp','time'],
+	     'transition_matrix': (('position','position'), transition_matrix)},
+	    coords=coords)
+
+    xr_obj.to_netcdf(base_name+fname+'.nc')

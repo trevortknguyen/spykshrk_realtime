@@ -17,6 +17,7 @@ import json
 import functools
 from replay_trajectory_classification.state_transition import strong_diagonal_discrete
 from replay_trajectory_classification.core import _causal_classify, _acausal_classify
+from trodes2SS import convert_dan_posterior_to_xarray
 
 
 def createTrackGraph(maze_coordinates):
@@ -266,7 +267,7 @@ def assign_enc_dec_set_by_velocity(pos_obj, marks_obj, velthresh, buffer = 0):
         transition_times['time'].iloc[not_transition_inds]=np.nan    # turn everything in that df to nans except for the transition times
         transition_times = transition_times.ffill().fillna(0)     # forward fill the nans with the most recent transistion times. turn remaining nans (at beginning) to 0s 
         inBuffer = (posinfo_at_mark_times['time']-transition_times['time'])<=buffer   # any thing within 2s after a transition time will be in buffer
-        mark_assignments = (above|inBuffer).astype(int)              # assign anything above velthresh or in buffer to enc set
+        mark_assignments = (above|inBuffer).astype(int).values              # assign anything above velthresh or in buffer to enc set
         # calculate buffer times for pos
         pos_obj.reset_index(level=['time'], inplace=True)   
         above = pos_obj['linvel_flat']>velthresh    # generate boolean of above/below velocity threshold
@@ -283,7 +284,7 @@ def assign_enc_dec_set_by_velocity(pos_obj, marks_obj, velthresh, buffer = 0):
         mark_assignments = (posinfo_at_mark_times['linvel_flat'].values>velthresh).astype(int)   # get boolean of above thresh, convert to int
         pos_assignments = (pos_obj['linvel_flat'].values>velthresh).astype(int)
 
-    marks_obj['encoding_set'] = mark_assignments.values  
+    marks_obj['encoding_set'] = mark_assignments   # then add values
     pos_obj['encoding_set'] = pos_assignments
 
     return marks_obj, pos_obj
@@ -366,20 +367,5 @@ def decode_with_classifier(likelihoods_obj, sungod_transmat, occupancy, discrete
         acausal_state2.loc[blocks==b]=acausal_posterior[:,1,:,0]
         acausal_state3.loc[blocks==b]=acausal_posterior[:,2,:,0]
 
-    return causal_state1, causal_state2, causal_state3, acausal_state1, acausal_state2, acausal_state3
+    return causal_state1, causal_state2, causal_state3, acausal_state1, acausal_state2, acausal_state3, trans_mat_dict
             
-def convert_classifier_output_and_save(save_path, fname, classifier_output):
-
-    raise Exception('not done yet!')
-    causal_state1['num_spikes'] = decoder.likelihoods['num_spikes']
-    causal_state1['dec_bin'] = decoder.likelihoods['dec_bin']
-    causal_s1_obj = Posteriors.from_dataframe(causal_state1, enc_settings=encode_settings,
-                                                            dec_settings=decode_settings,
-                                                            user_key={'encode_settings': encode_settings,
-                                                                      'decode_settings': decode_settings,
-                                                                      'multi_index_keys': causal_state1.index.names})
-    causal_s1_obj = causal_s1_obj.apply_time_event(rips_vel_filtered, event_mask_name='ripple_grp').reset_index()
-    causal_s1_obj = convert_dan_posterior_to_xarray(causal_s1_obj, tetrodes_dictionary[rat_name], 
-                                            velocity_filter, encode_settings, decode_settings, encoder.trans_mat['sungod'],
-                                            trialsindex_shuffled, marks_index_shift)
-    causal_s1_obj.to_netcdf(base_name+fname+'.nc')
