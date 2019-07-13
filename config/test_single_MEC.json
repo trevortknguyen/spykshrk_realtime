@@ -6,7 +6,7 @@
         "supervisor": 0,
         "decoder": 1,
         "ripples": [2],
-        "encoders": [3,4,5,6,7,8,9,10]
+        "encoders": [3, 4, 5]
     }, 
 
     "rank_settings": {
@@ -109,23 +109,24 @@
         "sampling_rate": 30000,
         "mark_kernel": {
             "mean": 0,
-            "std": 5,
+            "std": 20,
             "lower": -1024,
             "upper": 1024,
             "interval": 1
         },
+        "RStar_edge_length_factor": 3,
 
         "position": {
             "lower": 0,
-            "upper": 141,
-            "bins": 141,
-            "arm_pos": [[0, 140]]
+            "upper": 130,
+            "bins": 130,
+            "arm_pos": [[0, 129]]
         },
         "position_kernel": {
             "std": 5
         },
-        "vel": 0,
-        "spk_amp": 100
+        "vel": 8,
+        "spk_amp": 150
     },
 
     "decoder": "pp_decoder",
@@ -144,6 +145,6 @@
     "trodes_network": {
         "address" : "tcp://127.0.0.1",
         "port": 49152,
-        "tetrodes": [4,9,10,14,15,20,21,25]
+        "tetrodes": [24, 26, 30]
     }
 }

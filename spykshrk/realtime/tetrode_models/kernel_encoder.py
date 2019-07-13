@@ -75,11 +75,12 @@ class RSTKernelEncoderQuery(PrintableMessage):
 
 
 class RSTKernelEncoder:
-    def __init__(self, filename, new_tree, param):
+    def __init__(self, filename, new_tree, param, config):
         self.param = param
         self.kernel = param.kernel
         self.filename = filename
         self.new_tree = new_tree
+        self.config = config
 
         self.tree = RST.RSTPython(filename.encode('utf-8'), new_tree, param.kernel)
         self.covariate = 0
@@ -96,6 +97,7 @@ class RSTKernelEncoder:
         # bin_idx = np.nonzero((self.param.pos_hist_struct.pos_bin_edges - covariate) > 0)[0][0] - 1
         bin_idx = self.param.pos_hist_struct.which_bin(self.covariate)
         self.pos_hist[bin_idx] += 1
+        #print(self.pos_hist)
 
     def new_mark(self, mark, new_cov=None):
         # update new covariate if specified, otherwise use previous covariate state
@@ -105,25 +107,30 @@ class RSTKernelEncoder:
         self.tree.insert_rec(mark[0], mark[1], mark[2],
                              mark[3], self.covariate)
 
+    # MEC 7-10-19 try going from 5 to 3, because 3 stdev in 4D space will still get 95% of the points
     def query_mark(self, mark):
         x1 = mark[0]
         x2 = mark[1]
         x3 = mark[2]
         x4 = mark[3]
-        x1_l = x1 - self.kernel.stddev * 5
-        x2_l = x2 - self.kernel.stddev * 5
-        x3_l = x3 - self.kernel.stddev * 5
-        x4_l = x4 - self.kernel.stddev * 5
-        x1_h = x1 + self.kernel.stddev * 5
-        x2_h = x2 + self.kernel.stddev * 5
-        x3_h = x3 + self.kernel.stddev * 5
-        x4_h = x4 + self.kernel.stddev * 5
+        x1_l = x1 - self.kernel.stddev * self.config['encoder']['RStar_edge_length_factor']
+        x2_l = x2 - self.kernel.stddev * self.config['encoder']['RStar_edge_length_factor']
+        x3_l = x3 - self.kernel.stddev * self.config['encoder']['RStar_edge_length_factor']
+        x4_l = x4 - self.kernel.stddev * self.config['encoder']['RStar_edge_length_factor']
+        x1_h = x1 + self.kernel.stddev * self.config['encoder']['RStar_edge_length_factor']
+        x2_h = x2 + self.kernel.stddev * self.config['encoder']['RStar_edge_length_factor']
+        x3_h = x3 + self.kernel.stddev * self.config['encoder']['RStar_edge_length_factor']
+        x4_h = x4 + self.kernel.stddev * self.config['encoder']['RStar_edge_length_factor']
         query_weights, query_positions = self.tree.query_rec(x1_l, x2_l, x3_l, x4_l,
                                                              x1_h, x2_h, x3_h, x4_h,
                                                              x1, x2, x3, x4)
         return query_weights, query_positions
 
     def query_mark_hist(self, mark, time, elec_grp_id):
+        # to turn off RStar Tree query uncomment next 2 lines and comment out next line after
+        #query_weights = np.zeros((1,132))+0.1
+        #query_positions = np.zeros((1,132))+0.5
+
         query_weights, query_positions = self.query_mark(mark)
         query_hist, query_hist_edges = np.histogram(
             a=query_positions, bins=self.param.pos_hist_struct.pos_bin_edges,
@@ -134,8 +141,11 @@ class RSTKernelEncoder:
 
         # occupancy normalize
         query_hist = query_hist / (self.pos_hist)
+        #print(query_hist)
 
-        query_hist = np.convolve(query_hist, self.pos_kernel, mode='same')
+        # MEC - turned off convolution because we are using 5cm position bins
+        #query_hist = np.convolve(query_hist, self.pos_kernel, mode='same')
+        #print(query_hist)
 
         # normalized PDF
         query_hist = query_hist / (np.sum(query_hist) * self.param.pos_hist_struct.pos_bin_delta)

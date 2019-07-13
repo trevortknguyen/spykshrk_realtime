@@ -69,12 +69,17 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         self.posterior = np.ones(self.pos_bins)
         self.prev_posterior = np.ones(self.pos_bins)
         self.firing_rate = {}
-        self.transition_mat = PointProcessDecoder._create_transition_matrix(self.pos_delta,
-                                                                            self.pos_bins,
-                                                                            self.arm_coor,
-                                                                            self.uniform_gain)
+        #self.transition_mat = PointProcessDecoder._create_transition_matrix(self.pos_delta,
+        #                                                                    self.pos_bins,
+        #                                                                    self.arm_coor,
+        #                                                                    self.uniform_gain)
+
+        #create sungod transition matrix - should make transition matrix type an option in the config file and specify it there
+        self.transition_mat = PointProcessDecoder._sungod_transition_matrix()        
 
         self.current_spike_count = 0
+        self.pos_counter = 0
+        self.current_vel = 0
 
     @staticmethod
     def _create_transition_matrix(pos_delta, num_bins, arm_coor, uniform_gain=0.01):
@@ -110,6 +115,58 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
 
         return transition_mat
 
+    @staticmethod
+    def _sungod_transition_matrix():
+
+        arm_coords = np.array([[0,1],[5,17],[21,33],[37,49],[53,65],[69,81],[85,97],[101,113],[117,129]])
+        max_pos = arm_coords[-1][-1] + 1
+        pos_bins = np.arange(0,max_pos,1)
+
+        from scipy.sparse import diags
+        n = len(pos_bins)
+        transition_mat = np.zeros([n,n])
+        k = np.array([(1/3)*np.ones(n-1),(1/3)*np.ones(n),(1/3)*np.ones(n-1)])
+        offset = [-1,0,1]
+        transition_mat = diags(k,offset).toarray()
+
+        for x in arm_coords[:,0]:
+            transition_mat[int(x),int(x)] = (5/9)
+            transition_mat[0,int(x)] = (1/9)
+            transition_mat[int(x),0] = (1/9)
+
+        for y in arm_coords[:,1]:
+            transition_mat[int(y),int(y)] = (2/3)
+
+        transition_mat[0,0] = (1/9)
+        transition_mat[1,0] = 0
+        transition_mat[0,1] = 0
+        transition_mat[1,1] = 0
+
+                # uniform offset (gain, currently 0.0001)
+                # needs to be set before running the encoder cell
+                # normally: decode_settings.trans_uniform_gain
+        uniform_gain = 0.001
+        uniform_dist = np.ones(transition_mat.shape)*uniform_gain
+
+                # apply uniform offset
+        transition_mat = transition_mat + uniform_dist
+
+                # apply no animal boundary - make gaps between arms
+        transition_mat = apply_no_anim_boundary(pos_bins, arm_coords, transition_mat)
+
+                # to smooth: take the transition matrix to a power
+        transition_mat = np.linalg.matrix_power(transition_mat,1)
+
+                # apply no animal boundary - make gaps between arms
+        transition_mat = apply_no_anim_boundary(pos_bins, arm_coords, transition_mat)
+
+                # normalize transition matrix
+        transition_mat = transition_mat/(transition_mat.sum(axis=0)[None, :])
+
+        transition_mat[np.isnan(transition_mat)] = 0
+
+        return transition_mat
+
     def select_ntrodes(self, ntrode_list):
         self.ntrode_list = ntrode_list
         self.firing_rate = {elec_grp_id: np.ones(self.pos_bins)
@@ -122,14 +179,23 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         self.observation = self.observation / np.max(self.observation)
         self.current_spike_count += 1
 
-    def update_position(self, pos_timestamp, pos_data):
+    def update_position(self, pos_timestamp, pos_data, vel_data):
         # Convert position to bin index in histogram count
         self.cur_pos_time = pos_timestamp
         self.cur_pos = pos_data
+        self.cur_vel = vel_data
         #print('update position result:',self.cur_pos)
         self.cur_pos_ind = int((self.cur_pos - self.pos_range[0]) /
                                self.pos_delta)
-        self.occ[self.cur_pos_ind] += 1
+
+        #if abs(self.current_vel) >= self.config['encoder']['vel']:
+        if abs(self.cur_vel) >= 4:
+            #print(self.cur_vel)
+            self.occ[self.cur_pos_ind] += 1
+
+        self.pos_counter += 1
+        if self.pos_counter % 10000 == 0:
+            print(self.occ)
 
     def increment_no_spike_bin(self):
 
@@ -205,13 +271,13 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                                               send_interface=send_interface,
                                               rec_ids=[realtime_base.RecordIDs.DECODER_OUTPUT,
                                                        realtime_base.RecordIDs.DECODER_MISSED_SPIKES],
-                                              rec_labels=[['timestamp', 'real_pos_time', 'real_pos'] +
+                                              rec_labels=[['timestamp', 'real_pos_time', 'real_pos','spike_count'] +
                                                           ['x{:0{dig}d}'.
                                                            format(x, dig=len(str(config['encoder']
                                                                                  ['position']['bins'])))
                                                            for x in range(config['encoder']['position']['bins'])],
                                                           ['timestamp', 'elec_grp_id', 'real_bin', 'late_bin']],
-                                              rec_formats=['qqd'+'d'*config['encoder']['position']['bins'],
+                                              rec_formats=['qqdq'+'d'*config['encoder']['position']['bins'],
                                                            'qiii'])
 
         self.config = config
@@ -237,7 +303,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                                               time_bin_size=self.time_bin_size,
                                               arm_coor=self.config['encoder']['position']['arm_pos'],
                                               uniform_gain=config['pp_decoder']['trans_mat_uniform_gain'])
-
+        # 7-2-19, added spike count for each decoding bin
         self.spike_count = 0
 
     def register_pos_interface(self):
@@ -264,6 +330,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
 
             self.record_timing(timestamp=spike_dec_msg.timestamp, elec_grp_id=spike_dec_msg.elec_grp_id,
                                datatype=datatypes.Datatypes.SPIKES, label='dec_recv')
+            #print('message recieved by decoder:',spike_dec_msg.timestamp,spike_dec_msg.elec_grp_id)
 
             # Update firing rate
 
@@ -274,10 +341,12 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
             else:
                 spike_time_bin = int(math.floor(spike_dec_msg.timestamp/self.config['pp_decoder']['bin_size']))
 
+            
             if spike_time_bin == self.current_time_bin:
                 # Spike is in current time bin
                 self.pp_decoder.add_observation(spk_elec_grp_id=spike_dec_msg.elec_grp_id,
                                                 spk_pos_hist=spike_dec_msg.pos_hist)
+                self.spike_count += 1
                 pass
 
             elif spike_time_bin > self.current_time_bin:
@@ -285,20 +354,25 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
 
                 # increment last bin with spikes
                 posterior = self.pp_decoder.increment_bin()
+                #posterior = np.ones(130)
                 self.write_record(realtime_base.RecordIDs.DECODER_OUTPUT,
                                   self.current_time_bin * self.time_bin_size,
                                   self.pp_decoder.cur_pos_time,
                                   self.pp_decoder.cur_pos,
+                                  self.spike_count,
                                   *posterior)
 
                 self.current_time_bin += 1
 
                 for no_spk_ii in range(spike_time_bin - self.current_time_bin - 1):
+                    #spike_count is set to 0 for no_spike_bins
                     posterior = self.pp_decoder.increment_no_spike_bin()
+                    #posterior = np.ones(130)
                     self.write_record(realtime_base.RecordIDs.DECODER_OUTPUT,
                                       self.current_time_bin * self.time_bin_size,
                                       self.pp_decoder.cur_pos_time,
                                       self.pp_decoder.cur_pos,
+                                      0,
                                       *posterior)
                     self.current_time_bin += 1
 
@@ -307,6 +381,9 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
 
                 # Increment current time bin to latest spike
                 self.current_time_bin = spike_time_bin
+
+                # reset spike count to 0
+                self.spike_count = 0
                 pass
 
             elif spike_time_bin < self.current_time_bin:
@@ -337,8 +414,10 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
             else:
                 #self.pp_decoder.update_position(pos_timestamp=pos_data.timestamp, pos_data=pos_data.x)
                 # we want to use linearized position here
+                current_vel = self.velCalc.calculator(pos_data.x, pos_data.y)
                 current_pos = self.linPosAssign.assign_position(pos_data.segment, pos_data.position)
-                self.pp_decoder.update_position(pos_timestamp=pos_data.timestamp, pos_data=current_pos)
+
+                self.pp_decoder.update_position(pos_timestamp=pos_data.timestamp, pos_data=current_pos, vel_data=current_vel)
 
 
                 #print(pos_data.x, pos_data.segment)
