@@ -3,6 +3,8 @@
 # written by Jen 
 # Jan 2019, MEC
 
+####  DEPRECATED!!   NOW USE SUNGOD_UTIL INSTEAD!!  (same functions, just more)
+
 import os
 import numpy as np
 import scipy as sp

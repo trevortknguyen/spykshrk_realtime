@@ -26,7 +26,7 @@ import dask.dataframe as dd
 import dask.array as da
 
 from spykshrk.franklab.data_containers import FlatLinearPosition, SpikeFeatures, \
-        EncodeSettings, pos_col_format, SpikeObservation, RippleTimes
+        EncodeSettings, pos_col_format, SpikeObservation, RippleTimes, Posteriors
 
 def get_all_below_threshold(self, threshold):
     ind = np.nonzero(np.all(self.values < threshold, axis=1))
@@ -64,6 +64,7 @@ def threshold_marks(marks, maxthresh=2000, minthresh=0):
 
 class TrodesImport:
 	""" animalinfo - takes in animal d/e/t information; parses FFmat files into dataframes of each datatype 
+		default 30k sampling rate
 	"""
 	def __init__(self, ff_dir, name, days, epochs, tetrodes, Fs=3e4):
 	    """ init function
@@ -109,14 +110,14 @@ class TrodesImport:
 					de_amps = de_amps.append(tet_marks)
 
 				de_amps.sort_index(level='timestamp', inplace=True)
-				print('duplicates found & removed: '+str(de_amps[de_amps.index.duplicated(keep='first')].size))
+				print('Duplicate marks found (and removed): '+str(de_amps[de_amps.index.duplicated(keep='first')].size))
 				de_amps = de_amps[~de_amps.index.duplicated(keep='first')]
 				spk_amps = spk_amps.append(de_amps)
 
 		spk_amps.sampling_rate = self.Fs
 		return spk_amps
 
-	def import_pos(self, encode_settings, xy = 'x'):
+	def import_pos(self, xy = 'x'):
 
 		allpos = pd.DataFrame()
 
@@ -132,44 +133,84 @@ class TrodesImport:
 
 				if 'x' in xy:
 					pos_obj = FlatLinearPosition.from_numpy_single_epoch(day, ep, pos_time, pos_runx, pos_vel, self.Fs,
-                                                               encode_settings.arm_coordinates)
+                                                               [[0,0]])
 				if 'y' in xy:
 					pos_obj = FlatLinearPosition.from_numpy_single_epoch(day, ep, pos_time, pos_runy, pos_vel, self.Fs,
-                                                               encode_settings.arm_coordinates)
+                                                               [[0,0]])
 				allpos = allpos.append(pos_obj)
 
 		allpos.sampling_rate = self.Fs
 		return allpos
 
-	def import_rips(self,pos_obj=None, velthresh=4):
+	def import_rips(self,pos_obj, velthresh=0):
 
+		''' Converts ca1rippleskons mat file into RipplesTimes dataframe
+
+		Parameters
+		---------
+		Requires position and velocity threshold (default 0, ie no filtering) to get rid of rips detected during movement
+
+		'''
 		allrips = pd.DataFrame()
 
 		for day in self.days:
 			for ep in self.epochs:
 				ripname = self.ff_dir+self.name+'ca1rippleskons'+str(day)+'.mat'
 				ripmat = scipy.io.loadmat(ripname,squeeze_me=True,struct_as_record=False)
-			#generate a pandas table with starttime, endtime, and maxthresh columns, then instantiate RippleTimes 
-				ripdata = {'starttime':ripmat['ca1rippleskons'][day-1][ep-1].starttime,
+
+				#generate a pandas table with starttime, endtime, and maxthresh columns, then instantiate RippleTimes 
+				ripdata = {'time':ripmat['ca1rippleskons'][day-1][ep-1].starttime,
     			        'endtime':ripmat['ca1rippleskons'][day-1][ep-1].endtime,
        				    'maxthresh':ripmat['ca1rippleskons'][day-1][ep-1].maxthresh}
-				rippd = pd.DataFrame(ripdata,pd.MultiIndex.from_product([[day],[ep],
+				rips = pd.DataFrame(ripdata,pd.MultiIndex.from_product([[day],[ep],
                         range(len(ripmat['ca1rippleskons'][day-1][ep-1].maxthresh))],
                         names=['day','epoch','event']))
-			#reorder the fields 
-				rippd = rippd[['starttime','endtime','maxthresh']]
-				#rip_obj = RippleTimes.create_default(rippd, 1)
 
-				#if pos_obj is not None:
-				#add an additional field for velocity and filter out events exceeding velthresh
-					#veltmp = pos_obj.get_irregular_resampled_old(self.Fs*rip_obj['starttime'])
-					#rip_obj['vels'] = veltmp['linvel_flat'].values
-					#rip_obj = rip_obj.iloc[rip_obj['vels'].values < 4]
+				#specify field order
+				rips = rips[['time','endtime','maxthresh']]
 
-				#allrips = allrips.append(rip_obj)
+				# calculate timestamp based on time and Fs, convert from float to int
+				rips['timestamp'] = (rips['time']*self.Fs).astype(int)
 
-		allrips = allrips.append(rippd)
+				#in order to use get_irregular_resampled, need to have a specific multiindex [day ep timestamp time]. reformat accordingly
+				rips.reset_index(level=['event'], inplace=True)  # remove event number as multiindex
+				rips.set_index(['timestamp', 'time'], drop=True, append=True, inplace=True)
+
+				#use get_irregular_resampled to identify velocity at the time of ripple start, identify those that occur below the speed threshold
+				posinfo_at_rip_times = pos_obj.get_irregular_resampled(rips)
+				ripidx_below_vel = posinfo_at_rip_times['linvel_flat'] < velthresh
+				rips_below_thresh = rips.loc[ripidx_below_vel].copy()
+
+				#reformat multiindex and cast to RippleTimes object 
+				rips_below_thresh.reset_index(level=['timestamp','time'], inplace=True)
+				rips_below_thresh.set_index(['event'], drop=True, append=True, inplace=True)
+				rips_below_thresh.rename({'time':'starttime'},axis='columns',inplace=True)
+				#final_rips = RippleTimes.create_default(rips_below_thresh, 1)  # unclear why this won't work inside the function - just cast to rippletimes obj outside for now
+
+				allrips = allrips.append(rips_below_thresh)
+
 		return allrips
+
+	def import_trials(self):
+
+		alltrials = pd.DataFrame()
+
+		for day in self.days:
+			for ep in self.epochs:
+				trialsname = self.ff_dir+self.name+'trials'+str(day)+'.mat'
+				trialsmat = scipy.io.loadmat(trialsname,squeeze_me=True,struct_as_record=False)
+				#generate a pandas table with starttime, endtime, and maxthresh columns, then instantiate RippleTimes 
+				trialdata = {'starttime':trialsmat['trials'][day-1][ep-1].starttime,
+	    			        'endtime':trialsmat['trials'][day-1][ep-1].endtime }
+				
+				trials = pd.DataFrame(trialdata,pd.MultiIndex.from_product([[day],[ep],
+	                     range(len(trialsmat['trials'][day-1][ep-1].starttime))],
+	                     names=['day','epoch','trial']))
+				
+				alltrials = alltrials.append(trials)
+
+		return alltrials
+
 
 def convert_dan_posterior_to_xarray(posterior_df, tetrode_dictionary, velocity_filter, encode_settings, decode_settings, transition_matrix, trial_order, marks_time_shift_amount, position_bin_centers=None):
     '''Converts pandas dataframe from Dan's 1D decoder to xarray Dataset
@@ -225,3 +266,89 @@ def convert_dan_posterior_to_xarray(posterior_df, tetrode_dictionary, velocity_f
 	     'multiindex': ['day','epoch','timestamp','time'],
 	     'transition_matrix': (('position','position'), transition_matrix)},
 	    coords=coords)
+
+def convert_save_classifier(base_name, fname, state1, state2, state3, tetrode_dictionary, likelihoods, encode_settings, decode_settings, rips, velthresh, vel_buffer, transition_matrix, trial_order, shift_amount, position_bin_centers=None):
+    
+    '''Converts pandas dataframe from Dan's 1D decoder to xarray Dataset
+    
+    Parameters
+    ----------
+    posterior_df : pandas.DataFrame, shape (n_time, n_columns)
+    position_bin_centers : None or ndarray, shape (n_position_bins,), optional
+    
+    Returns
+    -------
+    results : xarray.Dataset
+    
+    '''
+	#classifier_out['num_spikes'] = likelihoods['num_spikes']
+    #classifier_out['dec_bin'] = likelihoods['dec_bin']
+    state1_obj = Posteriors.from_dataframe(state1, enc_settings=encode_settings,
+                                                            		dec_settings=decode_settings,
+                                                            		user_key={'encode_settings': encode_settings,
+                                                                      'decode_settings': decode_settings,
+                                                                      'multi_index_keys': state1.index.names})
+
+    state2_obj = Posteriors.from_dataframe(state2, enc_settings=encode_settings,
+                                                            		dec_settings=decode_settings,
+                                                            		user_key={'encode_settings': encode_settings,
+                                                                      'decode_settings': decode_settings,
+                                                                      'multi_index_keys': state2.index.names})
+    state3_obj = Posteriors.from_dataframe(state3, enc_settings=encode_settings,
+                                                            		dec_settings=decode_settings,
+                                                            		user_key={'encode_settings': encode_settings,
+                                                                      'decode_settings': decode_settings,
+                                                                      'multi_index_keys': state3.index.names})
+    
+    #use state1 to populate these details (will apply to all)
+    ripmask = state1_obj.apply_time_event(rips, event_mask_name='ripple_grp')
+    s1_nomulti= state1_obj.reset_index()
+    s2_nomulti = state2_obj.reset_index()
+    s3_nomulti = state3_obj.reset_index()
+
+    likelihoods.reset_index(inplace=True)
+
+    is_position_bin = s1_nomulti.columns.str.startswith('x')
+    
+    if position_bin_centers is None:
+        n_position_bins = is_position_bin.sum()
+        position_bin_centers = np.arange(n_position_bins)
+    
+    coords = dict(
+        day=s1_nomulti['day'].values,
+        epoch=s1_nomulti['epoch'].values,
+        timestamp=s1_nomulti['timestamp'].values,
+        time=s1_nomulti['time'].values,
+        position=position_bin_centers,
+        num_spikes=likelihoods['num_spikes'].values,
+        dec_bin=likelihoods['dec_bin'].values,
+        ripple_grp=s1_nomulti['ripple_grp'].values,
+    )
+
+    xr_obj =  xr.Dataset(
+	    {'state1_posterior': (('time','position'), s1_nomulti.loc[:, is_position_bin].values),
+	    'state2_posterior': (('time','position'), s2_nomulti.loc[:, is_position_bin].values),
+	    'state3_posterior': (('time','position'), s3_nomulti.loc[:, is_position_bin].values),
+	     'velocity_filter': velthresh,
+	     'velocity_buffer': vel_buffer,
+	     'tetrodes': tetrode_dictionary,
+	     'shift_amount':shift_amount,
+	     'trial_order': trial_order,
+	     'sampling_rate': encode_settings['sampling_rate'],
+	     'pos_bins': encode_settings['pos_bins'],
+	     'pos_bin_edges': encode_settings['pos_bin_edges'],
+	     'pos_bin_delta': encode_settings['pos_bin_delta'],
+	     'pos_kernel': encode_settings['pos_kernel'],
+	     'pos_kernel_std': encode_settings['pos_kernel_std'],
+	     'mark_kernel_std': encode_settings['mark_kernel_std'],
+	     'pos_num_bins': encode_settings['pos_num_bins'],
+	     'arm_coordinates': (encode_settings['arm_coordinates'][0]),
+	     'trans_smooth_std': decode_settings['trans_smooth_std'],
+	     'trans_uniform_gain': decode_settings['trans_uniform_gain'],
+	     'time_bin_size': decode_settings['time_bin_size'],
+	     'transition_matrix_name': 'flat powered',
+	     'multiindex': ['day','epoch','timestamp','time'],
+	     'transition_matrix': (('position','position'), transition_matrix)},
+	    coords=coords)
+
+    xr_obj.to_netcdf(base_name+fname+'.nc')
