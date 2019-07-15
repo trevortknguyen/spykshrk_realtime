@@ -133,16 +133,17 @@ class LinearPositionAssignment:
     
         # Define dictionary for shifts for each arm segment
         #shift_linear_distance_by_arm_dictionary = dict() # initialize empty dictionary 
+        # with this setup max position is 129
         for arm in hardcode_armorder: # for each outer arm
             if arm < 7: # if all box segments, do nothing
                 temporary_variable_shift = 0
 
             #for first arm replace linearization_arm_length with 0 for the box
-            elif arm = 7:
-                temporary_variable_shift = hardcode_shiftamount + 0 + self.shift_linear_distance_by_arm_dictionary[hardcode_armorder[arm - 1]]
+            elif arm == 7:
+                temporary_variable_shift = hardcode_shiftamount + 1 + self.shift_linear_distance_by_arm_dictionary[hardcode_armorder[arm - 1]]
 
             else: # if arms 2-8, shift with gap
-                temporary_variable_shift = hardcode_shiftamount + 0 + self.shift_linear_distance_by_arm_dictionary[hardcode_armorder[arm - 1]]
+                temporary_variable_shift = hardcode_shiftamount + 12 + self.shift_linear_distance_by_arm_dictionary[hardcode_armorder[arm - 1]]
         
             self.shift_linear_distance_by_arm_dictionary[arm] = temporary_variable_shift
 
@@ -186,7 +187,7 @@ class VelocityCalculator:
         tmpind = 0
         #need to bring in network.pxpercm from trodes
         #cmperpx = 1/network.pxpercm
-        cmperpx = 0.18
+        cmperpx = 0.2
 
         # note: for remy cmperpx should be <0.2 
         # it seems like the speed is still pretty high with jittering of headstage...

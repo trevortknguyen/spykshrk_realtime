@@ -152,7 +152,10 @@ class TrodesDataReceiver(realtime_base.DataSourceReceiver):
                 self.timestamp = self.datastream.getData() #Data is [(ntrode, cluster, timestamp, [0-159 data - (i,data)] ) ]
                 # Reshape data to look like what spykshrk expects
                 #print('spikes: ',self.buf)
+                # multiply amplitude by correction factor for trodes amplifier (0.195)
                 d = self.buf[0][3][:,1]
+                d = d*0.195
+                d = d.astype(int)
                 newshape = (int(len(d)/40), 40)
                 #print(datatypes.SpikePoint(self.timestamp.trodes_timestamp, self.buf[0][0], np.reshape(d, newshape)))
                 return datatypes.SpikePoint(self.timestamp.trodes_timestamp, self.buf[0][0], np.reshape(d, newshape)), None
