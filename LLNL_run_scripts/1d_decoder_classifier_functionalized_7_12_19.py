@@ -73,7 +73,7 @@ def main(path_base, rat_name, path_arm_nodes, path_base_analysis, shift_amt, pat
     path_base = path_base
     raw_directory = path_base + 'raw_data/' + rat_name + '/'
     linearization_path = path_base + 'maze_info/'
-    day_ep = 'day' + str(day_dictionary[rat_name][0]) + '_epoch' + str(epoch_dictionary[rat_name][0])
+    day_ep = str(day_dictionary[rat_name][0]) + '_' + str(epoch_dictionary[rat_name][0])
 
     # IMPORT and process data
 
@@ -104,14 +104,14 @@ def main(path_base, rat_name, path_arm_nodes, path_base_analysis, shift_amt, pat
     # Position linearization
     # if linearization exists, load it. if not, run the linearization.
     lin_output1 = os.path.join(linearization_path, rat_name + '/' + rat_name + '_' + day_ep + '_' + 'linearized_distance.npy')
-
+    print('linearization file 1: ',lin_output1)
     if os.path.exists(lin_output1) == False:
         print('Linearization result doesnt exist. Doing linearization calculation!')
         sungod_util.run_linearization_routine(rat_name, day_dictionary[rat_name][0], epoch_dictionary[rat_name][0], linearization_path, raw_directory, gap_size=20)
     else: 
         print('Linearization found. Loading it!')
         lin_output2 = os.path.join(linearization_path, rat_name + '/' + rat_name + '_' + day_ep + '_' + 'linearized_track_segments.npy')
-
+        print('linearization file 2: ',lin_output2)
         linear_pos_raw['linpos_flat'] = np.load(lin_output1)   #replace x pos with linerized 
         track_segment_ids = np.load(lin_output2)
 
@@ -174,6 +174,9 @@ def main(path_base, rat_name, path_arm_nodes, path_base_analysis, shift_amt, pat
     # Run encoder
     print('Starting encoder')
     time_started = datetime.now()
+    print(len(encoding_marks_shifted))
+    print(np.sum([np.dtype(dtype).itemsize for dtype in encoding_marks_shifted.dtypes]))
+    print(np.dtype(dtype).itemsize for dtype in encoding_marks_shifted.dtypes)
 
     encoder = OfflinePPEncoder(linflat=encoding_pos, dec_spk_amp=decoding_marks, encode_settings=encode_settings, 
                                decode_settings=decode_settings, enc_spk_amp=encoding_marks_shifted, dask_worker_memory=1e9,
@@ -192,6 +195,7 @@ def main(path_base, rat_name, path_arm_nodes, path_base_analysis, shift_amt, pat
     #cell 15
     # Run PP decoding algorithm
 
+    time_started = datetime.now()
     print('Starting decoder')
     decoder = OfflinePPDecoder(observ_obj=observ_obj, trans_mat=encoder.trans_mat['sungod'], 
                                prob_no_spike=encoder.prob_no_spike,
@@ -199,8 +203,11 @@ def main(path_base, rat_name, path_arm_nodes, path_base_analysis, shift_amt, pat
                                time_bin_size=decode_settings.time_bin_size, all_linear_position=binned_linear_pos)
 
     posteriors = decoder.run_decoder()
+    time_finished =datetime.now()
     print('Decoder finished!')
     print('Posteriors shape: '+ str(posteriors.shape))
+    print('Decoder started at %s'%str(time_started))
+    print('Decoder finished at %s'%str(time_finished))
 
     #cell 15.1
     # save posterior and linear position - netcdf
@@ -224,19 +231,24 @@ def main(path_base, rat_name, path_arm_nodes, path_base_analysis, shift_amt, pat
     print('Saved netcdf linearized position to '+position_file_name)
 
     #cell 15.2
-    # save posterior as hdf5
-    posterior_file_name_hdf5 = os.path.join(path_out,  rat_name + '_' + str(day_dictionary[rat_name][0]) + '_' + str(epoch_dictionary[rat_name][0]) + '_shuffle_' + str(shift_amount) + '_posteriors_functionalized.h5')
-    posteriors._to_hdf_store(posterior_file_name_hdf5,'/analysis', 'decode/clusterless/offline/posterior', 'sungod_trans_mat')
-    print('Saved hdf5 posteriors to '+posterior_file_name_hdf5)
+    # save posterior as hdf5 - currently doesnt work because of package issues
+    #posterior_file_name_hdf5 = os.path.join(path_out,  rat_name + '_' + str(day_dictionary[rat_name][0]) + '_' + str(epoch_dictionary[rat_name][0]) + '_shuffle_' + str(shift_amount) + '_posteriors_functionalized.h5')
+    #posteriors._to_hdf_store(posterior_file_name_hdf5,'/analysis', 'decode/clusterless/offline/posterior', 'sungod_trans_mat')
+    #print('Saved hdf5 posteriors to '+posterior_file_name_hdf5)
 
     #cell 16
     # run replay classifier
-    causal_state1, causal_state2, causal_state3, acausal_state1, acausal_state2, acausal_state3, trans_mat_dict = sungod_util.decode_with_classifier(decoder.likelihoods, 
-                                                                                                                                 encoder.trans_mat['sungod'], 
+    time_started = datetime.now()
+    causal_state1, causal_state2, causal_state3, acausal_state1, acausal_state2, acausal_state3, trans_mat_dict = sungod_util.decode_with_classifier(decoder.likelihoods, encoder.trans_mat['sungod'], encoder.occupancy, discrete_tm_val)
+    time_finished = datetime.now()
+
+    print('Classifier started at %s'%str(time_started))
+    print('Classifier finished at %s'%str(time_finished))
+    
     #cell 17
     # save classifier output
-    base_name = os.path.join(path_out, + rat_name + '_' + day_ep + '_shuffle_' + str(shift_amount) + '_posterior_')
-
+    base_name = os.path.join(path_out, rat_name + '_' + day_ep + '_shuffle_' + str(shift_amount) + '_posterior_')
+    #base_name = '/p/lustre1/coulter5/runs/test.nc'
     fname = 'causal'
     trodes2SS.convert_save_classifier(base_name, fname, causal_state1, causal_state2, causal_state3, tetrodes_dictionary[rat_name], decoder.likelihoods,
                                       encode_settings, decode_settings, rips, velocity_thresh_for_enc_dec, velocity_buffer, encoder.trans_mat['sungod'], order, shift_amount)
@@ -244,7 +256,6 @@ def main(path_base, rat_name, path_arm_nodes, path_base_analysis, shift_amt, pat
     fname = 'acausal'
     trodes2SS.convert_save_classifier(base_name, fname, acausal_state1, acausal_state2, acausal_state3, tetrodes_dictionary[rat_name], decoder.likelihoods,
                                       encode_settings, decode_settings, rips, velocity_thresh_for_enc_dec, velocity_buffer, encoder.trans_mat['sungod'], order, shift_amount)
-                                                                                                                                                                   encoder.occupancy, discrete_tm_val)
 
     # to calculate histogram of posterior max position in each time bin
 
