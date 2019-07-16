@@ -153,7 +153,7 @@ def run_linearization_routine(animal, day, epoch, linearization_path, raw_path, 
         track_graph.add_node(node_id, pos=tuple(node_position))
     for edge, distance in zip(edges, edge_distances):
         track_graph.add_edge(edge[0], edge[1], distance=distance)
-    lfdp.track_segment_classification.plot_track(track_graph)
+    #lfdp.track_segment_classification.plot_track(track_graph)
 
     position = position_info.loc[:, ['x_position', 'y_position']].values
 
@@ -386,7 +386,7 @@ def assign_enc_dec_set_by_velocity(pos_obj, marks_obj, velthresh, buffer = 0):
 
     return marks_obj, pos_obj
 
-def shift_enc_marks_for_shuffle(marks_obj, shift=0):
+def shift_enc_marks_for_shuffle(marks_obj, shift):
 
     '''
     shift encoding marks by a fraction of total epoch time in order to break relationship between position and spikes
@@ -396,18 +396,18 @@ def shift_enc_marks_for_shuffle(marks_obj, shift=0):
     may be slightly different after the trials are reordered) but this should not be a problem
 
     '''
-
     encoding_marks_shifted = marks_obj.copy()   #deepcopy to create a new obj to fill with shifted values
     encoding_marks_shifted.reset_index(level=['time'],inplace=True)
+    encoding_marks_shifted.sort_index(level='timestamp',inplace=True)
     min_time =encoding_marks_shifted['time'].min()
     max_time = encoding_marks_shifted['time'].max()
     epoch_length = max_time - min_time
     print('Total epoch time (sec): ',epoch_length)
-
     shift_target_time = min_time + shift * epoch_length
+    print(shift_target_time)
     timediffs = np.abs(encoding_marks_shifted['time'].values-shift_target_time)
-    shift_amount = np.argmin(timediffs.sort())   # calculate rowindex of closest value of minimum time difference (sorted)
-
+    shift_amount = np.argmin(timediffs)   # calculate rowindex of closest value of minimum time difference (sorted)
+    print(shift_amount)
     encoding_marks_shifted['c00'] = np.roll(encoding_marks_shifted['c00'],shift_amount)
     encoding_marks_shifted['c01'] = np.roll(encoding_marks_shifted['c01'],shift_amount)
     encoding_marks_shifted['c02'] = np.roll(encoding_marks_shifted['c02'],shift_amount)
