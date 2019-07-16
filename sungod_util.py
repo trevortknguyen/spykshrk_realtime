@@ -10,14 +10,14 @@ import scipy.stats as ss
 import scipy.io
 import networkx as nx
 import loren_frank_data_processing as lfdp
-from loren_frank_data_processing import Animal
+#from loren_frank_data_processing import Animal
 import scipy.io as sio # for saving .mat files 
 import inspect # for inspecting files (e.g. finding file source)
 import pandas as pd
 import json
 import functools
-from replay_trajectory_classification.state_transition import strong_diagonal_discrete
-from replay_trajectory_classification.core import _causal_classify, _acausal_classify
+#from replay_trajectory_classification.state_transition import strong_diagonal_discrete
+#from replay_trajectory_classification.core import _causal_classify, _acausal_classify
 from trodes2SS import convert_dan_posterior_to_xarray, AttrDict
 
 
