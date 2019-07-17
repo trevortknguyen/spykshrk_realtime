@@ -63,7 +63,6 @@ class OfflinePPEncoder(object):
         self.trans_mat['learned'] = self.calc_learned_state_trans_mat(self.linflat,self.encode_settings, self.decode_settings)
         self.trans_mat['simple'] = self.calc_simple_trans_mat(self.encode_settings)
         self.trans_mat['uniform'] = self.calc_uniform_trans_mat(self.encode_settings)
-        self.trans_mat['sungod'] = self.calc_sungod_trans_mat(self.encode_settings,self.decode_settings)
 
 
     def run_encoder(self):
@@ -366,53 +365,6 @@ class OfflinePPEncoder(object):
 
         return transition_mat
 
-    @staticmethod
-    def calc_sungod_trans_mat(enc_settings, dec_settings):
-
-        from scipy.sparse import diags
-        n = len(enc_settings.pos_bins)
-        transition_mat = np.zeros([n,n])
-        k = np.array([(1/3)*np.ones(n-1),(1/3)*np.ones(n),(1/3)*np.ones(n-1)])
-        offset = [-1,0,1]
-        transition_mat = diags(k,offset).toarray()
-        box_end_bin = enc_settings.arm_coordinates[0,1]
-        for x in enc_settings.arm_coordinates[:,0]:
-            transition_mat[int(x),int(x)] = (5/9)
-            transition_mat[box_end_bin,int(x)] = (1/9)
-            transition_mat[int(x),box_end_bin] = (1/9)
-        for y in enc_settings.arm_coordinates[:,1]:
-            transition_mat[int(y),int(y)] = (2/3)
-        transition_mat[box_end_bin,0] = 0
-        transition_mat[0,box_end_bin] = 0
-        transition_mat[box_end_bin,box_end_bin] = 0
-        transition_mat[0,0] = (2/3)
-        transition_mat[box_end_bin-1, box_end_bin-1] = (5/9)
-        transition_mat[box_end_bin-1,box_end_bin] = (1/9)
-        transition_mat[box_end_bin, box_end_bin-1] = (1/9)
-
-                # uniform offset (gain, currently 0.0001)
-                # needs to be set before running the encoder cell
-                # normally: decode_settings.trans_uniform_gain
-        uniform_gain = dec_settings.trans_uniform_gain
-        uniform_dist = np.ones(transition_mat.shape)*uniform_gain
-
-                # apply uniform offset
-        transition_mat = transition_mat + uniform_dist
-
-                # apply no animal boundary - make gaps between arms
-        transition_mat = apply_no_anim_boundary(enc_settings.pos_bins, enc_settings.arm_coordinates, transition_mat)
-
-                # to smooth: take the transition matrix to a power
-        transition_mat = np.linalg.matrix_power(transition_mat,1)
-
-                # apply no animal boundary - make gaps between arms
-        transition_mat = apply_no_anim_boundary(enc_settings.pos_bins, enc_settings.arm_coordinates, transition_mat)
-
-                # normalize transition matrix
-        transition_mat = transition_mat/(transition_mat.sum(axis=0)[None, :])
-        transition_mat[np.isnan(transition_mat)] = 0
-
-        return transition_mat
 
 
 class OfflinePPDecoder(object):
