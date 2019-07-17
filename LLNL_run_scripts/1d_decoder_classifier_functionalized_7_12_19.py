@@ -51,14 +51,14 @@ def main(path_base, rat_name, path_arm_nodes, path_base_analysis, shift_amt, pat
     
     day_dictionary = {'remy':[20], 'gus':[28], 'bernard':[23], 'fievel':[19]}
     epoch_dictionary = {'remy':[2], 'gus':[4], 'bernard':[2], 'fievel':[4]} 
-    tetrodes_dictionary = {'remy': [4,6,9,10,11,12,13,14,15,17,19,20,21,22,23,24,25,26,28,29,30], # 4,6,9,10,11,12,13,14,15,17,19,20,21,22,23,24,25,26,28,29,30
-                           'gus': [6,7,8,9,10,11,12,17,18,19,20,21,24,25,26,27,30], # list(range(6,13)) + list(range(17,22)) + list(range(24,28)) + [30]
-                           'bernard': [1,2,3,4,5,7,8,10,11,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29],
-                           'fievel': [1,2,3,5,6,7,8,9,10,11,12,14,15,16,17,18,19,20,22,23,24,25,27,28,29]}
-    #tetrodes_dictionary = {'remy': [4], # 4,6,9,10,11,12,13,14,15,17,19,20,21,22,23,24,25,26,28,29,30
-    #                       'gus': [6], # list(range(6,13)) + list(range(17,22)) + list(range(24,28)) + [30]
-    #                       'bernard': [1],
-    #                       'fievel': [1]}
+    #tetrodes_dictionary = {'remy': [4,6,9,10,11,12,13,14,15,17,19,20,21,22,23,24,25,26,28,29,30], # 4,6,9,10,11,12,13,14,15,17,19,20,21,22,23,24,25,26,28,29,30
+    #                       'gus': [6,7,8,9,10,11,12,17,18,19,20,21,24,25,26,27,30], # list(range(6,13)) + list(range(17,22)) + list(range(24,28)) + [30]
+    #                       'bernard': [1,2,3,4,5,7,8,10,11,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29],
+    #                       'fievel': [1,2,3,5,6,7,8,9,10,11,12,14,15,16,17,18,19,20,22,23,24,25,27,28,29]}
+    tetrodes_dictionary = {'remy': [4], # 4,6,9,10,11,12,13,14,15,17,19,20,21,22,23,24,25,26,28,29,30
+                           'gus': [6], # list(range(6,13)) + list(range(17,22)) + list(range(24,28)) + [30]
+                           'bernard': [1],
+                           'fievel': [1]}
     
     pos_bin_size = 5
     velocity_thresh_for_enc_dec = 4
@@ -232,9 +232,9 @@ def main(path_base, rat_name, path_arm_nodes, path_base_analysis, shift_amt, pat
 
     #cell 15.2
     # save posterior as hdf5 - currently doesnt work because of package issues
-    #posterior_file_name_hdf5 = os.path.join(path_out,  rat_name + '_' + str(day_dictionary[rat_name][0]) + '_' + str(epoch_dictionary[rat_name][0]) + '_shuffle_' + str(shift_amount) + '_posteriors_functionalized.h5')
-    #posteriors._to_hdf_store(posterior_file_name_hdf5,'/analysis', 'decode/clusterless/offline/posterior', 'sungod_trans_mat')
-    #print('Saved hdf5 posteriors to '+posterior_file_name_hdf5)
+    posterior_file_name_hdf5 = os.path.join(path_out,  rat_name + '_' + str(day_dictionary[rat_name][0]) + '_' + str(epoch_dictionary[rat_name][0]) + '_shuffle_' + str(shift_amount) + '_posteriors_functionalized.h5')
+    posteriors._to_hdf_store(posterior_file_name_hdf5,'/analysis', 'decode/clusterless/offline/posterior', 'sungod_trans_mat')
+    print('Saved hdf5 posteriors to '+posterior_file_name_hdf5)
 
     #cell 16
     # run replay classifier
@@ -256,6 +256,8 @@ def main(path_base, rat_name, path_arm_nodes, path_base_analysis, shift_amt, pat
     fname = 'acausal'
     trodes2SS.convert_save_classifier(base_name, fname, acausal_state1, acausal_state2, acausal_state3, tetrodes_dictionary[rat_name], decoder.likelihoods,
                                       encode_settings, decode_settings, rips, velocity_thresh_for_enc_dec, velocity_buffer, encoder.trans_mat['sungod'], order, shift_amount)
+
+    print('Saved classifier results to: ',basename+fname)
 
     # to calculate histogram of posterior max position in each time bin
 
