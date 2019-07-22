@@ -277,8 +277,10 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                                                                                  ['position']['bins'])))
                                                            for x in range(config['encoder']['position']['bins'])],
                                                           ['timestamp', 'elec_grp_id', 'real_bin', 'late_bin']],
-                                              rec_formats=['qqdq'+'d'*config['encoder']['position']['bins'],
+                                              rec_formats=['qddq'+'d'*config['encoder']['position']['bins'],
                                                            'qiii'])
+                                                #i think if you change second q to d above, then you can replace real_pos_time
+                                                # with velocity
 
         self.config = config
         self.mpi_send = send_interface
@@ -286,6 +288,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
         self.pos_interface = pos_interface
 
         #initialize velocity calc and linear position assignment functions
+        self.current_vel = 0
         self.velCalc = VelocityCalculator()
         self.linPosAssign = LinearPositionAssignment()
 
@@ -355,9 +358,11 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                 # increment last bin with spikes
                 posterior = self.pp_decoder.increment_bin()
                 #posterior = np.ones(130)
+                # try replacing self.pp_decoder.cur_pos_time with self.cur_vel to get both position and velocity in the dataframe
+                # and once more in the next paragraph
                 self.write_record(realtime_base.RecordIDs.DECODER_OUTPUT,
                                   self.current_time_bin * self.time_bin_size,
-                                  self.pp_decoder.cur_pos_time,
+                                  self.current_vel,
                                   self.pp_decoder.cur_pos,
                                   self.spike_count,
                                   *posterior)
@@ -370,7 +375,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                     #posterior = np.ones(130)
                     self.write_record(realtime_base.RecordIDs.DECODER_OUTPUT,
                                       self.current_time_bin * self.time_bin_size,
-                                      self.pp_decoder.cur_pos_time,
+                                      self.current_vel,
                                       self.pp_decoder.cur_pos,
                                       0,
                                       *posterior)
@@ -414,10 +419,10 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
             else:
                 #self.pp_decoder.update_position(pos_timestamp=pos_data.timestamp, pos_data=pos_data.x)
                 # we want to use linearized position here
-                current_vel = self.velCalc.calculator(pos_data.x, pos_data.y)
+                self.current_vel = self.velCalc.calculator(pos_data.x, pos_data.y)
                 current_pos = self.linPosAssign.assign_position(pos_data.segment, pos_data.position)
 
-                self.pp_decoder.update_position(pos_timestamp=pos_data.timestamp, pos_data=current_pos, vel_data=current_vel)
+                self.pp_decoder.update_position(pos_timestamp=pos_data.timestamp, pos_data=current_pos, vel_data=self.current_vel)
 
 
                 #print(pos_data.x, pos_data.segment)

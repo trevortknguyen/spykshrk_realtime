@@ -6,12 +6,12 @@
         "supervisor": 0,
         "decoder": 1,
         "ripples": [2],
-        "encoders": [3, 4, 5]
+        "encoders": [3]
     }, 
 
     "rank_settings": {
-        "enable_rec": [0, 1, 2, 3, 4, 5],
-        "enable_profiler": [0, 1, 2, 3, 4, 5]
+        "enable_rec": [0, 1, 2, 3],
+        "enable_profiler": [0, 1, 2, 3]
     },
 
     "files": {
@@ -145,6 +145,6 @@
     "trodes_network": {
         "address" : "tcp://127.0.0.1",
         "port": 49152,
-        "tetrodes": [24, 26, 30]
+        "tetrodes": [4]
     }
 }
