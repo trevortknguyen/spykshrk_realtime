@@ -22,6 +22,10 @@
         "timing_postfix": "timing",
         "backup_dir": "/mnt/vortex/mcoulter/spykshrk_realtime/databackup"
     },
+    
+    "trodes": {
+        "voltage_scaling_factor": 0.195
+    },
 
     "ripple": {
         "RippleParameterMessage": {
