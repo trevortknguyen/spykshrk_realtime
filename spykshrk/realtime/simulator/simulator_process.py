@@ -141,6 +141,7 @@ class TrodesDataReceiver(realtime_base.DataSourceReceiver):
                 # Reset curntrode value. If lfp buffer is more than 1, then above code will read from buffer before reading from Trodes stream
                 self.curntrode = 0
                 pt = datatypes.LFPPoint(self.timestamp.trodes_timestamp, self.channels[self.curntrode], self.channels[self.curntrode], self.buf[self.curntrode])
+                #NOTE NOTE need to apply trodes amplifier correction factor here too!!!
                 #print(pt)
                 #print('lfp: ',self.buf)
                 #print(self.channels)

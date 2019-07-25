@@ -273,8 +273,8 @@ class RippleFilter(rt_logging.LoggingClass):
 
         # rec_labels=['current_time', 'ntrode_index', 'thresh_crossed', 'lockout', 'lfp_data', 'rd','current_val'],
         # rec_format='Ii??dd',
-        if self.current_time < 40000000:
-            self.rec_base.write_record(realtime_base.RecordIDs.RIPPLE_STATE,
+        #if self.current_time < 40000000:
+        self.rec_base.write_record(realtime_base.RecordIDs.RIPPLE_STATE,
                                    self.current_time, self.elec_grp_id, self.thresh_crossed,
                                    self.in_lockout, self._custom_baseline_mean, self._custom_baseline_std,
                                    int(data), rd, self.current_val)
