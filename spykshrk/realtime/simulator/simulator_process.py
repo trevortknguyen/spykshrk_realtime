@@ -140,7 +140,12 @@ class TrodesDataReceiver(realtime_base.DataSourceReceiver):
                 self.timestamp = self.datastream.getData()
                 # Reset curntrode value. If lfp buffer is more than 1, then above code will read from buffer before reading from Trodes stream
                 self.curntrode = 0
+                # multiply raw LFP by voltage scaling factor for trodes amplifier (0.195) - this is specified in config file
+                #print('raw LFP: ',self.buf[self.curntrode])
+                self.buf[self.curntrode] = self.buf[self.curntrode]*self.config['trodes']['voltage_scaling_factor']
+                #print('scaled LFP: ',self.buf[self.curntrode])
                 pt = datatypes.LFPPoint(self.timestamp.trodes_timestamp, self.channels[self.curntrode], self.channels[self.curntrode], self.buf[self.curntrode])
+                #NOTE NOTE need to apply trodes amplifier correction factor here too!!!
                 #print(pt)
                 #print('lfp: ',self.buf)
                 #print(self.channels)
@@ -152,9 +157,11 @@ class TrodesDataReceiver(realtime_base.DataSourceReceiver):
                 self.timestamp = self.datastream.getData() #Data is [(ntrode, cluster, timestamp, [0-159 data - (i,data)] ) ]
                 # Reshape data to look like what spykshrk expects
                 #print('spikes: ',self.buf)
-                # multiply amplitude by correction factor for trodes amplifier (0.195)
+                # multiply spike amplitude by voltage scaling factor for trodes amplifier (0.195) - this is specified in config file
                 d = self.buf[0][3][:,1]
-                d = d*0.195
+                #print('raw: ',d)
+                d = d*self.config['trodes']['voltage_scaling_factor']
+                #print('scaled: ',d)
                 d = d.astype(int)
                 newshape = (int(len(d)/40), 40)
                 #print(datatypes.SpikePoint(self.timestamp.trodes_timestamp, self.buf[0][0], np.reshape(d, newshape)))

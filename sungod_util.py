@@ -10,7 +10,7 @@ import scipy.stats as ss
 import scipy.io
 import networkx as nx
 import loren_frank_data_processing as lfdp
-from loren_frank_data_processing import Animal
+#from loren_frank_data_processing import Animal
 import scipy.io as sio # for saving .mat files 
 import inspect # for inspecting files (e.g. finding file source)
 import pandas as pd
@@ -18,6 +18,7 @@ import json
 import functools
 from replay_trajectory_classification.state_transition import strong_diagonal_discrete
 from replay_trajectory_classification.core import _causal_classify, _acausal_classify
+from spykshrk.franklab.pp_decoder.util import apply_no_anim_boundary
 from trodes2SS import convert_dan_posterior_to_xarray, AttrDict
 
 
@@ -153,7 +154,7 @@ def run_linearization_routine(animal, day, epoch, linearization_path, raw_path, 
         track_graph.add_node(node_id, pos=tuple(node_position))
     for edge, distance in zip(edges, edge_distances):
         track_graph.add_edge(edge[0], edge[1], distance=distance)
-    lfdp.track_segment_classification.plot_track(track_graph)
+    #lfdp.track_segment_classification.plot_track(track_graph)
 
     position = position_info.loc[:, ['x_position', 'y_position']].values
 
@@ -216,6 +217,7 @@ def run_linearization_routine(animal, day, epoch, linearization_path, raw_path, 
 
         
     sio.savemat(lin_output3,export_this)
+
 
 def define_segment_coordinates(pos_obj, track_segment_ids):
     
@@ -386,7 +388,7 @@ def assign_enc_dec_set_by_velocity(pos_obj, marks_obj, velthresh, buffer = 0):
 
     return marks_obj, pos_obj
 
-def shift_enc_marks_for_shuffle(marks_obj, shift=0):
+def shift_enc_marks_for_shuffle(marks_obj, shift):
 
     '''
     shift encoding marks by a fraction of total epoch time in order to break relationship between position and spikes
@@ -396,18 +398,18 @@ def shift_enc_marks_for_shuffle(marks_obj, shift=0):
     may be slightly different after the trials are reordered) but this should not be a problem
 
     '''
-
     encoding_marks_shifted = marks_obj.copy()   #deepcopy to create a new obj to fill with shifted values
     encoding_marks_shifted.reset_index(level=['time'],inplace=True)
+    encoding_marks_shifted.sort_index(level='timestamp',inplace=True)
     min_time =encoding_marks_shifted['time'].min()
     max_time = encoding_marks_shifted['time'].max()
     epoch_length = max_time - min_time
     print('Total epoch time (sec): ',epoch_length)
-
     shift_target_time = min_time + shift * epoch_length
+    print(shift_target_time)
     timediffs = np.abs(encoding_marks_shifted['time'].values-shift_target_time)
-    shift_amount = np.argmin(timediffs.sort())   # calculate rowindex of closest value of minimum time difference (sorted)
-
+    shift_amount = np.argmin(timediffs)   # calculate rowindex of closest value of minimum time difference (sorted)
+    print(shift_amount)
     encoding_marks_shifted['c00'] = np.roll(encoding_marks_shifted['c00'],shift_amount)
     encoding_marks_shifted['c01'] = np.roll(encoding_marks_shifted['c01'],shift_amount)
     encoding_marks_shifted['c02'] = np.roll(encoding_marks_shifted['c02'],shift_amount)
@@ -466,3 +468,54 @@ def decode_with_classifier(likelihoods_obj, sungod_transmat, occupancy, discrete
 
     return causal_state1, causal_state2, causal_state3, acausal_state1, acausal_state2, acausal_state3, trans_mat_dict
             
+def calc_sungod_trans_mat(encode_settings, decode_settings, uniform_gain=-1, to_power=1):
+    ''' this is basically a duplication of the one in pp_clusterless; 
+    allows you to change parameters (such as uniform gain, AKA offset, directly)
+
+    if uniform gain is explicitly provided, it will override the one set in dec_settings
+    '''
+
+    if uniform_gain==-1:   
+        uniform_gain = decode_settings.trans_uniform_gain
+    else:
+        print('overriding uniform gain value to ' + str(uniform_gain))
+
+    n = len(encode_settings.pos_bins)
+    transition_mat = np.zeros([n,n])
+    k = np.array([(1/3)*np.ones(n-1),(1/3)*np.ones(n),(1/3)*np.ones(n-1)])
+    offset = [-1,0,1]
+    transition_mat = sp.sparse.diags(k,offset).toarray()
+    box_end_bin = encode_settings.arm_coordinates[0,1]
+    for x in encode_settings.arm_coordinates[:,0]:
+        transition_mat[int(x),int(x)] = (5/9)
+        transition_mat[box_end_bin,int(x)] = (1/9)
+        transition_mat[int(x),box_end_bin] = (1/9)
+    for y in encode_settings.arm_coordinates[:,1]:
+        transition_mat[int(y),int(y)] = (2/3)
+    transition_mat[box_end_bin,0] = 0
+    transition_mat[0,box_end_bin] = 0
+    transition_mat[box_end_bin,box_end_bin] = 0
+    transition_mat[0,0] = (2/3)
+    transition_mat[box_end_bin-1, box_end_bin-1] = (5/9)
+    transition_mat[box_end_bin-1,box_end_bin] = (1/9)
+    transition_mat[box_end_bin, box_end_bin-1] = (1/9)
+
+            # uniform offset (gain, currently 0.0001)
+            # needs to be set before running the encoder cell
+            # normally: decode_settings.trans_uniform_gain
+    uniform_dist = np.ones(transition_mat.shape)*uniform_gain
+
+            # apply uniform offset
+    transition_mat = transition_mat + uniform_dist
+    
+            # apply no animal boundary - make gaps between arms (zeros)
+    transition_mat = apply_no_anim_boundary(encode_settings.pos_bins, encode_settings.arm_coordinates, transition_mat)
+    
+            # to smooth: take the transition matrix to a power
+    transition_mat = np.linalg.matrix_power(transition_mat,to_power)
+    
+            # normalize transition matrix - this turns the gaps into nans, so then turn them back to 0
+    transition_mat = transition_mat/(transition_mat.sum(axis=0)[None, :])
+    transition_mat[np.isnan(transition_mat)] = 0
+
+    return transition_mat
