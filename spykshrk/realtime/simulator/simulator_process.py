@@ -124,6 +124,10 @@ class TrodesDataReceiver(realtime_base.DataSourceReceiver):
                 #print('3')
                 #print(curntrode)
                 #print(subbedntrodes)
+                # multiply raw LFP by voltage scaling factor for trodes amplifier (0.195) - this is specified in config file
+                #print('raw LFP 1: ',self.buf[self.curntrode])
+                self.buf[self.curntrode] = self.buf[self.curntrode]*self.config['trodes']['voltage_scaling_factor']
+                #print('scaled LFP 1: ',self.timestamp.trodes_timestamp,self.buf[self.curntrode])
                 pt = datatypes.LFPPoint(self.timestamp.trodes_timestamp, self.channels[self.curntrode], self.channels[self.curntrode], self.buf[self.curntrode])
                 #print('pt = ',pt)
                 self.curntrode = self.curntrode + 1
@@ -141,9 +145,9 @@ class TrodesDataReceiver(realtime_base.DataSourceReceiver):
                 # Reset curntrode value. If lfp buffer is more than 1, then above code will read from buffer before reading from Trodes stream
                 self.curntrode = 0
                 # multiply raw LFP by voltage scaling factor for trodes amplifier (0.195) - this is specified in config file
-                #print('raw LFP: ',self.buf[self.curntrode])
+                #print('raw LFP 2: ',self.buf[self.curntrode])
                 self.buf[self.curntrode] = self.buf[self.curntrode]*self.config['trodes']['voltage_scaling_factor']
-                #print('scaled LFP: ',self.buf[self.curntrode])
+                #print('scaled LFP 2: ',self.timestamp.trodes_timestamp,self.buf[self.curntrode])
                 pt = datatypes.LFPPoint(self.timestamp.trodes_timestamp, self.channels[self.curntrode], self.channels[self.curntrode], self.buf[self.curntrode])
                 #NOTE NOTE need to apply trodes amplifier correction factor here too!!!
                 #print(pt)

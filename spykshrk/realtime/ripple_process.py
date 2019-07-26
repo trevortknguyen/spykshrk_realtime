@@ -260,14 +260,17 @@ class RippleFilter(rt_logging.LoggingClass):
                 self.current_val += df * gain
 
             if self.param.use_custom_baseline:
+                #print(self.custom_baseline_mean, self.custom_baseline_std * self.param.ripple_threshold, self.param.ripple_threshold)
                 if self.current_val >= (self.custom_baseline_mean + self.custom_baseline_std *
                                         self.param.ripple_threshold):
                     self.thresh_crossed = True
+                    #print(self.current_val,self.custom_baseline_mean, self.custom_baseline_std * self.param.ripple_threshold, self.param.ripple_threshold)
                 else:
                     self.thresh_crossed = False
             else:
                 if self.current_val >= self.current_thresh:
                     self.thresh_crossed = True
+                    #print('test')
                 else:
                     self.thresh_crossed = False
 
@@ -448,6 +451,8 @@ class RippleManager(realtime_base.BinaryRecordBaseWithTiming, rt_logging.Logging
                 filter_state = (self.ripple_filters[datapoint.elec_grp_id].
                                 process_data(timestamp=datapoint.timestamp,
                                              data=datapoint.data))
+
+                #print('at ripple: ',datapoint.timestamp,datapoint.data)
 
                 self.record_timing(timestamp=datapoint.timestamp, elec_grp_id=datapoint.elec_grp_id,
                                    datatype=datatypes.Datatypes.LFP, label='rip_send')
