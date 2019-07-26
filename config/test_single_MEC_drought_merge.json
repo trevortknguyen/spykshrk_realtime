@@ -22,6 +22,10 @@
         "timing_postfix": "timing",
         "backup_dir": "/media/lorenlab/Hurricane Data 2/spykshrk_data/databackup/"
     },
+    
+        "trodes": {
+        "voltage_scaling_factor": 0.195
+    },
 
     "ripple": {
         "RippleParameterMessage": {
