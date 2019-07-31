@@ -22,7 +22,7 @@
         "timing_postfix": "timing",
         "backup_dir": "/mnt/vortex/mcoulter/spykshrk_realtime/databackup"
     },
-    
+
     "trodes": {
         "voltage_scaling_factor": 0.195
     },
@@ -130,7 +130,7 @@
             "std": 5
         },
         "vel": 8,
-        "spk_amp": 100
+        "spk_amp": 300
     },
 
     "decoder": "pp_decoder",
@@ -149,6 +149,6 @@
     "trodes_network": {
         "address" : "tcp://127.0.0.1",
         "port": 49152,
-        "tetrodes": [10,13,17,19,29]
+        "tetrodes": [6,23,24,26,30]
     }
 }
