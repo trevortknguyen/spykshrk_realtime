@@ -10,7 +10,7 @@ import scipy.stats as ss
 import scipy.io
 import networkx as nx
 import loren_frank_data_processing as lfdp
-from loren_frank_data_processing import Animal
+#from loren_frank_data_processing import Animal
 import scipy.io as sio # for saving .mat files 
 import inspect # for inspecting files (e.g. finding file source)
 import pandas as pd
