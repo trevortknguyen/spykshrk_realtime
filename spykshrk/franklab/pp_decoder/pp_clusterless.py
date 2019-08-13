@@ -150,6 +150,12 @@ class OfflinePPEncoder(object):
                                              np.expand_dims(enc_spk, 0),
                                              encode_settings.mark_kernel_std)
         all_contrib = np.prod(mark_contrib, axis=2)
+
+        # set weight any matching spike to zero (if enc and dec set containing any overlapping events)  
+        # max weight is peak of gaussian kernel ^4 (b/c each mark channel gets multiplied together)
+        max_weight = normal_pdf_int_lookup(1,1,encode_settings.mark_kernel_std)**4 
+        all_contrib[all_contrib>round(max_weight,20)]=0
+
         del mark_contrib
         observ = np.matmul(all_contrib, pos_distrib_tet)
         del all_contrib
@@ -427,8 +433,9 @@ class OfflinePPDecoder(object):
 
         # MEC mask for encoding times - now AKG mask based on enc set indicator in pos_obj
         # use get_irregular_resample to find all timebins during the encoding state, then set those rows to NaN
+        # the real point of this is to nan out anything that isn't being decoded, so do that 
         posinfo_per_bin = self.all_linear_position.get_irregular_resampled(self.likelihoods)
-        self.likelihoods.loc[posinfo_per_bin['encoding_set']==1] = np.nan
+        self.likelihoods.loc[posinfo_per_bin['decoding_set']==0] = np.nan
 
         print("Beginning posterior calculation")
         self.recalc_posterior()

@@ -366,7 +366,7 @@ def assign_enc_dec_set_by_velocity(pos_obj, marks_obj, velthresh, buffer = 0):
         transition_times['time'].iloc[not_transition_inds]=np.nan    # turn everything in that df to nans except for the transition times
         transition_times = transition_times.ffill().fillna(0)     # forward fill the nans with the most recent transistion times. turn remaining nans (at beginning) to 0s 
         inBuffer = (posinfo_at_mark_times['time']-transition_times['time'])<=buffer   # any thing within 2s after a transition time will be in buffer
-        mark_assignments = (above|inBuffer).astype(int).values              # assign anything above velthresh or in buffer to enc set
+        mark_assignments = (above|inBuffer).values              # assign anything above velthresh or in buffer to enc set
         # calculate buffer times for pos
         pos_obj.reset_index(level=['time'], inplace=True)   
         above = pos_obj['linvel_flat']>velthresh    # generate boolean of above/below velocity threshold
@@ -376,12 +376,12 @@ def assign_enc_dec_set_by_velocity(pos_obj, marks_obj, velthresh, buffer = 0):
         transition_times['time'].iloc[not_transition_inds]=np.nan    # turn everything in that df to nans except for the transition times
         transition_times = transition_times.ffill().fillna(0)     # forward fill the nans with the most recent transistion times. turn remaining nans (at beginning) to 0s 
         inBuffer = (pos_obj['time']-transition_times['time'])<=buffer   # any thing within 2s after a transition time will be in buffer
-        pos_assignments = (above|inBuffer).astype(int)              # assign anything above velthresh or in buffer to enc set\
+        pos_assignments = (above|inBuffer)             # assign anything above velthresh or in buffer to enc set\
         pos_obj.set_index(['time'], drop=True, append=True, inplace=True)
 
     else:
-        mark_assignments = (posinfo_at_mark_times['linvel_flat'].values>velthresh).astype(int)   # get boolean of above thresh, convert to int
-        pos_assignments = (pos_obj['linvel_flat'].values>velthresh).astype(int)
+        mark_assignments = (posinfo_at_mark_times['linvel_flat'].values>velthresh)   # get boolean of above thresh, convert to int
+        pos_assignments = (pos_obj['linvel_flat'].values>velthresh)
 
     marks_obj['encoding_set'] = mark_assignments   # then add values
     pos_obj['encoding_set'] = pos_assignments
