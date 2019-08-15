@@ -492,6 +492,10 @@ class ChannelSelection(rt_logging.PrintableMessage):
     def __init__(self, ntrode_list):
         self.ntrode_list = ntrode_list
 
+#MEC added
+class RippleChannelSelection(rt_logging.PrintableMessage):
+    def __init__(self, ripple_ntrode_list):
+        self.ripple_ntrode_list = ripple_ntrode_list
 
 class TurnOnDataStream(rt_logging.PrintableMessage):
     def __init__(self):

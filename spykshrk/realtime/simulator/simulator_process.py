@@ -45,6 +45,11 @@ class SimTrodeListMessage(rt_logging.PrintableMessage):
     def __init__(self, trode_list):
         self.trode_list = trode_list
 
+#added MEC
+class RippleTrodeListMessage(rt_logging.PrintableMessage):
+    def __init__(self, ripple_trode_list):
+        self.ripple_trode_list = ripple_trode_list
+
 class TrodesDataReceiver(realtime_base.DataSourceReceiver):
 # class SimulatorRemoteReceiver(realtime_base.DataSourceReceiver):
     """Class that receives data from trodes using its network api
@@ -80,12 +85,14 @@ class TrodesDataReceiver(realtime_base.DataSourceReceiver):
             self.buf = self.datastream.create_numpy_array()
             self.curntrode = -1
             self.subbedntrodes = len(chnls)
+            print('ripple channels',self.channels)
             
         elif self.datatype is datatypes.Datatypes.SPIKES:
             chnls = [str(i)+',0' for i in self.channels]
             self.datastream = self.network.subscribeSpikesData(300, chnls)
             self.datastream.initialize()
             self.buf = self.datastream.create_numpy_array()
+            print('encoder channels',self.channels)
             
         elif self.datatype is datatypes.Datatypes.LINEAR_POSITION:
             self.datastream = self.network.subscribeHighFreqData('PositionData', 'CameraModule', 20)
@@ -292,6 +299,12 @@ class SimulatorSendInterface(realtime_base.RealtimeMPIClass):
                        dest=self.config['rank']['supervisor'],
                        tag=realtime_base.MPIMessageTag.COMMAND_MESSAGE)
 
+    #added MEC
+    def send_ripple_ntrode_list(self, ripple_ntrode_list):
+        self.comm.send(obj=RippleTrodeListMessage(ripple_ntrode_list),
+                       dest=self.config['rank']['supervisor'],
+                       tag=realtime_base.MPIMessageTag.COMMAND_MESSAGE)
+
     def send_time_sync_other(self):
         rank_list = list(range(self.comm.size))
         rank_list.remove(self.rank)
@@ -349,6 +362,7 @@ class Simulator(realtime_base.BinaryRecordBaseWithTiming, realtime_base.Realtime
     def send_ntrode_list(self):
         # Send ntrode configuration.  This automatically triggers a cascade of messages to start the simulation
         # and receiving ranks
+        # does this do anything when trodes is the datasource??? - NO, it seems like this section is NOT used with trodes
         self.mpi_send.send_ntrode_list(self.config['simulator']['nspike_animal_info']['tetrodes'])
 
     def update_cont_chan_req(self, dest_rank, lfp_chan):
