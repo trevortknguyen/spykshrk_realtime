@@ -5,13 +5,13 @@
     "rank": {
         "supervisor": 0,
         "decoder": 1,
-        "ripples": [2],
-        "encoders": [3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22]
+        "ripples": [2,3,4,5,6],
+        "encoders": [7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26]
     }, 
 
     "rank_settings": {
-        "enable_rec": [0, 1, 2, 3, 4, 5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22],
-        "enable_profiler": [0, 1, 2, 3, 4, 5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22]
+        "enable_rec": [2],
+        "enable_profiler": [0, 1, 2, 3, 4, 5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26]
     },
 
     "files": {
@@ -22,7 +22,7 @@
         "timing_postfix": "timing",
         "backup_dir": "/opt/spykshrk_data/databackup/"
     },
-    
+
         "trodes": {
         "voltage_scaling_factor": 0.195
     },
@@ -130,7 +130,7 @@
             "std": 5
         },
         "vel": 8,
-        "spk_amp": 100
+        "spk_amp": 150
     },
 
     "decoder": "pp_decoder",
