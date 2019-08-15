@@ -40,11 +40,17 @@ class MainProcessClient(tnp.AbstractModuleClient):
 
     def registerStartupCallback(self, callback):
         self.startup = callback
+
+    #MEC added: to get ripple tetrode list
+    def registerStartupCallbackRippleTetrodes(self, callback):
+        self.startupRipple = callback
     
     def recv_acquisition(self, command, timestamp):
         if command == tnp.acq_PLAY:
             if not self.ntrode_list_sent:
-                self.startup(self.config['trodes_network']['tetrodes'])
+                self.startup(self.config['trodes_network']['decoding_tetrodes'])
+                #added MEC
+                self.startupRipple(self.config['trodes_network']['ripple_tetrodes'])
                 self.started = True
                 self.ntrode_list_sent = True
 
@@ -87,6 +93,8 @@ class MainProcess(realtime_base.RealtimeProcess):
                 del self.networkclient
                 quit()
             self.networkclient.registerStartupCallback(self.manager.handle_ntrode_list)
+            #added MEC
+            self.networkclient.registerStartupCallbackRippleTetrodes(self.manager.handle_ripple_ntrode_list)
             self.networkclient.registerTerminationCallback(self.manager.trigger_termination)
 
         self.recv_interface = MainSimulatorMPIRecvInterface(comm=comm, rank=rank,
@@ -279,6 +287,11 @@ class MainMPISendInterface(realtime_base.RealtimeMPIClass):
         self.comm.send(obj=spykshrk.realtime.realtime_base.ChannelSelection(channel_selects), dest=rank,
                        tag=realtime_base.MPIMessageTag.COMMAND_MESSAGE)
 
+    #MEC added
+    def send_ripple_channel_selection(self, rank, channel_selects):
+        self.comm.send(obj=spykshrk.realtime.realtime_base.RippleChannelSelection(channel_selects), dest=rank,
+                       tag=realtime_base.MPIMessageTag.COMMAND_MESSAGE)
+
     def send_new_writer_message(self, rank, new_writer_message):
         self.comm.send(obj=new_writer_message, dest=rank,
                        tag=realtime_base.MPIMessageTag.COMMAND_MESSAGE)
@@ -371,20 +384,23 @@ class MainSimulatorManager(rt_logging.LoggingClass):
         offset_time = self.master_time - remote_time
         self.send_interface.send_time_sync_offset(rank, offset_time)
 
-    def _ripple_ranks_startup(self, trode_list):
+    #MEC edited this function to take in list of ripple tetrodes only
+    def _ripple_ranks_startup(self, ripple_trode_list):
         for rip_rank in self.config['rank']['ripples']:
-            self.send_interface.send_num_ntrode(rank=rip_rank, num_ntrodes=len(trode_list))
+            self.send_interface.send_num_ntrode(rank=rip_rank, num_ntrodes=len(ripple_trode_list))
 
         # Round robin allocation of channels to ripple
         enable_count = 0
         all_ripple_process_enable = [[] for _ in self.config['rank']['ripples']]
-        for chan_ind, chan_id in enumerate(trode_list):
+        #MEC changed trode_liist to ripple_trode_list
+        for chan_ind, chan_id in enumerate(ripple_trode_list):
             all_ripple_process_enable[enable_count % len(self.config['rank']['ripples'])].append(chan_id)
             enable_count += 1
 
         # Set channel assignments for all ripple ranks
+        #MEC changed send_channel_selection to sned_ripple_channel_selection
         for rank_ind, rank in enumerate(self.config['rank']['ripples']):
-            self.send_interface.send_channel_selection(rank, all_ripple_process_enable[rank_ind])
+            self.send_interface.send_ripple_channel_selection(rank, all_ripple_process_enable[rank_ind])
 
         for rip_rank in self.config['rank']['ripples']:
 
@@ -462,14 +478,25 @@ class MainSimulatorManager(rt_logging.LoggingClass):
 
         self.time_sync_on = True
 
+    #MEC edited
     def handle_ntrode_list(self, trode_list):
 
-        self.class_log.debug("Received ntrode list {:}.".format(trode_list))
+        self.class_log.debug("Received decoding ntrode list {:}.".format(trode_list))
 
-        self._ripple_ranks_startup(trode_list)
+        #self._ripple_ranks_startup(trode_list)
         self._encoder_rank_startup(trode_list)
         self._decoder_rank_startup(trode_list)
         self._stim_decider_startup()
+
+        #self._writer_startup()
+        #self._turn_on_datastreams()
+
+    #MEC added
+    def handle_ripple_ntrode_list(self, ripple_trode_list):
+
+        self.class_log.debug("Received ripple ntrode list {:}.".format(ripple_trode_list))
+
+        self._ripple_ranks_startup(ripple_trode_list)
 
         self._writer_startup()
         self._turn_on_datastreams()
@@ -509,6 +536,12 @@ class MainSimulatorMPIRecvInterface(realtime_base.RealtimeMPIClass):
 
         if isinstance(message, simulator_process.SimTrodeListMessage):
             self.main_manager.handle_ntrode_list(message.trode_list)
+            print('decoding tetrodes message',message.trode_list)
+
+        #MEC added
+        if isinstance(message, simulator_process.RippleTrodeListMessage):
+            self.main_manager.handle_ripple_ntrode_list(message.ripple_trode_list)
+            print('ripple tetrodes message',message.ripple_trode_list)
 
         elif isinstance(message, binary_record.BinaryRecordTypeMessage):
             self.class_log.debug("BinaryRecordTypeMessage received for rec id {} from rank {}".

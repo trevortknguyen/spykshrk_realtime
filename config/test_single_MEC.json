@@ -6,12 +6,12 @@
         "supervisor": 0,
         "decoder": 1,
         "ripples": [2],
-        "encoders": [3,4,5,6,7]
+        "encoders": [3,4]
     }, 
 
     "rank_settings": {
-        "enable_rec": [0, 1, 2, 3,4,5,6,7],
-        "enable_profiler": [0, 1, 2, 3,4,5,6,7]
+        "enable_rec": [0, 1, 2, 3,4],
+        "enable_profiler": [0, 1, 2, 3,4]
     },
 
     "files": {
@@ -22,7 +22,7 @@
         "timing_postfix": "timing",
         "backup_dir": "/mnt/vortex/mcoulter/spykshrk_realtime/databackup"
     },
-    
+
     "trodes": {
         "voltage_scaling_factor": 0.195
     },
@@ -130,7 +130,7 @@
             "std": 5
         },
         "vel": 8,
-        "spk_amp": 100
+        "spk_amp": 150
     },
 
     "decoder": "pp_decoder",
@@ -140,7 +140,7 @@
     },
 
     "pp_decoder": {
-        "bin_size": 300,
+        "bin_size": 150,
         "trans_mat_uniform_gain": 0.001,
         "trans_mat_smoother_std": 3
 
@@ -149,6 +149,7 @@
     "trodes_network": {
         "address" : "tcp://127.0.0.1",
         "port": 49152,
-        "tetrodes": [10,13,17,19,29]
+        "decoding_tetrodes": [4,30],
+        "ripple_tetrodes": [10,13]
     }
 }

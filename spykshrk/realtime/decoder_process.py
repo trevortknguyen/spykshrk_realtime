@@ -48,12 +48,13 @@ class SpikeDecodeRecvInterface(realtime_base.RealtimeMPIClass):
 
 class PointProcessDecoder(realtime_logging.LoggingClass):
 
-    def __init__(self, pos_range, pos_bins, time_bin_size, arm_coor, uniform_gain=0.01):
+    def __init__(self, pos_range, pos_bins, time_bin_size, arm_coor, config, uniform_gain=0.01):
         self.pos_range = pos_range
         self.pos_bins = pos_bins
         self.time_bin_size = time_bin_size
         self.arm_coor = arm_coor
         self.uniform_gain = uniform_gain
+        self.config = config
 
         self.ntrode_list = []
 
@@ -117,6 +118,7 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
 
     @staticmethod
     def _sungod_transition_matrix():
+        #updated for 2 pixels 8-14-19
 
         arm_coords = np.array([[0,1],[5,17],[21,33],[37,49],[53,65],[69,81],[85,97],[101,113],[117,129]])
         max_pos = arm_coords[-1][-1] + 1
@@ -131,15 +133,15 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
 
         for x in arm_coords[:,0]:
             transition_mat[int(x),int(x)] = (5/9)
-            transition_mat[0,int(x)] = (1/9)
-            transition_mat[int(x),0] = (1/9)
+            transition_mat[1,int(x)] = (1/9)
+            transition_mat[int(x),1] = (1/9)
 
         for y in arm_coords[:,1]:
             transition_mat[int(y),int(y)] = (2/3)
 
-        transition_mat[0,0] = (1/9)
-        transition_mat[1,0] = 0
-        transition_mat[0,1] = 0
+        transition_mat[0,0] = (8/9)
+        transition_mat[1,0] = (1/9)
+        transition_mat[0,1] = (1/9)
         transition_mat[1,1] = 0
 
                 # uniform offset (gain, currently 0.0001)
@@ -156,9 +158,6 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
 
                 # to smooth: take the transition matrix to a power
         transition_mat = np.linalg.matrix_power(transition_mat,1)
-
-                # apply no animal boundary - make gaps between arms
-        transition_mat = apply_no_anim_boundary(pos_bins, arm_coords, transition_mat)
 
                 # normalize transition matrix
         transition_mat = transition_mat/(transition_mat.sum(axis=0)[None, :])
@@ -188,8 +187,8 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         self.cur_pos_ind = int((self.cur_pos - self.pos_range[0]) /
                                self.pos_delta)
 
-        #if abs(self.current_vel) >= self.config['encoder']['vel']:
-        if abs(self.cur_vel) >= 4:
+        if abs(self.cur_vel) >= self.config['encoder']['vel']:
+        #if abs(self.cur_vel) >= 4:
             #print(self.cur_vel)
             self.occ[self.cur_pos_ind] += 1
 
@@ -305,7 +304,8 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                                               pos_bins=self.config['encoder']['position']['bins'],
                                               time_bin_size=self.time_bin_size,
                                               arm_coor=self.config['encoder']['position']['arm_pos'],
-                                              uniform_gain=config['pp_decoder']['trans_mat_uniform_gain'])
+                                              uniform_gain=config['pp_decoder']['trans_mat_uniform_gain'],
+                                              config = self.config)
         # 7-2-19, added spike count for each decoding bin
         self.spike_count = 0
 

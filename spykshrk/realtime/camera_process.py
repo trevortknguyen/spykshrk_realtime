@@ -1,6 +1,7 @@
 import os
 import struct
 import numpy as np
+import math
 from mpi4py import MPI
 from spykshrk.realtime import realtime_base, realtime_logging, binary_record, datatypes
 from spykshrk.realtime.simulator import simulator_process
@@ -152,11 +153,18 @@ class LinearPositionAssignment:
     def assign_position(self, segment, segment_pos):
         self.assigned_pos = 0
 
+        # TO DO: split box into two segments, inner segment (0): 0.3-0.7, outer segment (1): 0-0.3 and 0.7-1
+        # also need to bin position here - use math.ceil to round UP to nearest integer
+
         # make all assigned positions in the box between 0-1, so now the box is effectively 1 bin
         if segment < 7:
-            self.assigned_pos = segment_pos + self.shift_linear_distance_by_arm_dictionary[segment]
+            #self.assigned_pos = segment_pos + self.shift_linear_distance_by_arm_dictionary[segment]
+            if segment_pos < 0.7 and segment_pos > 0.3:
+                self.assigned_pos = 0
+            else:
+                self.assigned_pos = 1
         else:
-            self.assigned_pos = segment_pos*12 + self.shift_linear_distance_by_arm_dictionary[segment]
+            self.assigned_pos = math.ceil(segment_pos*12 + self.shift_linear_distance_by_arm_dictionary[segment])
 
         return self.assigned_pos
 

@@ -11,7 +11,7 @@ import spykshrk.realtime.realtime_logging as rt_logging
 import spykshrk.realtime.simulator.simulator_process as simulator_process
 import spykshrk.realtime.timing_system as timing_system
 from spykshrk.realtime.datatypes import LFPPoint
-from spykshrk.realtime.realtime_base import ChannelSelection, TurnOnDataStream
+from spykshrk.realtime.realtime_base import ChannelSelection, TurnOnDataStream, RippleChannelSelection
 
 
 class RippleParameterMessage(rt_logging.PrintableMessage):
@@ -377,7 +377,7 @@ class RippleManager(realtime_base.BinaryRecordBaseWithTiming, rt_logging.Logging
         self.class_log.info('Set number of ntrodes: {:d}'.format(self.num_ntrodes))
 
     def select_ntrodes(self, ntrode_list):
-        # currently we use all tetrodes for ripple detection - where can we specify only using a subset???
+        # MEC added: now this only uses the list of tetrodes in the config file called 'ripple_tetrodes'
         self.class_log.debug("Registering continuous channels: {:}.".format(ntrode_list))
         for electrode_group in ntrode_list:
             self.data_interface.register_datatype_channel(channel=electrode_group)
@@ -501,8 +501,13 @@ class RippleMPIRecvInterface(realtime_base.RealtimeMPIClass):
         elif isinstance(message, realtime_base.NumTrodesMessage):
             self.rip_man.set_num_trodes(message)
 
-        elif isinstance(message, ChannelSelection):
-            self.rip_man.select_ntrodes(message.ntrode_list)
+        #MEC commented out
+        #elif isinstance(message, ChannelSelection):
+        #    self.rip_man.select_ntrodes(message.ntrode_list)
+
+        #MEC added
+        elif isinstance(message, RippleChannelSelection):
+            self.rip_man.select_ntrodes(message.ripple_ntrode_list)
 
         elif isinstance(message, TurnOnDataStream):
             self.rip_man.turn_on_datastreams()

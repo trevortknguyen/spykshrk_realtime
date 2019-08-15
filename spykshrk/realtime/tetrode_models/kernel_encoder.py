@@ -84,10 +84,11 @@ class RSTKernelEncoder:
 
         self.tree = RST.RSTPython(filename.encode('utf-8'), new_tree, param.kernel)
         self.covariate = 0
-        # initialize to one's to prevent divide by zero when normalizing my occupancy
+        # initialize to one's to prevent divide by zero when normalizing by occupancy
         self.pos_hist = np.ones(param.pos_hist_struct.num_bins)
 
         pos_bin_center_tmp = self.param.pos_hist_struct.pos_bin_center
+        #currently not using pos_kernel because i turned off the convolution step below
         self.pos_kernel = gaussian(pos_bin_center_tmp,
                                    pos_bin_center_tmp[int(len(pos_bin_center_tmp)/2)],
                                    self.param.pos_kernel_std)
@@ -106,6 +107,7 @@ class RSTKernelEncoder:
 
         self.tree.insert_rec(mark[0], mark[1], mark[2],
                              mark[3], self.covariate)
+        #print('position: ',self.covariate)
 
     # MEC 7-10-19 try going from 5 to 3, because 3 stdev in 4D space will still get 95% of the points
     def query_mark(self, mark):

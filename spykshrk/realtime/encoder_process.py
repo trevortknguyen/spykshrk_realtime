@@ -235,6 +235,7 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
                 # this line calculates the mark for each channel (max of the 40 voltage values)
                 amp_marks = [max(x) for x in datapoint.data]
 
+                # this looks up the current spike in the RStar Tree
                 if max(amp_marks) > self.config['encoder']['spk_amp']:
                     #print(datapoint.timestamp,datapoint.elec_grp_id, amp_marks)
                     query_result = self.encoders[datapoint.elec_grp_id]. \
@@ -272,6 +273,7 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
                     self.thread.get_spike_info(datapoint.timestamp,datapoint.elec_grp_id,self.current_pos,self.config)
                     #print('spike_sent value from manager:',self.spike_sent)
 
+                    # this adds the current spike to the R Star Tree
                     if abs(self.current_vel) >= self.config['encoder']['vel']:
 
                         self.encoders[datapoint.elec_grp_id].new_mark(amp_marks)
