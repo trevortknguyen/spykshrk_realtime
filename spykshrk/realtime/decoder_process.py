@@ -118,9 +118,14 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
 
     @staticmethod
     def _sungod_transition_matrix():
-        #updated for 2 pixels 8-14-19
+        # updated for 2 pixels 8-14-19
+        # arm_coords updated for 8 pixels 8-15-19
+        # NOTE: by rounding up for binning position of outer arms, we get no position in first bin of each arm
+        # we could just move the first position here in arm coords and then each arm will start 1 bin higher
+        # based on looking at counts from position this should work, so each arm is 11 units
 
-        arm_coords = np.array([[0,1],[5,17],[21,33],[37,49],[53,65],[69,81],[85,97],[101,113],[117,129]])
+        arm_coords = np.array([[0,7],[12,23],[28,39],[44,55],[60,71],[76,87],[90,103],[108,119],[124,135]])
+        #arm_coords = np.array([[0,7],[11,23],[27,39],[43,55],[59,71],[75,87],[91,103],[107,119],[123,135]])
         max_pos = arm_coords[-1][-1] + 1
         pos_bins = np.arange(0,max_pos,1)
 
@@ -130,19 +135,23 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         k = np.array([(1/3)*np.ones(n-1),(1/3)*np.ones(n),(1/3)*np.ones(n-1)])
         offset = [-1,0,1]
         transition_mat = diags(k,offset).toarray()
+        box_end_bin = arm_coords[0,1]
 
         for x in arm_coords[:,0]:
             transition_mat[int(x),int(x)] = (5/9)
-            transition_mat[1,int(x)] = (1/9)
-            transition_mat[int(x),1] = (1/9)
+            transition_mat[box_end_bin,int(x)] = (1/9)
+            transition_mat[int(x),box_end_bin] = (1/9)
 
         for y in arm_coords[:,1]:
             transition_mat[int(y),int(y)] = (2/3)
 
-        transition_mat[0,0] = (8/9)
-        transition_mat[1,0] = (1/9)
-        transition_mat[0,1] = (1/9)
-        transition_mat[1,1] = 0
+        transition_mat[box_end_bin,0] = 0
+        transition_mat[0,box_end_bin] = 0
+        transition_mat[box_end_bin,box_end_bin] = 0
+        transition_mat[0,0] = (2/3)
+        transition_mat[box_end_bin-1, box_end_bin-1] = (5/9)
+        transition_mat[box_end_bin-1,box_end_bin] = (1/9)
+        transition_mat[box_end_bin, box_end_bin-1] = (1/9)
 
                 # uniform offset (gain, currently 0.0001)
                 # needs to be set before running the encoder cell

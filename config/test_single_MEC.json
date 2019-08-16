@@ -122,9 +122,9 @@
 
         "position": {
             "lower": 0,
-            "upper": 130,
-            "bins": 130,
-            "arm_pos": [[0, 129]]
+            "upper": 136,
+            "bins": 136,
+            "arm_pos": [[0, 135]]
         },
         "position_kernel": {
             "std": 5
@@ -149,7 +149,7 @@
     "trodes_network": {
         "address" : "tcp://127.0.0.1",
         "port": 49152,
-        "decoding_tetrodes": [4,30],
+        "decoding_tetrodes": [4,6],
         "ripple_tetrodes": [10,13]
     }
 }
