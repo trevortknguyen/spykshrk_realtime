@@ -228,6 +228,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 self._lockout_count += 1
 
             if (num_above >= self._ripple_n_above_thresh) and not self._in_lockout:
+                print('tets above ripple thresh: ',num_above)
                 self._in_lockout = True
                 self._last_lockout_timestamp = timestamp
                 self.class_log.debug("Ripple threshold detected {}.".format(self._ripple_thresh_states))
@@ -411,11 +412,13 @@ class MainSimulatorManager(rt_logging.LoggingClass):
             # Convert json string keys into int (ntrode_id) and send
             rip_mean_base_dict = dict(map(lambda x: (int(x[0]), x[1]),
                                           self.config['ripple']['CustomRippleBaselineMeanMessage'].items()))
+            print('ripple mean: ',rip_mean_base_dict)
             self.send_interface.send_ripple_baseline_mean(rank=rip_rank, mean_dict=rip_mean_base_dict)
 
             # Convert json string keys into int (ntrode_id) and send
             rip_std_base_dict = dict(map(lambda x: (int(x[0]), x[1]),
                                          self.config['ripple']['CustomRippleBaselineStdMessage'].items()))
+            print('ripple std: ',rip_std_base_dict)
             self.send_interface.send_ripple_baseline_std(rank=rip_rank, std_dict=rip_std_base_dict)
 
     def _stim_decider_startup(self):
