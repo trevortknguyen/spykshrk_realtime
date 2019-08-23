@@ -150,6 +150,6 @@
         "address" : "tcp://127.0.0.1",
         "port": 49152,
         "decoding_tetrodes": [4,6],
-        "ripple_tetrodes": [10,13]
+        "ripple_tetrodes": [10,13,17,19,29]
     }
 }

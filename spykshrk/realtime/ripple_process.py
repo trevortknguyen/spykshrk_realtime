@@ -153,9 +153,11 @@ class RippleFilter(rt_logging.LoggingClass):
         else:
             pass
 
+    #MEC TYPO!!!! should be custom_baseline_std not custom_baseline_mean
     @property
     def custom_baseline_std(self):
-        return self._custom_baseline_mean
+        #return self._custom_baseline_mean
+        return self._custom_baseline_std
 
     @custom_baseline_std.setter
     def custom_baseline_std(self, value):
@@ -264,7 +266,7 @@ class RippleFilter(rt_logging.LoggingClass):
                 if self.current_val >= (self.custom_baseline_mean + self.custom_baseline_std *
                                         self.param.ripple_threshold):
                     self.thresh_crossed = True
-                    #print(self.current_val,self.custom_baseline_mean, self.custom_baseline_std * self.param.ripple_threshold, self.param.ripple_threshold)
+                    #print(self.elec_grp_id,self.current_val,self.custom_baseline_mean + self.custom_baseline_std * self.param.ripple_threshold, self.custom_baseline_mean, self.custom_baseline_std, self.param.ripple_threshold)
                 else:
                     self.thresh_crossed = False
             else:
@@ -397,12 +399,14 @@ class RippleManager(realtime_base.BinaryRecordBaseWithTiming, rt_logging.Logging
     def set_custom_baseline_mean(self, custom_mean_dict):
         self.class_log.info("Custom baseline mean updated.")
         self.custom_baseline_mean_dict = custom_mean_dict
+        #print('ripple mean: ',self.custom_baseline_mean_dict)
         for ntrode_index, rip_filt in self.ripple_filters.items():
             rip_filt.custom_baseline_mean = self.custom_baseline_mean_dict[ntrode_index]
 
     def set_custom_baseline_std(self, custom_std_dict):
         self.class_log.info("Custom baseline std updated.")
         self.custom_baseline_std_dict = custom_std_dict
+        #print('ripple stdev: ',self.custom_baseline_std_dict)
         for ntrode_index, rip_filt in self.ripple_filters.items():
             rip_filt.custom_baseline_std = self.custom_baseline_std_dict[ntrode_index]
 
