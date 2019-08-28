@@ -124,7 +124,7 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         # we could just move the first position here in arm coords and then each arm will start 1 bin higher
         # based on looking at counts from position this should work, so each arm is 11 units
 
-        arm_coords = np.array([[0,7],[12,23],[28,39],[44,55],[60,71],[76,87],[90,103],[108,119],[124,135]])
+        arm_coords = np.array([[0,7],[12,23],[28,39],[44,55],[60,71],[76,87],[92,103],[108,119],[124,135]])
         #arm_coords = np.array([[0,7],[11,23],[27,39],[43,55],[59,71],[75,87],[91,103],[107,119],[123,135]])
         max_pos = arm_coords[-1][-1] + 1
         pos_bins = np.arange(0,max_pos,1)
@@ -153,22 +153,20 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         transition_mat[box_end_bin-1,box_end_bin] = (1/9)
         transition_mat[box_end_bin, box_end_bin-1] = (1/9)
 
-                # uniform offset (gain, currently 0.0001)
-                # needs to be set before running the encoder cell
-                # normally: decode_settings.trans_uniform_gain
-        uniform_gain = 0.001
+        # uniform offset (gain, currently 0.0001)
+        uniform_gain = 0.0001
         uniform_dist = np.ones(transition_mat.shape)*uniform_gain
 
-                # apply uniform offset
+        # apply uniform offset
         transition_mat = transition_mat + uniform_dist
 
-                # apply no animal boundary - make gaps between arms
+        # apply no animal boundary - make gaps between arms
         transition_mat = apply_no_anim_boundary(pos_bins, arm_coords, transition_mat)
 
-                # to smooth: take the transition matrix to a power
+        # to smooth: take the transition matrix to a power
         transition_mat = np.linalg.matrix_power(transition_mat,1)
 
-                # normalize transition matrix
+        # normalize transition matrix
         transition_mat = transition_mat/(transition_mat.sum(axis=0)[None, :])
 
         transition_mat[np.isnan(transition_mat)] = 0
