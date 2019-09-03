@@ -25,6 +25,7 @@ class RSTParameter:
         self.kernel = kernel
         self.pos_hist_struct = pos_hist_struct
         self.pos_kernel_std = pos_kernel_std
+        #print('pos_hist_struct: ',self.pos_hist_struct)
 
 
 class RSTKernelEncoderQuery(PrintableMessage):
@@ -93,15 +94,34 @@ class RSTKernelEncoder:
                                    pos_bin_center_tmp[int(len(pos_bin_center_tmp)/2)],
                                    self.param.pos_kernel_std)
 
-    def update_covariate(self, covariate):
+        self.occupancy_counter = 0
+
+        #print('num bins: ',param.pos_hist_struct.num_bins)
+        #print('range: ',param.pos_hist_struct.pos_range)
+        #print('bin edges: ',param.pos_hist_struct.pos_bin_edges)
+        #print('bin center: ',param.pos_hist_struct.pos_bin_center)
+        #print('bin delta: ',param.pos_hist_struct.pos_bin_delta)
+
+
+    def update_covariate(self, covariate, current_vel=None):
         self.covariate = covariate
+        self.current_vel = current_vel
         # bin_idx = np.nonzero((self.param.pos_hist_struct.pos_bin_edges - covariate) > 0)[0][0] - 1
         bin_idx = self.param.pos_hist_struct.which_bin(self.covariate)
-        self.pos_hist[bin_idx] += 1
-        #print(self.pos_hist)
+        #only want to add to pos_hist during movement times - aka vel > 8
+        if abs(self.current_vel) >= self.config['encoder']['vel']:
+            self.pos_hist[bin_idx] += 1
+            #print(self.pos_hist)
+            #print('update_covariate current_vel: ',self.current_vel)
+
+            self.occupancy_counter += 1
+        if self.occupancy_counter % 10000 == 0:
+            print('encoder_query_occupancy: ',self.pos_hist)
+            print('number of pos entries encoder: ',self.occupancy_counter)      
 
     def new_mark(self, mark, new_cov=None):
         # update new covariate if specified, otherwise use previous covariate state
+        # it doesnt look this is currently being used
         if new_cov:
             self.update_covariate(new_cov)
 

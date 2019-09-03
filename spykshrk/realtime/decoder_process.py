@@ -53,8 +53,9 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         self.pos_bins = pos_bins
         self.time_bin_size = time_bin_size
         self.arm_coor = arm_coor
-        self.uniform_gain = uniform_gain
         self.config = config
+        #self.uniform_gain = uniform_gain
+        self.uniform_gain = self.config['pp_decoder']['trans_mat_uniform_gain']
 
         self.ntrode_list = []
 
@@ -76,7 +77,8 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         #                                                                    self.uniform_gain)
 
         #create sungod transition matrix - should make transition matrix type an option in the config file and specify it there
-        self.transition_mat = PointProcessDecoder._sungod_transition_matrix()        
+        print(self.uniform_gain)
+        self.transition_mat = PointProcessDecoder._sungod_transition_matrix(self.uniform_gain)        
 
         self.current_spike_count = 0
         self.pos_counter = 0
@@ -117,7 +119,7 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         return transition_mat
 
     @staticmethod
-    def _sungod_transition_matrix():
+    def _sungod_transition_matrix(uniform_gain):
         # updated for 2 pixels 8-14-19
         # arm_coords updated for 8 pixels 8-15-19
         # NOTE: by rounding up for binning position of outer arms, we get no position in first bin of each arm
@@ -128,6 +130,8 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         #arm_coords = np.array([[0,7],[11,23],[27,39],[43,55],[59,71],[75,87],[91,103],[107,119],[123,135]])
         max_pos = arm_coords[-1][-1] + 1
         pos_bins = np.arange(0,max_pos,1)
+
+        uniform_gain = uniform_gain
 
         from scipy.sparse import diags
         n = len(pos_bins)
@@ -154,7 +158,8 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         transition_mat[box_end_bin, box_end_bin-1] = (1/9)
 
         # uniform offset (gain, currently 0.0001)
-        uniform_gain = 0.0001
+        # 9-1-19 this is now taken from config file
+        #uniform_gain = 0.0001
         uniform_dist = np.ones(transition_mat.shape)*uniform_gain
 
         # apply uniform offset
@@ -195,13 +200,12 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
                                self.pos_delta)
 
         if abs(self.cur_vel) >= self.config['encoder']['vel']:
-        #if abs(self.cur_vel) >= 4:
-            #print(self.cur_vel)
             self.occ[self.cur_pos_ind] += 1
 
-        self.pos_counter += 1
-        if self.pos_counter % 10000 == 0:
-            print(self.occ)
+            self.pos_counter += 1
+            if self.pos_counter % 10000 == 0:
+                print('prob_no_spike_occupancy: ',self.occ)
+                print('number of pos entries decode: ',self.pos_counter)
 
     def increment_no_spike_bin(self):
 
