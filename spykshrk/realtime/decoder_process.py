@@ -204,8 +204,8 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
 
             self.pos_counter += 1
             if self.pos_counter % 10000 == 0:
-                print('prob_no_spike_occupancy: ',self.occ)
-                print('number of pos entries decode: ',self.pos_counter)
+                #print('prob_no_spike_occupancy: ',self.occ)
+                print('number of position entries decode: ',self.pos_counter)
 
     def increment_no_spike_bin(self):
 
@@ -214,11 +214,17 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         for tet_id, tet_fr in self.firing_rate.items():
             # Normalize firing rate
             tet_fr_norm = tet_fr / tet_fr.sum()
-            prob_no_spike[tet_id] = np.exp(-self.time_bin_size/30000 *
-                                           tet_fr_norm / self.occ)
+            # MEC 9-3-19 to turn off prob_no_spike
+            prob_no_spike[tet_id] = np.ones(self.pos_bins)
+            #prob_no_spike[tet_id] = np.exp(-self.time_bin_size/30000 *
+            #                               tet_fr_norm / self.occ)
 
             global_prob_no *= prob_no_spike[tet_id]
         global_prob_no /= global_prob_no.sum()
+        
+        # MEC print statement added
+        if self.pos_counter % 10000 == 0:
+            print('global prob no spike: ',global_prob_no)
 
         # Compute likelihood for all previous 0 spike bins
         # update last posterior
@@ -244,11 +250,17 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         for tet_id, tet_fr in self.firing_rate.items():
             # Normalize firing rate
             tet_fr_norm = tet_fr / tet_fr.sum()
-            prob_no_spike[tet_id] = np.exp(-self.time_bin_size/30000 *
-                                           tet_fr_norm / self.occ)
+            # MEC 9-3-19 to turn off prob_no_spike
+            prob_no_spike[tet_id] = np.ones(self.pos_bins)
+            #prob_no_spike[tet_id] = np.exp(-self.time_bin_size/30000 *
+            #                               tet_fr_norm / self.occ)
 
             global_prob_no *= prob_no_spike[tet_id]
         global_prob_no /= global_prob_no.sum()
+
+        # MEC print statement added
+        if self.pos_counter % 10000 == 0:
+            print('global prob no spike: ',global_prob_no)
 
         # Update last posterior
         self.prev_posterior = self.posterior

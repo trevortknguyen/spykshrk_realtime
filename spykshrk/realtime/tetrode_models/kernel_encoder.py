@@ -116,8 +116,8 @@ class RSTKernelEncoder:
 
             self.occupancy_counter += 1
         if self.occupancy_counter % 10000 == 0:
-            print('encoder_query_occupancy: ',self.pos_hist)
-            print('number of pos entries encoder: ',self.occupancy_counter)      
+            #print('encoder_query_occupancy: ',self.pos_hist)
+            print('number of position entries encoder: ',self.occupancy_counter)      
 
     def new_mark(self, mark, new_cov=None):
         # update new covariate if specified, otherwise use previous covariate state
