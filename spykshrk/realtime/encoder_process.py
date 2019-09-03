@@ -202,6 +202,7 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
     def select_ntrodes(self, ntrode_list):
         self.class_log.debug("Registering spiking channels: {:}.".format(ntrode_list))
         for ntrode in ntrode_list:
+            #print('position parameters: ',self.rst_param)
             self.spike_interface.register_datatype_channel(channel=ntrode)
 
             self.encoders.setdefault(ntrode, kernel_encoder.RSTKernelEncoder('/tmp/ntrode{:}'.
@@ -309,6 +310,7 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
                 pass
             
             if isinstance(datapoint, CameraModulePoint):
+                #NOTE (MEC, 9-1-19): we need to include encoding velocity when calling update_covariate
                 self.pos_counter += 1
 
                 # run positionassignment and velocity calculator functions
@@ -318,7 +320,8 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
                 #print('segment: ',datapoint.segment)
 
                 for encoder in self.encoders.values():
-                    encoder.update_covariate(self.current_pos)
+                    #print('encoder side current vel: ',self.current_vel)
+                    encoder.update_covariate(self.current_pos,self.current_vel)
 
                 if self.pos_counter % 1000 == 0:
                     self.class_log.info('Received {} pos datapoints.'.format(self.pos_counter))

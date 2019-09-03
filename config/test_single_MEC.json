@@ -141,7 +141,7 @@
 
     "pp_decoder": {
         "bin_size": 150,
-        "trans_mat_uniform_gain": 0.001,
+        "trans_mat_uniform_gain": 0.0001,
         "trans_mat_smoother_std": 3
 
     },
