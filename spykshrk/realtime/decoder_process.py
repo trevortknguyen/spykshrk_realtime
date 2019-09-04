@@ -215,9 +215,9 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
             # Normalize firing rate
             tet_fr_norm = tet_fr / tet_fr.sum()
             # MEC 9-3-19 to turn off prob_no_spike
-            prob_no_spike[tet_id] = np.ones(self.pos_bins)
-            #prob_no_spike[tet_id] = np.exp(-self.time_bin_size/30000 *
-            #                               tet_fr_norm / self.occ)
+            #prob_no_spike[tet_id] = np.ones(self.pos_bins)
+            prob_no_spike[tet_id] = np.exp(-self.time_bin_size/30000 *
+                                           tet_fr_norm / self.occ)
 
             global_prob_no *= prob_no_spike[tet_id]
         global_prob_no /= global_prob_no.sum()
@@ -251,9 +251,9 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
             # Normalize firing rate
             tet_fr_norm = tet_fr / tet_fr.sum()
             # MEC 9-3-19 to turn off prob_no_spike
-            prob_no_spike[tet_id] = np.ones(self.pos_bins)
-            #prob_no_spike[tet_id] = np.exp(-self.time_bin_size/30000 *
-            #                               tet_fr_norm / self.occ)
+            #prob_no_spike[tet_id] = np.ones(self.pos_bins)
+            prob_no_spike[tet_id] = np.exp(-self.time_bin_size/30000 *
+                                           tet_fr_norm / self.occ)
 
             global_prob_no *= prob_no_spike[tet_id]
         global_prob_no /= global_prob_no.sum()
