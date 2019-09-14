@@ -328,6 +328,13 @@ class RippleMPISendInterface(realtime_base.RealtimeMPIClass):
                        dest=self.config['rank']['supervisor'],
                        tag=realtime_base.MPIMessageTag.FEEDBACK_DATA.value)
 
+    def send_ripple_thresh_state_decoder(self, timestamp, elec_grp_id, thresh_state):
+        message = RippleThresholdState(timestamp, elec_grp_id, thresh_state)
+
+        self.comm.Send(buf=message.pack(),
+                       dest=self.config['rank']['decoder'],
+                       tag=realtime_base.MPIMessageTag.FEEDBACK_DATA.value)
+
     def forward_timing_message(self, timing_msg: timing_system.TimingMessage):
         self.comm.Send(buf=timing_msg.pack(),
                        dest=self.config['rank']['supervisor'],
@@ -461,7 +468,12 @@ class RippleManager(realtime_base.BinaryRecordBaseWithTiming, rt_logging.Logging
                 self.record_timing(timestamp=datapoint.timestamp, elec_grp_id=datapoint.elec_grp_id,
                                    datatype=datatypes.Datatypes.LFP, label='rip_send')
 
+                # this seems to go to stim_decider class in main_process.py that then applies the # of tetrode filter
                 self.mpi_send.send_ripple_thresh_state(timestamp=datapoint.timestamp,
+                                                       elec_grp_id=datapoint.elec_grp_id,
+                                                       thresh_state=filter_state)
+                #also send thresh cross to decoder
+                self.mpi_send.send_ripple_thresh_state_decoder(timestamp=datapoint.timestamp,
                                                        elec_grp_id=datapoint.elec_grp_id,
                                                        thresh_state=filter_state)
 

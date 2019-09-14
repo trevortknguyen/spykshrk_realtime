@@ -236,6 +236,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                                   timestamp, self._lockout_count, self._in_lockout)
 
                 self._send_interface.start_stimulation()
+            return num_above
 
 
 class StimDeciderMPIRecvInterface(realtime_base.RealtimeMPIClass):
