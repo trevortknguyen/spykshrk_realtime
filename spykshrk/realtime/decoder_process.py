@@ -384,14 +384,14 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                                               rec_ids=[realtime_base.RecordIDs.DECODER_OUTPUT,
                                                        realtime_base.RecordIDs.DECODER_MISSED_SPIKES],
                                               rec_labels=[['timestamp', 'real_pos_time', 'real_pos','spike_count',
-                                                            'ripple','box','arm1','arm2','arm3','arm4','arm5',
-                                                            'arm6','arm7','arm8'] +
+                                                            'ripple','ripple_number','ripple_length','shortcut_message',
+                                                            'box','arm1','arm2','arm3','arm4','arm5','arm6','arm7','arm8'] +
                                                           ['x{:0{dig}d}'.
                                                            format(x, dig=len(str(config['encoder']
                                                                                  ['position']['bins'])))
                                                            for x in range(config['encoder']['position']['bins'])],
                                                           ['timestamp', 'elec_grp_id', 'real_bin', 'late_bin']],
-                                              rec_formats=['qddqqddddddddd'+'d'*config['encoder']['position']['bins'],
+                                              rec_formats=['qddqqqqqddddddddd'+'d'*config['encoder']['position']['bins'],
                                                            'qiii'])
                                                 #i think if you change second q to d above, then you can replace real_pos_time
                                                 # with velocity
@@ -430,6 +430,8 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
         self.replay_target_arm = self.config['pp_decoder']['replay_target_arm']
         self.posterior_arm_sum = np.zeros((1,9))
         self.num_above = 0
+        self.ripple_number = 0
+        self.shortcut_message_sent = False
 
     def register_pos_interface(self):
         # Register position, right now only one position channel is supported
@@ -519,14 +521,18 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                 # also seems like some ripples are being missed by the sum function
                 if self.ripple_thresh_decoder == True:
                     print('ripple thresh crossed decode time bin',self.current_time_bin,' number tets: ', self.num_above)
+                    if self.ripple_time_bin == 0:
+                        self.ripple_number += 1
+                        print('ripple number: ',self.ripple_number)
                     self.no_ripple_time_bin = 0
                     self.posterior_arm_sum = self.pp_decoder.calculate_posterior_arm_sum(posterior, self.ripple_time_bin)
                     self.ripple_time_bin += 1
                     print('posterior sum: ', self.posterior_arm_sum, self.current_time_bin, self.ripple_time_bin)
                     #print('arm 0 sum: ',posterior_arm_sum[0][1])
-                    if self.posterior_arm_sum[0][self.replay_target_arm] > 0.8:
+                    if (self.ripple_time_bin > 2) & (self.posterior_arm_sum[0][self.replay_target_arm] > 0.8):
                         # send shortcut message
                         # start lockout / reset function
+                        self.shortcut_message_sent = True
                         print('arm', self.replay_target_arm, 'sum above 80 percent for time bins: ',self.ripple_time_bin)
 
                 elif self.ripple_thresh_decoder == False:
@@ -544,13 +550,15 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                                   self.current_vel,
                                   self.pp_decoder.cur_pos,
                                   self.spike_count,
-                                  self.ripple_thresh_decoder,self.posterior_arm_sum[0][0],self.posterior_arm_sum[0][1],
+                                  self.ripple_thresh_decoder, self.ripple_number, self.ripple_time_bin,self.shortcut_message_sent,
+                                  self.posterior_arm_sum[0][0],self.posterior_arm_sum[0][1],
                                   self.posterior_arm_sum[0][2],self.posterior_arm_sum[0][3],self.posterior_arm_sum[0][4],
                                   self.posterior_arm_sum[0][5],self.posterior_arm_sum[0][6],self.posterior_arm_sum[0][7],
                                   self.posterior_arm_sum[0][8],
                                   *posterior)
 
                 self.current_time_bin += 1
+                self.shortcut_message_sent = False
 
                 for no_spk_ii in range(spike_time_bin - self.current_time_bin - 1):
                     #spike_count is set to 0 for no_spike_bins
@@ -566,14 +574,18 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                     #print('decode time bin',self.current_time_bin)
                     if self.ripple_thresh_decoder == True:
                         print('ripple thresh crossed decode time bin',self.current_time_bin,' number tets: ', self.num_above)
+                        if self.ripple_time_bin == 0:
+                            self.ripple_number += 1
+                            print('ripple number: ',self.ripple_number)
                         self.no_ripple_time_bin = 0
                         self.posterior_arm_sum = self.pp_decoder.calculate_posterior_arm_sum(posterior, self.ripple_time_bin)
                         self.ripple_time_bin += 1
                         print('posterior sum: ', self.posterior_arm_sum, self.current_time_bin, self.ripple_time_bin)
                         #print('arm 0 sum: ',posterior_arm_sum[0][1])
-                        if self.posterior_arm_sum[0][self.replay_target_arm] > 0.8:
+                        if (self.ripple_time_bin > 2) & (self.posterior_arm_sum[0][self.replay_target_arm] > 0.8):
                             # send shortcut message
                             # start lockout / reset function
+                            self.shortcut_message_sent = True
                             print('arm', self.replay_target_arm, 'sum above 80 percent for time bins: ',self.ripple_time_bin)
 
                     elif self.ripple_thresh_decoder == False:
@@ -586,12 +598,14 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                                       self.current_vel,
                                       self.pp_decoder.cur_pos,
                                       0,
-                                      self.ripple_thresh_decoder,self.posterior_arm_sum[0][0],self.posterior_arm_sum[0][1],
+                                      self.ripple_thresh_decoder, self.ripple_number, self.ripple_time_bin,self.shortcut_message_sent,
+                                      self.posterior_arm_sum[0][0],self.posterior_arm_sum[0][1],
                                       self.posterior_arm_sum[0][2],self.posterior_arm_sum[0][3],self.posterior_arm_sum[0][4],
                                       self.posterior_arm_sum[0][5],self.posterior_arm_sum[0][6],self.posterior_arm_sum[0][7],
                                       self.posterior_arm_sum[0][8],
                                       *posterior)
                     self.current_time_bin += 1
+                    self.shortcut_message_sent = False
 
                 self.pp_decoder.add_observation(spk_elec_grp_id=spike_dec_msg.elec_grp_id,
                                                 spk_pos_hist=spike_dec_msg.pos_hist)

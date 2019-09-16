@@ -167,9 +167,9 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                          rec_ids=[realtime_base.RecordIDs.STIM_STATE,
                                   realtime_base.RecordIDs.STIM_LOCKOUT],
                          rec_labels=[['timestamp', 'elec_grp_id', 'threshold_state'],
-                                     ['timestamp', 'lockout_num', 'lockout_state']],
+                                     ['timestamp', 'lockout_num', 'lockout_state','tets_above_thresh']],
                          rec_formats=['Iii',
-                                      'Iii'])
+                                      'Iiiq'])
         self.rank = rank
         self._send_interface = send_interface
         self._ripple_n_above_thresh = ripple_n_above_thresh
@@ -224,16 +224,16 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 # End lockout
                 self._in_lockout = False
                 self.write_record(realtime_base.RecordIDs.STIM_LOCKOUT,
-                                  timestamp, self._lockout_count, self._in_lockout)
+                                  timestamp, self._lockout_count, self._in_lockout, num_above)
                 self._lockout_count += 1
 
             if (num_above >= self._ripple_n_above_thresh) and not self._in_lockout:
-                print('tets above ripple thresh: ',num_above)
+                print('tets above ripple thresh: ',num_above,timestamp)
                 self._in_lockout = True
                 self._last_lockout_timestamp = timestamp
                 self.class_log.debug("Ripple threshold detected {}.".format(self._ripple_thresh_states))
                 self.write_record(realtime_base.RecordIDs.STIM_LOCKOUT,
-                                  timestamp, self._lockout_count, self._in_lockout)
+                                  timestamp, self._lockout_count, self._in_lockout, num_above)
 
                 self._send_interface.start_stimulation()
             return num_above
