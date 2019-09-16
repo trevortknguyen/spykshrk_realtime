@@ -529,7 +529,12 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                     self.ripple_time_bin += 1
                     print('posterior sum: ', self.posterior_arm_sum, self.current_time_bin, self.ripple_time_bin)
                     #print('arm 0 sum: ',posterior_arm_sum[0][1])
-                    if (self.ripple_time_bin > 2) & (self.posterior_arm_sum[0][self.replay_target_arm] > 0.8):
+
+                    #this is where it decides whether or not to send shortcut message
+                    # currently this is set to any arm > 0.8, next line is for 1 specific arm
+                    if (self.ripple_time_bin > 2) & (self.posterior_arm_sum[self.posterior_arm_sum > 0.8].shape[0] > 0):
+
+                    #if (self.ripple_time_bin > 2) & (self.posterior_arm_sum[0][self.replay_target_arm] > 0.8):
                         # send shortcut message
                         # start lockout / reset function
                         self.shortcut_message_sent = True
@@ -582,7 +587,12 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                         self.ripple_time_bin += 1
                         print('posterior sum: ', self.posterior_arm_sum, self.current_time_bin, self.ripple_time_bin)
                         #print('arm 0 sum: ',posterior_arm_sum[0][1])
-                        if (self.ripple_time_bin > 2) & (self.posterior_arm_sum[0][self.replay_target_arm] > 0.8):
+
+                        #this is where it decides whether or not to send shortcut message
+                        # currently this is set to any arm > 0.8, next line is for 1 specific arm
+                        if (self.ripple_time_bin > 2) & (self.posterior_arm_sum[self.posterior_arm_sum > 0.8].shape[0] > 0):
+
+                        #if (self.ripple_time_bin > 2) & (self.posterior_arm_sum[0][self.replay_target_arm] > 0.8):
                             # send shortcut message
                             # start lockout / reset function
                             self.shortcut_message_sent = True
