@@ -456,6 +456,7 @@ class RippleManager(realtime_base.BinaryRecordBaseWithTiming, rt_logging.Logging
             timing_msg = msgs[1]
 
             if isinstance(datapoint, LFPPoint):
+                #print("new lfp point: ",datapoint.timestamp)
                 self.record_timing(timestamp=datapoint.timestamp, elec_grp_id=datapoint.elec_grp_id,
                                    datatype=datatypes.Datatypes.LFP, label='rip_recv')
 
@@ -468,7 +469,7 @@ class RippleManager(realtime_base.BinaryRecordBaseWithTiming, rt_logging.Logging
                 self.record_timing(timestamp=datapoint.timestamp, elec_grp_id=datapoint.elec_grp_id,
                                    datatype=datatypes.Datatypes.LFP, label='rip_send')
 
-                # this seems to go to stim_decider class in main_process.py that then applies the # of tetrode filter
+                # this sends to stim_decider class in main_process.py that then applies the # of tetrode filter
                 self.mpi_send.send_ripple_thresh_state(timestamp=datapoint.timestamp,
                                                        elec_grp_id=datapoint.elec_grp_id,
                                                        thresh_state=filter_state)

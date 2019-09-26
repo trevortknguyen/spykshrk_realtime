@@ -230,6 +230,7 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
             if isinstance(datapoint, SpikePoint):
                 self.record_timing(timestamp=datapoint.timestamp, elec_grp_id=datapoint.elec_grp_id,
                                    datatype=datatypes.Datatypes.SPIKES, label='enc_recv')
+                #print("new spike: ",datapoint.timestamp)
 
                 self.spk_counter += 1
 

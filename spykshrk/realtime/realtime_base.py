@@ -24,6 +24,8 @@ class MPIMessageTag(IntEnum):
     SIMULATOR_LINPOS_DATA = 13
 
     SPIKE_DECODE_DATA = 20
+    STIM_DECISION = 21
+    POSTERIOR = 22
 
 
 class RecordIDs(IntEnum):
@@ -35,6 +37,7 @@ class RecordIDs(IntEnum):
 
     STIM_STATE = 10
     STIM_LOCKOUT = 11
+    STIM_MESSAGE = 12
 
     TIMING = 100
 
