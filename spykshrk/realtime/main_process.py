@@ -1,13 +1,16 @@
+import struct
 import spykshrk.realtime.realtime_base
 import spykshrk.realtime.realtime_logging as rt_logging
 import spykshrk.realtime.realtime_base as realtime_base
 import spykshrk.realtime.simulator.simulator_process as simulator_process
 import spykshrk.realtime.ripple_process as ripple_process
+import spykshrk.realtime.decoder_process as decoder_process
 import spykshrk.realtime.binary_record as binary_record
 import spykshrk.realtime.timing_system as timing_system
 import spykshrk.realtime.datatypes as datatypes
 
 from mpi4py import MPI
+import numpy as np
 import time
 
 import sys
@@ -40,11 +43,17 @@ class MainProcessClient(tnp.AbstractModuleClient):
 
     def registerStartupCallback(self, callback):
         self.startup = callback
+
+    #MEC added: to get ripple tetrode list
+    def registerStartupCallbackRippleTetrodes(self, callback):
+        self.startupRipple = callback
     
     def recv_acquisition(self, command, timestamp):
         if command == tnp.acq_PLAY:
             if not self.ntrode_list_sent:
-                self.startup(self.config['trodes_network']['tetrodes'])
+                self.startup(self.config['trodes_network']['decoding_tetrodes'])
+                #added MEC
+                self.startupRipple(self.config['trodes_network']['ripple_tetrodes'])
                 self.started = True
                 self.ntrode_list_sent = True
 
@@ -68,10 +77,20 @@ class MainProcess(realtime_base.RealtimeProcess):
 
         super().__init__(comm=comm, rank=rank, config=config)
 
+        # MEC added
+        self.stim_decider_send_interface = StimDeciderMPISendInterface(comm=comm, rank=rank, config=config)
+
         self.stim_decider = StimDecider(rank=rank, config=config,
-                                        send_interface=StimDeciderMPISendInterface(comm=comm,
-                                                                                   rank=rank,
-                                                                                   config=config))
+                                        send_interface=self.stim_decider_send_interface)
+
+        self.posterior_recv_interface = PosteriorSumRecvInterface(comm=comm, rank=rank, config=config,
+                                                                  stim_decider=self.stim_decider)
+
+        #self.stim_decider = StimDecider(rank=rank, config=config,
+        #                                send_interface=StimDeciderMPISendInterface(comm=comm,
+        #                                                                           rank=rank,
+        #                                                                           config=config))
+
         self.data_recv = StimDeciderMPIRecvInterface(comm=comm, rank=rank, config=config,
                                                      stim_decider=self.stim_decider)
 
@@ -87,6 +106,8 @@ class MainProcess(realtime_base.RealtimeProcess):
                 del self.networkclient
                 quit()
             self.networkclient.registerStartupCallback(self.manager.handle_ntrode_list)
+            #added MEC
+            self.networkclient.registerStartupCallbackRippleTetrodes(self.manager.handle_ripple_ntrode_list)
             self.networkclient.registerTerminationCallback(self.manager.trigger_termination)
 
         self.recv_interface = MainSimulatorMPIRecvInterface(comm=comm, rank=rank,
@@ -124,8 +145,28 @@ class MainProcess(realtime_base.RealtimeProcess):
 
             self.recv_interface.__next__()
             self.data_recv.__next__()
+            self.posterior_recv_interface.__next__()
 
         self.class_log.info("Main Process Main reached end, exiting.")
+
+class StimulationDecision(rt_logging.PrintableMessage):
+    """"Message containing whether or not at a given timestamp a ntrode's ripple filter threshold is crossed.
+
+    This message has helper serializer/deserializer functions to be used to speed transmission.
+    """
+    _byte_format = 'Ii'
+
+    def __init__(self, timestamp, stim_decision):
+        self.timestamp = timestamp
+        self.stim_decision = stim_decision
+
+    def pack(self):
+        return struct.pack(self._byte_format, self.timestamp, self.stim_decision)
+
+    @classmethod
+    def unpack(cls, message_bytes):
+        timestamp, stim_decision = struct.unpack(cls._byte_format, message_bytes)
+        return cls(timestamp=timestamp, stim_decision=stim_decision)
 
 
 class StimDeciderMPISendInterface(realtime_base.RealtimeMPIClass):
@@ -144,6 +185,18 @@ class StimDeciderMPISendInterface(realtime_base.RealtimeMPIClass):
             self.comm.send(obj=message, dest=self.config['rank']['supervisor'],
                            tag=realtime_base.MPIMessageTag.COMMAND_MESSAGE)
 
+    #MEC added
+    def send_stim_decision(self, timestamp, stim_decision):
+        message = StimulationDecision(timestamp, stim_decision)
+        #print('stim_message: ',message)
+
+        #self.comm.send(obj=message, dest=self.config['rank']['decoder'],
+        #               tag=realtime_base.MPIMessageTag.FEEDBACK_DATA.value)
+
+        self.comm.Send(buf=message.pack(),
+                       dest=self.config['rank']['decoder'],
+                       tag=realtime_base.MPIMessageTag.STIM_DECISION.value)
+        #print('stim_message: ',message,self.config['rank']['decoder'],self.rank)
 
 class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
     def __init__(self, rank, config,
@@ -157,21 +210,36 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                                                                                     config['rank']['supervisor']),
                          send_interface=send_interface,
                          rec_ids=[realtime_base.RecordIDs.STIM_STATE,
-                                  realtime_base.RecordIDs.STIM_LOCKOUT],
+                                  realtime_base.RecordIDs.STIM_LOCKOUT,
+                                  realtime_base.RecordIDs.STIM_MESSAGE],
                          rec_labels=[['timestamp', 'elec_grp_id', 'threshold_state'],
-                                     ['timestamp', 'lockout_num', 'lockout_state']],
+                                     ['timestamp', 'lockout_num', 'lockout_state','tets_above_thresh'],
+                                     ['timestamp', 'stim_sent', 'ripple_number', 'ripple_time_bin']],
                          rec_formats=['Iii',
-                                      'Iii'])
+                                      'Iiiq',
+                                      'Iiii'])
         self.rank = rank
         self._send_interface = send_interface
         self._ripple_n_above_thresh = ripple_n_above_thresh
         self._lockout_time = lockout_time
         self._ripple_thresh_states = {}
         self._enabled = False
+        self.config = config
 
         self._last_lockout_timestamp = 0
         self._lockout_count = 0
         self._in_lockout = False
+        self.stim_thresh = False
+
+        self.ripple_time_bin = 0
+        self.no_ripple_time_bin = 0
+        self.replay_target_arm = self.config['pp_decoder']['replay_target_arm']
+        self.posterior_arm_sum = np.zeros((1,9))
+        self.num_above = 0
+        self.ripple_number = 0
+        self.shortcut_message_sent = False
+
+        time = MPI.Wtime()
 
         # Setup bin rec file
         # main_manager.rec_manager.register_rec_type_message(rec_type_message=self.get_record_register_message())
@@ -199,6 +267,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         # Log timing
         self.record_timing(timestamp=timestamp, elec_grp_id=elec_grp_id,
                            datatype=datatypes.Datatypes.LFP, label='stim_rip_state')
+        time = MPI.Wtime()
 
         if self._enabled:
 
@@ -216,18 +285,82 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 # End lockout
                 self._in_lockout = False
                 self.write_record(realtime_base.RecordIDs.STIM_LOCKOUT,
-                                  timestamp, self._lockout_count, self._in_lockout)
+                                  timestamp, self._lockout_count, self._in_lockout, num_above)
                 self._lockout_count += 1
 
             if (num_above >= self._ripple_n_above_thresh) and not self._in_lockout:
+                print('tets above ripple thresh: ',num_above,timestamp)
                 self._in_lockout = True
+                self.stim_thresh = True
                 self._last_lockout_timestamp = timestamp
                 self.class_log.debug("Ripple threshold detected {}.".format(self._ripple_thresh_states))
                 self.write_record(realtime_base.RecordIDs.STIM_LOCKOUT,
-                                  timestamp, self._lockout_count, self._in_lockout)
+                                  timestamp, self._lockout_count, self._in_lockout, num_above)
 
                 self._send_interface.start_stimulation()
+                # here we want to send the stim_decider message to the decoder
+                # this should be similiar to the replay threshold message from ripple_process
+                # i think _in_lockout will be 1 when stim threshold is crossed
+                #self._send_interface.send_stim_decision(timestamp, self.stim_thresh)
+                #print('stim message function called',timestamp,time*1000)
 
+            elif num_above < self._ripple_n_above_thresh and not self._in_lockout:
+                self.stim_thresh = False
+                #self._send_interface.send_stim_decision(timestamp, self.stim_thresh)
+
+            return num_above
+
+    def posterior_sum(self, timestamp, box,arm1,arm2,arm3,arm4):
+        time = MPI.Wtime()
+        # caclulate running sum
+        # keep track of time ripple time
+        #print('posterior sum at function: ',timestamp,time*1000,self._last_lockout_timestamp)
+        # try to put in the actual check for whether posterior is above 0.8 and last for 2 bins etc
+        # we may need to move this function
+        if self.stim_thresh == True:
+            #print('posterior sum is: ',timestamp,box,time*1000)
+            #print('stim threshold: ',self.stim_thresh,self._last_lockout_timestamp)
+            #print('ripple time bin: ',self.ripple_time_bin)
+            if self.ripple_time_bin == 0:
+                self.ripple_number += 1
+                print('ripple number: ',self.ripple_number)
+            self.no_ripple_time_bin = 0
+            self.ripple_time_bin += 1
+            self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
+                              timestamp, self.shortcut_message_sent, self.ripple_number, self.ripple_time_bin)            
+            
+            #this is where it decides whether or not to send shortcut message
+            # move this to below so that it sends message at end of ripple not during
+            # currently this is set to any arm > 0.8, next line is for 1 specific arm
+            
+            # need to replace this with box,arm1,arm2,etc
+            #if (self.ripple_time_bin > 2) & (box > 0.8):
+            #if (self.ripple_time_bin > 2) & (self.posterior_arm_sum[self.posterior_arm_sum > 0.8].shape[0] > 0):
+            #if (self.ripple_time_bin > 2) & (self.posterior_arm_sum[0][self.replay_target_arm] > 0.8):
+            # send shortcut message - dont sent here send after ripple is over
+            # start lockout / reset function
+                #self.shortcut_message_sent = True
+                #print('arm', self.replay_target_arm, 'sum above 80 percent for time bins: ',self.ripple_time_bin)
+                # here we should make a new dataframe saving the posterior and stim decision
+                #self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
+                #                  timestamp, self.shortcut_message_sent, self.ripple_number, self.ripple_time_bin)
+
+        if self.stim_thresh == False:
+            #print('no ripple in decoder')
+
+            self.no_ripple_time_bin += 1
+
+            #send a shrotcut message if it has been a ripple (>3 bins) and now is not a ripple (>2 no ripple bins)
+            if (self.no_ripple_time_bin == 3) & (self.ripple_time_bin > 3):
+                self.shortcut_message_sent = True
+                # return arm with max posterior 
+                # send shortcut message at end of ripple
+                print("end of ripple message sent",self.ripple_time_bin,self.ripple_number)
+                self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
+                                  timestamp, self.shortcut_message_sent, self.ripple_number, self.ripple_time_bin)                
+            if self.no_ripple_time_bin > 3:
+                self.ripple_time_bin = 0
+                self.shortcut_message_sent = False                
 
 class StimDeciderMPIRecvInterface(realtime_base.RealtimeMPIClass):
     def __init__(self, comm: MPI.Comm, rank, config, stim_decider: StimDecider):
@@ -264,6 +397,36 @@ class StimDeciderMPIRecvInterface(realtime_base.RealtimeMPIClass):
                 self.mpi_reqs[0] = self.comm.Irecv(buf=self.feedback_bytes,
                                                    tag=realtime_base.MPIMessageTag.FEEDBACK_DATA.value)
 
+            #if self.mpi_statuses[0].source == self.config['rank']['decoder']:
+            #    message = decoder_process.PosteriorSum.unpack(message_bytes=self.feedback_bytes)
+            #    print(message)
+
+            #    self.stim.posterior_sum(timestamp=message.timestamp,box=message.box,arm1=message.arm1,
+            #                            arm2=message.arm2,arm3=message.arm3,arm4=message.arm4)                
+
+class PosteriorSumRecvInterface(realtime_base.RealtimeMPIClass):
+    def __init__(self, comm: MPI.Comm, rank, config, stim_decider: StimDecider):
+        super(PosteriorSumRecvInterface, self).__init__(comm=comm, rank=rank, config=config)
+
+        self.stim = stim_decider
+        self.msg_buffer = bytearray(48)
+        self.req = self.comm.Irecv(buf=self.msg_buffer, tag=realtime_base.MPIMessageTag.POSTERIOR.value)
+
+    def __next__(self):
+        rdy = self.req.Test()
+        time = MPI.Wtime()
+        if rdy:
+
+            message = decoder_process.PosteriorSum.unpack(self.msg_buffer)
+            self.req = self.comm.Irecv(buf=self.msg_buffer, tag=realtime_base.MPIMessageTag.POSTERIOR.value)
+            # okay so we are receiving the message! but now it needs to get into the stim decider
+            self.stim.posterior_sum(timestamp=message.timestamp,box=message.box,arm1=message.arm1,
+                                    arm2=message.arm2,arm3=message.arm3,arm4=message.arm4)             
+            #print('posterior sum message supervisor: ',message.timestamp,time*1000)
+            #return posterior_sum
+
+        else:
+            return None
 
 class MainMPISendInterface(realtime_base.RealtimeMPIClass):
     def __init__(self, comm: MPI.Comm, rank, config):
@@ -277,6 +440,11 @@ class MainMPISendInterface(realtime_base.RealtimeMPIClass):
 
     def send_channel_selection(self, rank, channel_selects):
         self.comm.send(obj=spykshrk.realtime.realtime_base.ChannelSelection(channel_selects), dest=rank,
+                       tag=realtime_base.MPIMessageTag.COMMAND_MESSAGE)
+
+    #MEC added
+    def send_ripple_channel_selection(self, rank, channel_selects):
+        self.comm.send(obj=spykshrk.realtime.realtime_base.RippleChannelSelection(channel_selects), dest=rank,
                        tag=realtime_base.MPIMessageTag.COMMAND_MESSAGE)
 
     def send_new_writer_message(self, rank, new_writer_message):
@@ -301,6 +469,8 @@ class MainMPISendInterface(realtime_base.RealtimeMPIClass):
     def send_ripple_baseline_std(self, rank, std_dict):
         self.comm.send(obj=ripple_process.CustomRippleBaselineStdMessage(std_dict=std_dict), dest=rank,
                        tag=realtime_base.MPIMessageTag.COMMAND_MESSAGE)
+
+
 
     def send_time_sync_simulator(self):
         if self.config['datasource'] == 'trodes':
@@ -371,20 +541,23 @@ class MainSimulatorManager(rt_logging.LoggingClass):
         offset_time = self.master_time - remote_time
         self.send_interface.send_time_sync_offset(rank, offset_time)
 
-    def _ripple_ranks_startup(self, trode_list):
+    #MEC edited this function to take in list of ripple tetrodes only
+    def _ripple_ranks_startup(self, ripple_trode_list):
         for rip_rank in self.config['rank']['ripples']:
-            self.send_interface.send_num_ntrode(rank=rip_rank, num_ntrodes=len(trode_list))
+            self.send_interface.send_num_ntrode(rank=rip_rank, num_ntrodes=len(ripple_trode_list))
 
         # Round robin allocation of channels to ripple
         enable_count = 0
         all_ripple_process_enable = [[] for _ in self.config['rank']['ripples']]
-        for chan_ind, chan_id in enumerate(trode_list):
+        #MEC changed trode_liist to ripple_trode_list
+        for chan_ind, chan_id in enumerate(ripple_trode_list):
             all_ripple_process_enable[enable_count % len(self.config['rank']['ripples'])].append(chan_id)
             enable_count += 1
 
         # Set channel assignments for all ripple ranks
+        #MEC changed send_channel_selection to sned_ripple_channel_selection
         for rank_ind, rank in enumerate(self.config['rank']['ripples']):
-            self.send_interface.send_channel_selection(rank, all_ripple_process_enable[rank_ind])
+            self.send_interface.send_ripple_channel_selection(rank, all_ripple_process_enable[rank_ind])
 
         for rip_rank in self.config['rank']['ripples']:
 
@@ -395,11 +568,13 @@ class MainSimulatorManager(rt_logging.LoggingClass):
             # Convert json string keys into int (ntrode_id) and send
             rip_mean_base_dict = dict(map(lambda x: (int(x[0]), x[1]),
                                           self.config['ripple']['CustomRippleBaselineMeanMessage'].items()))
+            print('ripple mean: ',rip_mean_base_dict)
             self.send_interface.send_ripple_baseline_mean(rank=rip_rank, mean_dict=rip_mean_base_dict)
 
             # Convert json string keys into int (ntrode_id) and send
             rip_std_base_dict = dict(map(lambda x: (int(x[0]), x[1]),
                                          self.config['ripple']['CustomRippleBaselineStdMessage'].items()))
+            print('ripple std: ',rip_std_base_dict)
             self.send_interface.send_ripple_baseline_std(rank=rip_rank, std_dict=rip_std_base_dict)
 
     def _stim_decider_startup(self):
@@ -462,14 +637,25 @@ class MainSimulatorManager(rt_logging.LoggingClass):
 
         self.time_sync_on = True
 
+    #MEC edited
     def handle_ntrode_list(self, trode_list):
 
-        self.class_log.debug("Received ntrode list {:}.".format(trode_list))
+        self.class_log.debug("Received decoding ntrode list {:}.".format(trode_list))
 
-        self._ripple_ranks_startup(trode_list)
+        #self._ripple_ranks_startup(trode_list)
         self._encoder_rank_startup(trode_list)
         self._decoder_rank_startup(trode_list)
         self._stim_decider_startup()
+
+        #self._writer_startup()
+        #self._turn_on_datastreams()
+
+    #MEC added
+    def handle_ripple_ntrode_list(self, ripple_trode_list):
+
+        self.class_log.debug("Received ripple ntrode list {:}.".format(ripple_trode_list))
+
+        self._ripple_ranks_startup(ripple_trode_list)
 
         self._writer_startup()
         self._turn_on_datastreams()
@@ -509,6 +695,12 @@ class MainSimulatorMPIRecvInterface(realtime_base.RealtimeMPIClass):
 
         if isinstance(message, simulator_process.SimTrodeListMessage):
             self.main_manager.handle_ntrode_list(message.trode_list)
+            print('decoding tetrodes message',message.trode_list)
+
+        #MEC added
+        if isinstance(message, simulator_process.RippleTrodeListMessage):
+            self.main_manager.handle_ripple_ntrode_list(message.ripple_trode_list)
+            print('ripple tetrodes message',message.ripple_trode_list)
 
         elif isinstance(message, binary_record.BinaryRecordTypeMessage):
             self.class_log.debug("BinaryRecordTypeMessage received for rec id {} from rank {}".

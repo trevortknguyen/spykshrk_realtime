@@ -24,6 +24,8 @@ class MPIMessageTag(IntEnum):
     SIMULATOR_LINPOS_DATA = 13
 
     SPIKE_DECODE_DATA = 20
+    STIM_DECISION = 21
+    POSTERIOR = 22
 
 
 class RecordIDs(IntEnum):
@@ -35,6 +37,7 @@ class RecordIDs(IntEnum):
 
     STIM_STATE = 10
     STIM_LOCKOUT = 11
+    STIM_MESSAGE = 12
 
     TIMING = 100
 
@@ -492,6 +495,10 @@ class ChannelSelection(rt_logging.PrintableMessage):
     def __init__(self, ntrode_list):
         self.ntrode_list = ntrode_list
 
+#MEC added
+class RippleChannelSelection(rt_logging.PrintableMessage):
+    def __init__(self, ripple_ntrode_list):
+        self.ripple_ntrode_list = ripple_ntrode_list
 
 class TurnOnDataStream(rt_logging.PrintableMessage):
     def __init__(self):

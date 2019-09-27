@@ -202,6 +202,7 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
     def select_ntrodes(self, ntrode_list):
         self.class_log.debug("Registering spiking channels: {:}.".format(ntrode_list))
         for ntrode in ntrode_list:
+            #print('position parameters: ',self.rst_param)
             self.spike_interface.register_datatype_channel(channel=ntrode)
 
             self.encoders.setdefault(ntrode, kernel_encoder.RSTKernelEncoder('/tmp/ntrode{:}'.
@@ -229,12 +230,14 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
             if isinstance(datapoint, SpikePoint):
                 self.record_timing(timestamp=datapoint.timestamp, elec_grp_id=datapoint.elec_grp_id,
                                    datatype=datatypes.Datatypes.SPIKES, label='enc_recv')
+                #print("new spike: ",datapoint.timestamp)
 
                 self.spk_counter += 1
 
                 # this line calculates the mark for each channel (max of the 40 voltage values)
                 amp_marks = [max(x) for x in datapoint.data]
 
+                # this looks up the current spike in the RStar Tree
                 if max(amp_marks) > self.config['encoder']['spk_amp']:
                     #print(datapoint.timestamp,datapoint.elec_grp_id, amp_marks)
                     query_result = self.encoders[datapoint.elec_grp_id]. \
@@ -272,6 +275,7 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
                     self.thread.get_spike_info(datapoint.timestamp,datapoint.elec_grp_id,self.current_pos,self.config)
                     #print('spike_sent value from manager:',self.spike_sent)
 
+                    # this adds the current spike to the R Star Tree
                     if abs(self.current_vel) >= self.config['encoder']['vel']:
 
                         self.encoders[datapoint.elec_grp_id].new_mark(amp_marks)
@@ -307,6 +311,7 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
                 pass
             
             if isinstance(datapoint, CameraModulePoint):
+                #NOTE (MEC, 9-1-19): we need to include encoding velocity when calling update_covariate
                 self.pos_counter += 1
 
                 # run positionassignment and velocity calculator functions
@@ -316,7 +321,8 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
                 #print('segment: ',datapoint.segment)
 
                 for encoder in self.encoders.values():
-                    encoder.update_covariate(self.current_pos)
+                    #print('encoder side current vel: ',self.current_vel)
+                    encoder.update_covariate(self.current_pos,self.current_vel)
 
                 if self.pos_counter % 1000 == 0:
                     self.class_log.info('Received {} pos datapoints.'.format(self.pos_counter))

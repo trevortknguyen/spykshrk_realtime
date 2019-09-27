@@ -11,7 +11,7 @@ import spykshrk.realtime.realtime_logging as rt_logging
 import spykshrk.realtime.simulator.simulator_process as simulator_process
 import spykshrk.realtime.timing_system as timing_system
 from spykshrk.realtime.datatypes import LFPPoint
-from spykshrk.realtime.realtime_base import ChannelSelection, TurnOnDataStream
+from spykshrk.realtime.realtime_base import ChannelSelection, TurnOnDataStream, RippleChannelSelection
 
 
 class RippleParameterMessage(rt_logging.PrintableMessage):
@@ -153,9 +153,11 @@ class RippleFilter(rt_logging.LoggingClass):
         else:
             pass
 
+    #MEC TYPO!!!! should be custom_baseline_std not custom_baseline_mean
     @property
     def custom_baseline_std(self):
-        return self._custom_baseline_mean
+        #return self._custom_baseline_mean
+        return self._custom_baseline_std
 
     @custom_baseline_std.setter
     def custom_baseline_std(self, value):
@@ -264,7 +266,7 @@ class RippleFilter(rt_logging.LoggingClass):
                 if self.current_val >= (self.custom_baseline_mean + self.custom_baseline_std *
                                         self.param.ripple_threshold):
                     self.thresh_crossed = True
-                    #print(self.current_val,self.custom_baseline_mean, self.custom_baseline_std * self.param.ripple_threshold, self.param.ripple_threshold)
+                    #print(self.elec_grp_id,self.current_val,self.custom_baseline_mean + self.custom_baseline_std * self.param.ripple_threshold, self.custom_baseline_mean, self.custom_baseline_std, self.param.ripple_threshold)
                 else:
                     self.thresh_crossed = False
             else:
@@ -326,6 +328,13 @@ class RippleMPISendInterface(realtime_base.RealtimeMPIClass):
                        dest=self.config['rank']['supervisor'],
                        tag=realtime_base.MPIMessageTag.FEEDBACK_DATA.value)
 
+    def send_ripple_thresh_state_decoder(self, timestamp, elec_grp_id, thresh_state):
+        message = RippleThresholdState(timestamp, elec_grp_id, thresh_state)
+
+        self.comm.Send(buf=message.pack(),
+                       dest=self.config['rank']['decoder'],
+                       tag=realtime_base.MPIMessageTag.FEEDBACK_DATA.value)
+
     def forward_timing_message(self, timing_msg: timing_system.TimingMessage):
         self.comm.Send(buf=timing_msg.pack(),
                        dest=self.config['rank']['supervisor'],
@@ -377,7 +386,7 @@ class RippleManager(realtime_base.BinaryRecordBaseWithTiming, rt_logging.Logging
         self.class_log.info('Set number of ntrodes: {:d}'.format(self.num_ntrodes))
 
     def select_ntrodes(self, ntrode_list):
-        # currently we use all tetrodes for ripple detection - where can we specify only using a subset???
+        # MEC added: now this only uses the list of tetrodes in the config file called 'ripple_tetrodes'
         self.class_log.debug("Registering continuous channels: {:}.".format(ntrode_list))
         for electrode_group in ntrode_list:
             self.data_interface.register_datatype_channel(channel=electrode_group)
@@ -397,12 +406,14 @@ class RippleManager(realtime_base.BinaryRecordBaseWithTiming, rt_logging.Logging
     def set_custom_baseline_mean(self, custom_mean_dict):
         self.class_log.info("Custom baseline mean updated.")
         self.custom_baseline_mean_dict = custom_mean_dict
+        #print('ripple mean: ',self.custom_baseline_mean_dict)
         for ntrode_index, rip_filt in self.ripple_filters.items():
             rip_filt.custom_baseline_mean = self.custom_baseline_mean_dict[ntrode_index]
 
     def set_custom_baseline_std(self, custom_std_dict):
         self.class_log.info("Custom baseline std updated.")
         self.custom_baseline_std_dict = custom_std_dict
+        #print('ripple stdev: ',self.custom_baseline_std_dict)
         for ntrode_index, rip_filt in self.ripple_filters.items():
             rip_filt.custom_baseline_std = self.custom_baseline_std_dict[ntrode_index]
 
@@ -445,6 +456,7 @@ class RippleManager(realtime_base.BinaryRecordBaseWithTiming, rt_logging.Logging
             timing_msg = msgs[1]
 
             if isinstance(datapoint, LFPPoint):
+                #print("new lfp point: ",datapoint.timestamp)
                 self.record_timing(timestamp=datapoint.timestamp, elec_grp_id=datapoint.elec_grp_id,
                                    datatype=datatypes.Datatypes.LFP, label='rip_recv')
 
@@ -457,7 +469,12 @@ class RippleManager(realtime_base.BinaryRecordBaseWithTiming, rt_logging.Logging
                 self.record_timing(timestamp=datapoint.timestamp, elec_grp_id=datapoint.elec_grp_id,
                                    datatype=datatypes.Datatypes.LFP, label='rip_send')
 
+                # this sends to stim_decider class in main_process.py that then applies the # of tetrode filter
                 self.mpi_send.send_ripple_thresh_state(timestamp=datapoint.timestamp,
+                                                       elec_grp_id=datapoint.elec_grp_id,
+                                                       thresh_state=filter_state)
+                #also send thresh cross to decoder
+                self.mpi_send.send_ripple_thresh_state_decoder(timestamp=datapoint.timestamp,
                                                        elec_grp_id=datapoint.elec_grp_id,
                                                        thresh_state=filter_state)
 
@@ -501,8 +518,13 @@ class RippleMPIRecvInterface(realtime_base.RealtimeMPIClass):
         elif isinstance(message, realtime_base.NumTrodesMessage):
             self.rip_man.set_num_trodes(message)
 
-        elif isinstance(message, ChannelSelection):
-            self.rip_man.select_ntrodes(message.ntrode_list)
+        #MEC commented out
+        #elif isinstance(message, ChannelSelection):
+        #    self.rip_man.select_ntrodes(message.ntrode_list)
+
+        #MEC added
+        elif isinstance(message, RippleChannelSelection):
+            self.rip_man.select_ntrodes(message.ripple_ntrode_list)
 
         elif isinstance(message, TurnOnDataStream):
             self.rip_man.turn_on_datastreams()
