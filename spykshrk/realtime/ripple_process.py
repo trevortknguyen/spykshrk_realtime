@@ -474,9 +474,9 @@ class RippleManager(realtime_base.BinaryRecordBaseWithTiming, rt_logging.Logging
                                                        elec_grp_id=datapoint.elec_grp_id,
                                                        thresh_state=filter_state)
                 #also send thresh cross to decoder
-                self.mpi_send.send_ripple_thresh_state_decoder(timestamp=datapoint.timestamp,
-                                                       elec_grp_id=datapoint.elec_grp_id,
-                                                       thresh_state=filter_state)
+                #self.mpi_send.send_ripple_thresh_state_decoder(timestamp=datapoint.timestamp,
+                #                                       elec_grp_id=datapoint.elec_grp_id,
+                #                                       thresh_state=filter_state)
 
                 self.data_packet_counter += 1
                 if (self.data_packet_counter % 100000) == 0:
