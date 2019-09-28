@@ -81,29 +81,6 @@ class SpikeDecodeRecvInterface(realtime_base.RealtimeMPIClass):
         else:
             return None
 
-# stim decision message receiver based on decoded spike receiver
-# the key to getting this message to work was to define a new and unique message tag for the stim decision message
-# before i was reusing the ripple threshold tag and that wasnt working
-# NOT USING THIS
-class StimDeciderRecvInterface(realtime_base.RealtimeMPIClass):
-    def __init__(self, comm: MPI.Comm, rank, config):
-        super(StimDeciderRecvInterface, self).__init__(comm=comm, rank=rank, config=config)
-
-        self.msg_buffer = bytearray(8)
-        self.req = self.comm.Irecv(buf=self.msg_buffer, tag=realtime_base.MPIMessageTag.STIM_DECISION.value)
-
-    def __next__(self):
-        pass
-        #rdy = self.req.Test()
-        #if rdy:
-
-        #    stim_message = main_process.StimulationDecision.unpack(self.msg_buffer)
-        #    self.req = self.comm.Irecv(buf=self.msg_buffer, tag=realtime_base.MPIMessageTag.STIM_DECISION.value)
-        #    #print('decoder stim messsage: ',stim_message)
-        #    return stim_message
-
-        #else:
-        #    return None
 
 class PointProcessDecoder(realtime_logging.LoggingClass):
 
@@ -359,42 +336,22 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         #posterior_sum_result = np.zeros((1,9))
 
         # calculate the sum of the decode for each arm (box, then arms 1-8)
-        # this currently only does the sum of 1 time bin, we need the cumulative sum
         # posterior is just an array 136 items long, so this should work
 
-        # we need to replace this loop with saving the results from each of the last 20 time bins
-
-        # for here just calculate sum for current posterior
+        # for here just calculate sum for current posterior - do cumulative sum in main_process
         self.posterior_sum_result = np.zeros((1,9))
         #print('zeros shape: ',self.posterior_sum_result)
         for j in np.arange(0,len(arm_coords_rt),1):
             self.posterior_sum_result[0,j] = posterior[arm_coords_rt[j][0]:(arm_coords_rt[j][1]+1)].sum()
             #print(self.posterior_sum_result)
 
-        ##reset posterior_sum_time_bin
-        #if ripple_time_bin == 0:
-        #    print('posterior sum reset')
-        #    self.posterior_sum_time_bin = np.zeros((self.post_sum_bin_length,9))
-        #    self.posterior_sum_result = np.zeros((1,9))
-        #    print(self.posterior_sum_result)
-        #    print(self.posterior_sum_time_bin[0])
-
-        ##shift all values up one row to make room for next bin
-        #self.posterior_sum_time_bin = np.roll(self.posterior_sum_time_bin, -1, axis=0)
-        #self.posterior_sum_time_bin[self.post_sum_bin_length-1,:] = 0
-        #for j in np.arange(0,len(arm_coords_rt),1):
-        #    self.posterior_sum_time_bin[self.post_sum_bin_length-1,j] = posterior_for_sum[arm_coords_rt[j][0]:(arm_coords_rt[j][1]+1)].sum()
-        #for m in np.arange(0,self.post_sum_bin_length):
-        #    self.posterior_sum_result = self.posterior_sum_result + self.posterior_sum_time_bin[-(self.post_sum_bin_length-m)]
-        #    if self.posterior_sum_result[0,0] > 0:
-        #        self.posterior_sum_result = self.posterior_sum_result/self.posterior_sum_result.sum()
         return self.posterior_sum_result
 
 
 class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
     def __init__(self, rank, config, local_rec_manager, send_interface: DecoderMPISendInterface,
                  spike_decode_interface: SpikeDecodeRecvInterface,
-                 stimulation_interface: StimDeciderRecvInterface, pos_interface: realtime_base.DataSourceReceiver):
+                 pos_interface: realtime_base.DataSourceReceiver):
         super(PPDecodeManager, self).__init__(rank=rank,
                                               local_rec_manager=local_rec_manager,
                                               send_interface=send_interface,
@@ -416,7 +373,6 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
         self.config = config
         self.mpi_send = send_interface
         self.spike_dec_interface = spike_decode_interface
-        self.stimulation_interface = stimulation_interface
         self.pos_interface = pos_interface
 
         #initialize velocity calc and linear position assignment functions
@@ -469,15 +425,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
 
     def process_next_data(self):
         spike_dec_msg = self.spike_dec_interface.__next__()
-        stim_message = self.stimulation_interface.__next__()
         time = MPI.Wtime()
-
-        #if (stim_message is not None) & (spike_dec_msg is not None):
-        #    print('stim message timing',stim_message.timestamp,spike_dec_msg.timestamp)
-
-        
-        #if stim_message is not None:
-        #    print('stim message timing',stim_message.stim_decision,stim_message.timestamp,self.current_time_bin*150,time*1000)
 
         if spike_dec_msg is not None:
             # okay so the problem is that it is missing lots of lfp data because spike_dec_msg skips a lot - empty bins?
@@ -517,45 +465,6 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                 # add 1 to spike_count because it isnt added when starting a new bin, so 1st spike is missed
                 self.spike_count += 1
 
-                # hmmm reset of sum with ripple time bin isnt working currently
-                # also seems like some ripples are being missed by the sum function
-                # can we call update_ripple_thresh here as the if statement? - no this is also too slow
-                # now try using the stimulation decision message
-
-                #note we want to send a stim message even if the answer is 0
-                #if stim_message is not None:
-                #    print('stim message timing',stim_message.stim_decision,stim_message.timestamp,self.current_time_bin*150)
-                #     #print('in ripple detection function')
-
-                #     # need to check if the stim message is 1
-                #     if stim_message.stim_decision > 0:
-                #         print('stim thresh crossed spiking',stim_message.timestamp,spike_dec_msg.timestamp,self.current_time_bin*150)
-                #         if self.ripple_time_bin == 0:
-                #             self.ripple_number += 1
-                #             print('ripple number: ',self.ripple_number)
-                #         self.no_ripple_time_bin = 0
-                #         self.posterior_arm_sum = self.pp_decoder.calculate_posterior_arm_sum(posterior, self.ripple_time_bin)
-                #         self.ripple_time_bin += 1
-                #         print('posterior sum: ', self.posterior_arm_sum, self.current_time_bin, self.ripple_time_bin)
-                #         #print('arm 0 sum: ',posterior_arm_sum[0][1])
-
-                #         #this is where it decides whether or not to send shortcut message
-                #         # currently this is set to any arm > 0.8, next line is for 1 specific arm
-                #         if (self.ripple_time_bin > 2) & (self.posterior_arm_sum[self.posterior_arm_sum > 0.8].shape[0] > 0):
-
-                #         #if (self.ripple_time_bin > 2) & (self.posterior_arm_sum[0][self.replay_target_arm] > 0.8):
-                #             # send shortcut message
-                #             # start lockout / reset function
-                #             self.shortcut_message_sent = True
-                #             print('arm', self.replay_target_arm, 'sum above 80 percent for time bins: ',self.ripple_time_bin)
-
-                #     else:
-                #         #print('no ripple in decoder')
-                #         self.no_ripple_time_bin += 1
-                #         if self.no_ripple_time_bin > 2:
-                #             self.ripple_time_bin = 0
-
-
                 #posterior = np.ones(130)
                 # try replacing self.pp_decoder.cur_pos_time with self.cur_vel to get both position and velocity in the dataframe
                 # and once more in the next paragraph
@@ -585,35 +494,6 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                     posterior = self.pp_decoder.increment_no_spike_bin()
                     #posterior = np.ones(130)
                     self.posterior_arm_sum = self.pp_decoder.calculate_posterior_arm_sum(posterior, self.ripple_time_bin)
-
-
-                    #if stim_message is not None:
-                    #    print('stim message timing',stim_message.stim_decision,stim_message.timestamp,self.current_time_bin*150)
-
-                    #     if stim_message.stim_decision > 0:
-                    #         print('stim thresh crossed no spike',stim_message.timestamp,self.current_time_bin*150)
-                    #         if self.ripple_time_bin == 0:
-                    #             self.ripple_number += 1
-                    #             print('ripple number: ',self.ripple_number)
-                    #         self.no_ripple_time_bin = 0
-                    #         self.posterior_arm_sum = self.pp_decoder.calculate_posterior_arm_sum(posterior, self.ripple_time_bin)
-                    #         self.ripple_time_bin += 1
-                    #         print('posterior sum: ', self.posterior_arm_sum, self.current_time_bin, self.ripple_time_bin)
-                    #         #print('arm 0 sum: ',posterior_arm_sum[0][1])
-
-                    #         #this is where it decides whether or not to send shortcut message
-                    #         # currently this is set to any arm > 0.8, next line is for 1 specific arm
-                    #         if (self.ripple_time_bin > 2) & (self.posterior_arm_sum[self.posterior_arm_sum > 0.8].shape[0] > 0):
-                    #         #if (self.ripple_time_bin > 2) & (self.posterior_arm_sum[0][self.replay_target_arm] > 0.8):
-                    #             # send shortcut message
-                    #             # start lockout / reset function
-                    #             self.shortcut_message_sent = True
-                    #             print('arm', self.replay_target_arm, 'sum above 80 percent for time bins: ',self.ripple_time_bin)
-
-                    #     else:
-                    #         self.no_ripple_time_bin += 1
-                    #         if self.no_ripple_time_bin > 2:
-                    #             self.ripple_time_bin = 0
 
                     self.write_record(realtime_base.RecordIDs.DECODER_OUTPUT,
                                       self.current_time_bin * self.time_bin_size,
@@ -822,7 +702,6 @@ class DecoderProcess(realtime_base.RealtimeProcess):
 
         self.mpi_send = DecoderMPISendInterface(comm=comm, rank=rank, config=config)
         self.spike_decode_interface = SpikeDecodeRecvInterface(comm=comm, rank=rank, config=config)
-        self.stimulation_interface = StimDeciderRecvInterface(comm=comm, rank=rank, config=config)
 
 
         if config['datasource'] == 'simulator':
@@ -846,7 +725,6 @@ class DecoderProcess(realtime_base.RealtimeProcess):
                                            local_rec_manager=self.local_rec_manager,
                                            send_interface=self.mpi_send,
                                            spike_decode_interface=self.spike_decode_interface,
-                                           stimulation_interface=self.stimulation_interface,
                                            pos_interface=self.pos_interface)
 
         self.mpi_recv = DecoderRecvInterface(comm=comm, rank=rank, config=config, decode_manager=self.dec_man)
