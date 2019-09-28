@@ -185,18 +185,6 @@ class StimDeciderMPISendInterface(realtime_base.RealtimeMPIClass):
             self.comm.send(obj=message, dest=self.config['rank']['supervisor'],
                            tag=realtime_base.MPIMessageTag.COMMAND_MESSAGE)
 
-    #MEC added
-    def send_stim_decision(self, timestamp, stim_decision):
-        message = StimulationDecision(timestamp, stim_decision)
-        #print('stim_message: ',message)
-
-        #self.comm.send(obj=message, dest=self.config['rank']['decoder'],
-        #               tag=realtime_base.MPIMessageTag.FEEDBACK_DATA.value)
-
-        self.comm.Send(buf=message.pack(),
-                       dest=self.config['rank']['decoder'],
-                       tag=realtime_base.MPIMessageTag.STIM_DECISION.value)
-        #print('stim_message: ',message,self.config['rank']['decoder'],self.rank)
 
 class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
     def __init__(self, rank, config,
@@ -396,13 +384,7 @@ class StimDeciderMPIRecvInterface(realtime_base.RealtimeMPIClass):
 
                 self.mpi_reqs[0] = self.comm.Irecv(buf=self.feedback_bytes,
                                                    tag=realtime_base.MPIMessageTag.FEEDBACK_DATA.value)
-
-            #if self.mpi_statuses[0].source == self.config['rank']['decoder']:
-            #    message = decoder_process.PosteriorSum.unpack(message_bytes=self.feedback_bytes)
-            #    print(message)
-
-            #    self.stim.posterior_sum(timestamp=message.timestamp,box=message.box,arm1=message.arm1,
-            #                            arm2=message.arm2,arm3=message.arm3,arm4=message.arm4)                
+                
 
 class PosteriorSumRecvInterface(realtime_base.RealtimeMPIClass):
     def __init__(self, comm: MPI.Comm, rank, config, stim_decider: StimDecider):
