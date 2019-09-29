@@ -314,6 +314,9 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 print('ripple number: ',self.ripple_number)
             self.no_ripple_time_bin = 0
             self.ripple_time_bin += 1
+
+            self.record_timing(timestamp=timestamp, elec_grp_id=0,
+                               datatype=datatypes.Datatypes.LFP, label='postsum_in')
             self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
                               timestamp, self.shortcut_message_sent, self.ripple_number, self.ripple_time_bin)            
             
@@ -401,6 +404,11 @@ class PosteriorSumRecvInterface(realtime_base.RealtimeMPIClass):
 
             message = decoder_process.PosteriorSum.unpack(self.msg_buffer)
             self.req = self.comm.Irecv(buf=self.msg_buffer, tag=realtime_base.MPIMessageTag.POSTERIOR.value)
+
+            #need to activate record_timing in this class if we want to use this here
+            #self.record_timing(timestamp=timestamp, elec_grp_id=elec_grp_id,
+            #                   datatype=datatypes.Datatypes.SPIKES, label='post_sum_recv')
+
             # okay so we are receiving the message! but now it needs to get into the stim decider
             self.stim.posterior_sum(timestamp=message.timestamp,box=message.box,arm1=message.arm1,
                                     arm2=message.arm2,arm3=message.arm3,arm4=message.arm4)             
