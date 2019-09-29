@@ -247,27 +247,27 @@ def main(path_base, rat_name, day, epoch, shift_amt, path_out):
 
     #cell 16
     ## run replay classifier
-    #time_started = datetime.now()
+    time_started = datetime.now()
     ## continuous trans_mat has small offset = 0 (no jumping)
-    #sungod_no_offset = sungod_util.calc_sungod_trans_mat(encode_settings, decode_settings, uniform_gain=0)
-    #causal_state1, causal_state2, causal_state3, acausal_state1, acausal_state2, acausal_state3, trans_mat_dict = sungod_util.decode_with_classifier(decoder.likelihoods, sungod_no_offset, encoder.occupancy, discrete_tm_val)
-    #time_finished = datetime.now()
+    sungod_no_offset = sungod_util.calc_sungod_trans_mat(encode_settings, decode_settings, uniform_gain=0)
+    causal_state1, causal_state2, causal_state3, acausal_state1, acausal_state2, acausal_state3, trans_mat_dict = sungod_util.decode_with_classifier(decoder.likelihoods, sungod_no_offset, encoder.occupancy, discrete_tm_val)
+    time_finished = datetime.now()
 
-    #print('Classifier started at %s'%str(time_started))
-    #print('Classifier finished at %s'%str(time_finished))
+    print('Classifier started at %s'%str(time_started))
+    print('Classifier finished at %s'%str(time_finished))
     
     #cell 17
     ## save classifier output
-    #base_name = os.path.join(path_out, rat_name + '_' + day_ep + '_shuffle_' + str(shift_amount) + '_posterior_')
-    #fname = 'causal'
-    #trodes2SS.convert_save_classifier(base_name, fname, causal_state1, causal_state2, causal_state3, tetrodes, decoder.likelihoods,
-    #                                  encode_settings, decode_settings, rips, velocity_thresh_for_enc_dec, velocity_buffer, sungod_no_offset, order, shift_amount)
+    base_name = os.path.join(path_out, rat_name + '_' + day_ep + '_shuffle_' + str(shift_amount) + '_posterior_')
+    fname = 'causal'
+    trodes2SS.convert_save_classifier(base_name, fname, causal_state1, causal_state2, causal_state3, tetrodes, decoder.likelihoods,
+                                      encode_settings, decode_settings, rips, velocity_thresh_for_enc_dec, velocity_buffer, sungod_no_offset, order, shift_amount)
 
-    #fname = 'acausal'
-    #trodes2SS.convert_save_classifier(base_name, fname, acausal_state1, acausal_state2, acausal_state3, tetrodes, decoder.likelihoods,
-    #                                  encode_settings, decode_settings, rips, velocity_thresh_for_enc_dec, velocity_buffer, sungod_no_offset, order, shift_amount)
+    fname = 'acausal'
+    trodes2SS.convert_save_classifier(base_name, fname, acausal_state1, acausal_state2, acausal_state3, tetrodes, decoder.likelihoods,
+                                      encode_settings, decode_settings, rips, velocity_thresh_for_enc_dec, velocity_buffer, sungod_no_offset, order, shift_amount)
 
-    #print('Saved classifier results to: ',base_name+fname)
+    print('Saved classifier results to: ',base_name+fname)
 
     ## to calculate histogram of posterior max position in each time bin
     #hist_bins = []
