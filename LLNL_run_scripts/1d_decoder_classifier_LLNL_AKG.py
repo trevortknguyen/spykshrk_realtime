@@ -6,7 +6,7 @@
 #cell 1
 # Setup and import packages
 import sys
-sys.path.append('/usr/workspace/wsb/coulter5/spykshrk_realtime')
+sys.path.append('/g/g20/annag/spykshrk_realtime')
 import os
 #import pdb
 from datetime import datetime, date
@@ -65,7 +65,7 @@ def main(path_base, rat_name, day, epoch, shift_amt, path_out):
 
     shift_amt_for_shuffle = shift_amt
 
-    use_enc_as_dec = 1
+    use_enc_as_dec = 0
 
     discrete_tm_val=.99   # for classifier
 
@@ -97,14 +97,15 @@ def main(path_base, rat_name, day, epoch, shift_amt, path_out):
     # Position linearization
     # if linearization exists, load it. if not, run the linearization.
     lin_output1 = os.path.join(linearization_path, rat_name + '/' + rat_name + '_' + day_ep + '_' + 'linearized_distance.npy')
+    lin_output2 = os.path.join(linearization_path, rat_name + '/' + rat_name + '_' + day_ep + '_' + 'linearized_track_segments.npy')
     print('linearization file 1: ',lin_output1)
     if os.path.exists(lin_output1) == False:
         print('Linearization result doesnt exist. Doing linearization calculation!')
         sungod_util.run_linearization_routine(rat_name, day, epoch, linearization_path, raw_directory, gap_size=20)
+        track_segment_ids = np.load(lin_output2)
+       
     else: 
         print('Linearization found. Loading it!')
-        lin_output2 = os.path.join(linearization_path, rat_name + '/' + rat_name + '_' + day_ep + '_' + 'linearized_track_segments.npy')
-        print('linearization file 2: ',lin_output2)
         linear_pos_raw['linpos_flat'] = np.load(lin_output1)   #replace x pos with linerized 
         track_segment_ids = np.load(lin_output2)
 
@@ -246,27 +247,27 @@ def main(path_base, rat_name, day, epoch, shift_amt, path_out):
 
     #cell 16
     ## run replay classifier
-    #time_started = datetime.now()
+    time_started = datetime.now()
     ## continuous trans_mat has small offset = 0 (no jumping)
-    #sungod_no_offset = sungod_util.calc_sungod_trans_mat(encode_settings, decode_settings, uniform_gain=0)
-    #causal_state1, causal_state2, causal_state3, acausal_state1, acausal_state2, acausal_state3, trans_mat_dict = sungod_util.decode_with_classifier(decoder.likelihoods, sungod_no_offset, encoder.occupancy, discrete_tm_val)
-    #time_finished = datetime.now()
+    sungod_no_offset = sungod_util.calc_sungod_trans_mat(encode_settings, decode_settings, uniform_gain=0)
+    causal_state1, causal_state2, causal_state3, acausal_state1, acausal_state2, acausal_state3, trans_mat_dict = sungod_util.decode_with_classifier(decoder.likelihoods, sungod_no_offset, encoder.occupancy, discrete_tm_val)
+    time_finished = datetime.now()
 
-    #print('Classifier started at %s'%str(time_started))
-    #print('Classifier finished at %s'%str(time_finished))
+    print('Classifier started at %s'%str(time_started))
+    print('Classifier finished at %s'%str(time_finished))
     
     #cell 17
     ## save classifier output
-    #base_name = os.path.join(path_out, rat_name + '_' + day_ep + '_shuffle_' + str(shift_amount) + '_posterior_')
-    #fname = 'causal'
-    #trodes2SS.convert_save_classifier(base_name, fname, causal_state1, causal_state2, causal_state3, tetrodes, decoder.likelihoods,
-    #                                  encode_settings, decode_settings, rips, velocity_thresh_for_enc_dec, velocity_buffer, sungod_no_offset, order, shift_amount)
+    base_name = os.path.join(path_out, rat_name + '_' + day_ep + '_shuffle_' + str(shift_amount) + '_posterior_')
+    fname = 'causal'
+    trodes2SS.convert_save_classifier(base_name, fname, causal_state1, causal_state2, causal_state3, tetrodes, decoder.likelihoods,
+                                      encode_settings, decode_settings, rips, velocity_thresh_for_enc_dec, velocity_buffer, sungod_no_offset, order, shift_amount)
 
-    #fname = 'acausal'
-    #trodes2SS.convert_save_classifier(base_name, fname, acausal_state1, acausal_state2, acausal_state3, tetrodes, decoder.likelihoods,
-    #                                  encode_settings, decode_settings, rips, velocity_thresh_for_enc_dec, velocity_buffer, sungod_no_offset, order, shift_amount)
+    fname = 'acausal'
+    trodes2SS.convert_save_classifier(base_name, fname, acausal_state1, acausal_state2, acausal_state3, tetrodes, decoder.likelihoods,
+                                      encode_settings, decode_settings, rips, velocity_thresh_for_enc_dec, velocity_buffer, sungod_no_offset, order, shift_amount)
 
-    #print('Saved classifier results to: ',base_name+fname)
+    print('Saved classifier results to: ',base_name+fname)
 
     ## to calculate histogram of posterior max position in each time bin
     #hist_bins = []
