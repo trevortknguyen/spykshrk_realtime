@@ -306,7 +306,7 @@ def convert_save_classifier(base_name, fname, state1, state2, state3, tetrode_di
     s2_nomulti = state2_obj.reset_index()
     s3_nomulti = state3_obj.reset_index()
 
-    likelihoods.reset_index(inplace=True)
+    #likelihoods.reset_index(inplace=True)
 
     is_position_bin = s1_nomulti.columns.str.startswith('x')
     
