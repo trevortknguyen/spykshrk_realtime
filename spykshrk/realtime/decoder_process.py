@@ -357,7 +357,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                                               send_interface=send_interface,
                                               rec_ids=[realtime_base.RecordIDs.DECODER_OUTPUT,
                                                        realtime_base.RecordIDs.DECODER_MISSED_SPIKES],
-                                              rec_labels=[['timestamp', 'real_pos_time', 'real_pos','spike_count',
+                                              rec_labels=[['bin_timestamp','wall_time', 'real_pos_time', 'real_pos','spike_count',
                                                             'ripple','ripple_number','ripple_length','shortcut_message',
                                                             'box','arm1','arm2','arm3','arm4','arm5','arm6','arm7','arm8'] +
                                                           ['x{:0{dig}d}'.
@@ -365,7 +365,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                                                                                  ['position']['bins'])))
                                                            for x in range(config['encoder']['position']['bins'])],
                                                           ['timestamp', 'elec_grp_id', 'real_bin', 'late_bin']],
-                                              rec_formats=['qddqqqqqddddddddd'+'d'*config['encoder']['position']['bins'],
+                                              rec_formats=['qdddqqqqqddddddddd'+'d'*config['encoder']['position']['bins'],
                                                            'qiii'])
                                                 #i think if you change second q to d above, then you can replace real_pos_time
                                                 # with velocity
@@ -475,7 +475,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                                                      self.posterior_arm_sum[0][3],self.posterior_arm_sum[0][4])
 
                 self.write_record(realtime_base.RecordIDs.DECODER_OUTPUT,
-                                  self.current_time_bin * self.time_bin_size,
+                                  self.current_time_bin * self.time_bin_size, time,
                                   self.current_vel,
                                   self.pp_decoder.cur_pos,
                                   self.spike_count,
@@ -496,7 +496,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                     self.posterior_arm_sum = self.pp_decoder.calculate_posterior_arm_sum(posterior, self.ripple_time_bin)
 
                     self.write_record(realtime_base.RecordIDs.DECODER_OUTPUT,
-                                      self.current_time_bin * self.time_bin_size,
+                                      self.current_time_bin * self.time_bin_size, time,
                                       self.current_vel,
                                       self.pp_decoder.cur_pos,
                                       0,
