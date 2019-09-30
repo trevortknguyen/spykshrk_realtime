@@ -201,11 +201,11 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                                   realtime_base.RecordIDs.STIM_LOCKOUT,
                                   realtime_base.RecordIDs.STIM_MESSAGE],
                          rec_labels=[['timestamp', 'elec_grp_id', 'threshold_state'],
-                                     ['timestamp', 'lockout_num', 'lockout_state','tets_above_thresh'],
-                                     ['timestamp', 'stim_sent', 'ripple_number', 'ripple_time_bin']],
+                                     ['timestamp', 'time', 'lockout_num', 'lockout_state','tets_above_thresh'],
+                                     ['timestamp', 'time', 'stim_sent', 'ripple_number', 'ripple_time_bin']],
                          rec_formats=['Iii',
-                                      'Iiiq',
-                                      'Iiii'])
+                                      'Idiiq',
+                                      'Idiii'])
         self.rank = rank
         self._send_interface = send_interface
         self._ripple_n_above_thresh = ripple_n_above_thresh
@@ -273,7 +273,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 # End lockout
                 self._in_lockout = False
                 self.write_record(realtime_base.RecordIDs.STIM_LOCKOUT,
-                                  timestamp, self._lockout_count, self._in_lockout, num_above)
+                                  timestamp, time, self._lockout_count, self._in_lockout, num_above)
                 self._lockout_count += 1
 
             if (num_above >= self._ripple_n_above_thresh) and not self._in_lockout:
@@ -283,7 +283,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 self._last_lockout_timestamp = timestamp
                 self.class_log.debug("Ripple threshold detected {}.".format(self._ripple_thresh_states))
                 self.write_record(realtime_base.RecordIDs.STIM_LOCKOUT,
-                                  timestamp, self._lockout_count, self._in_lockout, num_above)
+                                  timestamp, time, self._lockout_count, self._in_lockout, num_above)
 
                 self._send_interface.start_stimulation()
                 # here we want to send the stim_decider message to the decoder
@@ -318,7 +318,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             self.record_timing(timestamp=timestamp, elec_grp_id=0,
                                datatype=datatypes.Datatypes.LFP, label='postsum_in')
             self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
-                              timestamp, self.shortcut_message_sent, self.ripple_number, self.ripple_time_bin)            
+                              timestamp, time, self.shortcut_message_sent, self.ripple_number, self.ripple_time_bin)            
             
             #this is where it decides whether or not to send shortcut message
             # move this to below so that it sends message at end of ripple not during
@@ -348,7 +348,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 # send shortcut message at end of ripple
                 print("end of ripple message sent",self.ripple_time_bin,self.ripple_number)
                 self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
-                                  timestamp, self.shortcut_message_sent, self.ripple_number, self.ripple_time_bin)                
+                                  timestamp, time, self.shortcut_message_sent, self.ripple_number, self.ripple_time_bin)                
             if self.no_ripple_time_bin > 3:
                 self.ripple_time_bin = 0
                 self.shortcut_message_sent = False                
