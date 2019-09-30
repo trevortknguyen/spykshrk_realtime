@@ -16,10 +16,11 @@ class PosteriorSum(rt_logging.PrintableMessage):
 
     This message has helper serializer/deserializer functions to be used to speed transmission.
     """
-    _byte_format = 'Iddddd'
+    _byte_format = 'IIddddd'
 
-    def __init__(self, timestamp, box,arm1,arm2,arm3,arm4):
-        self.timestamp = timestamp
+    def __init__(self, bin_timestamp, spike_timestamp, box,arm1,arm2,arm3,arm4):
+        self.bin_timestamp = bin_timestamp
+        self.spike_timestamp = spike_timestamp
         self.box = box
         self.arm1 = arm1
         self.arm2 = arm2
@@ -27,12 +28,12 @@ class PosteriorSum(rt_logging.PrintableMessage):
         self.arm4 = arm4
 
     def pack(self):
-        return struct.pack(self._byte_format, self.timestamp, self.box,self.arm1,self.arm2,self.arm3,self.arm4)
+        return struct.pack(self._byte_format, self.bin_timestamp, self.spike_timestamp, self.box,self.arm1,self.arm2,self.arm3,self.arm4)
 
     @classmethod
     def unpack(cls, message_bytes):
-        timestamp, box,arm1,arm2,arm3,arm4 = struct.unpack(cls._byte_format, message_bytes)
-        return cls(timestamp=timestamp, box=box,arm1=arm1,arm2=arm2,arm3=arm3,arm4=arm4)
+        bin_timestamp, spike_timestamp, box,arm1,arm2,arm3,arm4 = struct.unpack(cls._byte_format, message_bytes)
+        return cls(bin_timestamp=bin_timestamp, spike_timestamp=spike_timestamp, box=box,arm1=arm1,arm2=arm2,arm3=arm3,arm4=arm4)
 
 class DecoderMPISendInterface(realtime_base.RealtimeMPIClass):
     def __init__(self, comm :MPI.Comm, rank, config):
@@ -45,8 +46,8 @@ class DecoderMPISendInterface(realtime_base.RealtimeMPIClass):
                            tag=realtime_base.MPIMessageTag.COMMAND_MESSAGE.value)
 
     #def sending posterior message to supervisor with POSTERIOR tag
-    def send_posterior_message(self, timestamp, box, arm1, arm2, arm3, arm4):
-        message = PosteriorSum(timestamp, box,arm1,arm2,arm4,arm4)
+    def send_posterior_message(self, bin_timestamp, spike_timestamp, box, arm1, arm2, arm3, arm4):
+        message = PosteriorSum(bin_timestamp, spike_timestamp, box,arm1,arm2,arm4,arm4)
         #print('stim_message: ',message)
 
         self.comm.Send(buf=message.pack(),
@@ -332,17 +333,17 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         #post_sum_bin_length = 20
         posterior = posterior
         ripple_time_bin = ripple_time_bin
-        #posterior_sum_time_bin = np.zeros((post_sum_bin_length,9))
-        #posterior_sum_result = np.zeros((1,9))
 
         # calculate the sum of the decode for each arm (box, then arms 1-8)
         # posterior is just an array 136 items long, so this should work
 
         # for here just calculate sum for current posterior - do cumulative sum in main_process
+        # to turn off posterior sum, comment out for loop below
         self.posterior_sum_result = np.zeros((1,9))
         #print('zeros shape: ',self.posterior_sum_result)
-        for j in np.arange(0,len(arm_coords_rt),1):
-            self.posterior_sum_result[0,j] = posterior[arm_coords_rt[j][0]:(arm_coords_rt[j][1]+1)].sum()
+        
+        #for j in np.arange(0,len(arm_coords_rt),1):
+        #    self.posterior_sum_result[0,j] = posterior[arm_coords_rt[j][0]:(arm_coords_rt[j][1]+1)].sum()
             #print(self.posterior_sum_result)
 
         return self.posterior_sum_result
@@ -457,7 +458,10 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                 # Spike is in next time bin, compute posterior based on observations, advance to tracking next time bin
 
                 # increment last bin with spikes
-                posterior = self.pp_decoder.increment_bin()
+                # to turn off posterior calculation comment out next line and replace with list of ones
+                #posterior = self.pp_decoder.increment_bin()
+                posterior = np.ones(136)
+                
                 #print(posterior)
                 #print(posterior.shape)
                 self.posterior_arm_sum = self.pp_decoder.calculate_posterior_arm_sum(posterior, self.ripple_time_bin)
@@ -465,12 +469,12 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                 # add 1 to spike_count because it isnt added when starting a new bin, so 1st spike is missed
                 self.spike_count += 1
 
-                #posterior = np.ones(130)
                 # try replacing self.pp_decoder.cur_pos_time with self.cur_vel to get both position and velocity in the dataframe
                 # and once more in the next paragraph
                 # send posterior message to main_process
                 #print('wall time at decoder',self.current_time_bin * self.time_bin_size,time*1000)
-                self.mpi_send.send_posterior_message(self.current_time_bin * self.time_bin_size,self.posterior_arm_sum[0][0],
+                self.mpi_send.send_posterior_message(self.current_time_bin * self.time_bin_size,spike_dec_msg.timestamp,
+                                                     self.posterior_arm_sum[0][0],
                                                      self.posterior_arm_sum[0][1],self.posterior_arm_sum[0][2],
                                                      self.posterior_arm_sum[0][3],self.posterior_arm_sum[0][4])
 
@@ -491,8 +495,11 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
 
                 for no_spk_ii in range(spike_time_bin - self.current_time_bin - 1):
                     #spike_count is set to 0 for no_spike_bins
-                    posterior = self.pp_decoder.increment_no_spike_bin()
-                    #posterior = np.ones(130)
+
+                    # to turn off posterior calculation comment out next line and replace with list of ones
+                    #posterior = self.pp_decoder.increment_no_spike_bin()
+                    posterior = np.ones(136)
+
                     self.posterior_arm_sum = self.pp_decoder.calculate_posterior_arm_sum(posterior, self.ripple_time_bin)
 
                     self.write_record(realtime_base.RecordIDs.DECODER_OUTPUT,
@@ -509,7 +516,8 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
 
                     #print('wall time at decoder',self.current_time_bin * self.time_bin_size,time*1000)
 
-                    self.mpi_send.send_posterior_message(self.current_time_bin * self.time_bin_size,self.posterior_arm_sum[0][0],
+                    self.mpi_send.send_posterior_message(self.current_time_bin * self.time_bin_size,spike_dec_msg.timestamp,
+                                                         self.posterior_arm_sum[0][0],
                                                          self.posterior_arm_sum[0][1],self.posterior_arm_sum[0][2],
                                                          self.posterior_arm_sum[0][3],self.posterior_arm_sum[0][4])
                     self.current_time_bin += 1

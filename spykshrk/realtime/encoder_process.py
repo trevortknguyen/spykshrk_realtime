@@ -276,9 +276,10 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
                     #print('spike_sent value from manager:',self.spike_sent)
 
                     # this adds the current spike to the R Star Tree
+                    # to turn off adding spike, comment out "new_mark" below
                     if abs(self.current_vel) >= self.config['encoder']['vel']:
 
-                        self.encoders[datapoint.elec_grp_id].new_mark(amp_marks)
+                        #self.encoders[datapoint.elec_grp_id].new_mark(amp_marks)
 
                         self.record_timing(timestamp=datapoint.timestamp, elec_grp_id=
                                            datapoint.elec_grp_id,
