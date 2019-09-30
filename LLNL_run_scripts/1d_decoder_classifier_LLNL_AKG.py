@@ -220,7 +220,7 @@ def main(path_base, rat_name, day, epoch, shift_amt, path_out):
 
     #cell 15.1
     # save posterior and linear position - netcdf
-    posterior_file_name = os.path.join(path_out,  rat_name + '_' + str(day) + '_' + str(epoch) + '_shuffle_' + str(shift_amount) + '_posteriors_functionalized_movement.nc')
+    posterior_file_name = os.path.join(path_out,  rat_name + '_' + str(day) + '_' + str(epoch) + '_shuffle_' + str(shift_amount) + '_posteriors_functionalized.nc')
 
     post1 = posteriors.apply_time_event(rips, event_mask_name='ripple_grp')
     post2 = post1.reset_index()
@@ -231,7 +231,7 @@ def main(path_base, rat_name, day, epoch, shift_amt, path_out):
 
     # to export linearized position to MatLab: again convert to xarray and then save as netcdf
 
-    position_file_name = os.path.join(path_out, rat_name + '_' + str(day) + '_' + str(epoch) + '_shuffle_' + str(shift_amount) + '_linearposition_functionalized_movement.nc')
+    position_file_name = os.path.join(path_out, rat_name + '_' + str(day) + '_' + str(epoch) + '_shuffle_' + str(shift_amount) + '_linearposition_functionalized.nc')
 
     linearized_pos1 = binned_linear_pos.apply_time_event(rips, event_mask_name='ripple_grp')
     linearized_pos2 = linearized_pos1.reset_index()
@@ -241,7 +241,7 @@ def main(path_base, rat_name, day, epoch, shift_amt, path_out):
 
     #cell 15.2
     # save posterior as hdf5 - currently doesnt work because of package issues
-    posterior_file_name_hdf5 = os.path.join(path_out,  rat_name + '_' + str(day) + '_' + str(epoch) + '_shuffle_' + str(shift_amount) + '_posteriors_functionalized_movement.h5')
+    posterior_file_name_hdf5 = os.path.join(path_out,  rat_name + '_' + str(day) + '_' + str(epoch) + '_shuffle_' + str(shift_amount) + '_posteriors_functionalized.h5')
     posteriors._to_hdf_store(posterior_file_name_hdf5,'/analysis', 'decode/clusterless/offline/posterior', 'sungod_trans_mat')
     print('Saved hdf5 posteriors to '+posterior_file_name_hdf5)
 
