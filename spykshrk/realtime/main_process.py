@@ -202,10 +202,10 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                                   realtime_base.RecordIDs.STIM_MESSAGE],
                          rec_labels=[['timestamp', 'elec_grp_id', 'threshold_state'],
                                      ['timestamp', 'time', 'lockout_num', 'lockout_state','tets_above_thresh'],
-                                     ['timestamp', 'time', 'stim_sent', 'ripple_number', 'ripple_time_bin']],
+                                     ['bin_timestamp', 'spike_timestamp','time', 'stim_sent', 'ripple_number', 'ripple_time_bin']],
                          rec_formats=['Iii',
                                       'Idiiq',
-                                      'Idiii'])
+                                      'IIdiii'])
         self.rank = rank
         self._send_interface = send_interface
         self._ripple_n_above_thresh = ripple_n_above_thresh
@@ -298,7 +298,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
 
             return num_above
 
-    def posterior_sum(self, timestamp, box,arm1,arm2,arm3,arm4):
+    def posterior_sum(self, bin_timestamp, spike_timestamp, box,arm1,arm2,arm3,arm4):
         time = MPI.Wtime()
         # caclulate running sum
         # keep track of time ripple time
@@ -315,10 +315,11 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             self.no_ripple_time_bin = 0
             self.ripple_time_bin += 1
 
-            self.record_timing(timestamp=timestamp, elec_grp_id=0,
+            self.record_timing(timestamp=spike_timestamp, elec_grp_id=0,
                                datatype=datatypes.Datatypes.LFP, label='postsum_in')
             self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
-                              timestamp, time, self.shortcut_message_sent, self.ripple_number, self.ripple_time_bin)            
+                              bin_timestamp, spike_timestamp, time, self.shortcut_message_sent, 
+                              self.ripple_number, self.ripple_time_bin)            
             
             #this is where it decides whether or not to send shortcut message
             # move this to below so that it sends message at end of ripple not during
@@ -348,7 +349,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 # send shortcut message at end of ripple
                 print("end of ripple message sent",self.ripple_time_bin,self.ripple_number)
                 self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
-                                  timestamp, time, self.shortcut_message_sent, self.ripple_number, self.ripple_time_bin)                
+                                  bin_timestamp, spike_timestamp, time, self.shortcut_message_sent, 
+                                  self.ripple_number, self.ripple_time_bin)                
             if self.no_ripple_time_bin > 3:
                 self.ripple_time_bin = 0
                 self.shortcut_message_sent = False                
@@ -410,7 +412,8 @@ class PosteriorSumRecvInterface(realtime_base.RealtimeMPIClass):
             #                   datatype=datatypes.Datatypes.SPIKES, label='post_sum_recv')
 
             # okay so we are receiving the message! but now it needs to get into the stim decider
-            self.stim.posterior_sum(timestamp=message.timestamp,box=message.box,arm1=message.arm1,
+            self.stim.posterior_sum(bin_timestamp=message.bin_timestamp,spike_timestamp=message.spike_timestamp,
+                                    box=message.box,arm1=message.arm1,
                                     arm2=message.arm2,arm3=message.arm3,arm4=message.arm4)             
             #print('posterior sum message supervisor: ',message.timestamp,time*1000)
             #return posterior_sum
