@@ -128,9 +128,6 @@ def main(path_base, rat_name, day, epoch, shift_amt, path_out):
     pos_reordered, marks_reordered, order = sungod_util.reorder_data_by_random_trial_order(trials, binned_linear_pos, marks)
 
     encoding_marks = marks_reordered.loc[marks_reordered['encoding_set']==1]
-    decoding_marks = marks_reordered.loc[marks_reordered['encoding_set']==0]
-    
-    #decode movement times
     decoding_marks = marks_reordered.loc[marks_reordered['encoding_set']==use_enc_as_dec]
 
     #drop column of encoding/decoding mask - to speed up encoder
