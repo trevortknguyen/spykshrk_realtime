@@ -342,8 +342,8 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         self.posterior_sum_result = np.zeros((1,9))
         #print('zeros shape: ',self.posterior_sum_result)
         
-        #for j in np.arange(0,len(arm_coords_rt),1):
-        #    self.posterior_sum_result[0,j] = posterior[arm_coords_rt[j][0]:(arm_coords_rt[j][1]+1)].sum()
+        for j in np.arange(0,len(arm_coords_rt),1):
+            self.posterior_sum_result[0,j] = posterior[arm_coords_rt[j][0]:(arm_coords_rt[j][1]+1)].sum()
             #print(self.posterior_sum_result)
 
         return self.posterior_sum_result
@@ -459,8 +459,8 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
 
                 # increment last bin with spikes
                 # to turn off posterior calculation comment out next line and replace with list of ones
-                #posterior = self.pp_decoder.increment_bin()
-                posterior = np.ones(136)
+                posterior = self.pp_decoder.increment_bin()
+                #posterior = np.ones(136)
                 
                 #print(posterior)
                 #print(posterior.shape)
@@ -497,8 +497,8 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                     #spike_count is set to 0 for no_spike_bins
 
                     # to turn off posterior calculation comment out next line and replace with list of ones
-                    #posterior = self.pp_decoder.increment_no_spike_bin()
-                    posterior = np.ones(136)
+                    posterior = self.pp_decoder.increment_no_spike_bin()
+                    #posterior = np.ones(136)
 
                     self.posterior_arm_sum = self.pp_decoder.calculate_posterior_arm_sum(posterior, self.ripple_time_bin)
 

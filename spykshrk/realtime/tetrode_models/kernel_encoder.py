@@ -150,10 +150,10 @@ class RSTKernelEncoder:
 
     def query_mark_hist(self, mark, time, elec_grp_id):
         # to turn off RStar Tree query uncomment next 2 lines and comment out next line after
-        query_weights = np.zeros((1,136))+0.1
-        query_positions = np.zeros((1,136))+0.5
+        #query_weights = np.zeros((1,136))+0.1
+        #query_positions = np.zeros((1,136))+0.5
 
-        #query_weights, query_positions = self.query_mark(mark)
+        query_weights, query_positions = self.query_mark(mark)
         query_hist, query_hist_edges = np.histogram(
             a=query_positions, bins=self.param.pos_hist_struct.pos_bin_edges,
             weights=query_weights, normed=False)

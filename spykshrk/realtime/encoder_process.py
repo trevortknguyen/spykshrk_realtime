@@ -230,7 +230,7 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
             if isinstance(datapoint, SpikePoint):
                 self.record_timing(timestamp=datapoint.timestamp, elec_grp_id=datapoint.elec_grp_id,
                                    datatype=datatypes.Datatypes.SPIKES, label='enc_recv')
-                #print("new spike: ",datapoint.timestamp)
+                #print("new spike: ",datapoint.timestamp,datapoint.data)
 
                 self.spk_counter += 1
 
@@ -279,7 +279,7 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
                     # to turn off adding spike, comment out "new_mark" below
                     if abs(self.current_vel) >= self.config['encoder']['vel']:
 
-                        #self.encoders[datapoint.elec_grp_id].new_mark(amp_marks)
+                        self.encoders[datapoint.elec_grp_id].new_mark(amp_marks)
 
                         self.record_timing(timestamp=datapoint.timestamp, elec_grp_id=
                                            datapoint.elec_grp_id,

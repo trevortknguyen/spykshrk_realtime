@@ -199,6 +199,8 @@ def run_linearization_routine(animal, day, epoch, linearization_path, raw_path, 
     lin_output3 = output_base + 'linearization_variables.mat'
     np.save(lin_output1, linear_distance_arm_shift)
     np.save(lin_output2, track_segment_id)
+    os.chmod(lin_output1,0o774)
+    os.chmod(lin_output2,0o774)
 
     linearization_shift_segments_list = []
     for key in shift_linear_distance_by_arm_dictionary:
