@@ -202,10 +202,10 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                                   realtime_base.RecordIDs.STIM_MESSAGE],
                          rec_labels=[['timestamp', 'elec_grp_id', 'threshold_state'],
                                      ['timestamp', 'time', 'lockout_num', 'lockout_state','tets_above_thresh'],
-                                     ['bin_timestamp', 'spike_timestamp','time', 'stim_sent', 'ripple_number', 'ripple_time_bin']],
+                                     ['bin_timestamp', 'spike_timestamp','time', 'stim_sent', 'ripple_number', 'ripple_time_bin','posterior_max_arm']],
                          rec_formats=['Iii',
                                       'Idiiq',
-                                      'IIdiii'])
+                                      'IIdiiii'])
         self.rank = rank
         self._send_interface = send_interface
         self._ripple_n_above_thresh = ripple_n_above_thresh
@@ -226,6 +226,10 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         self.num_above = 0
         self.ripple_number = 0
         self.shortcut_message_sent = False
+        self.shortcut_message_arm = 10
+
+        if self.config['datasource'] == 'trodes':
+            self.networkclient = MainProcessClient("SpykshrkMainProc", config['trodes_network']['address'],config['trodes_network']['port'], self.config)
 
         time = MPI.Wtime()
 
@@ -298,7 +302,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
 
             return num_above
 
-    def posterior_sum(self, bin_timestamp, spike_timestamp, box,arm1,arm2,arm3,arm4):
+    def posterior_sum(self, bin_timestamp, spike_timestamp, box,arm1,arm2,arm3,arm4,arm5,arm6,arm7,arm8):
         time = MPI.Wtime()
         # caclulate running sum
         # keep track of time ripple time
@@ -319,40 +323,61 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                                datatype=datatypes.Datatypes.LFP, label='postsum_in')
             self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
                               bin_timestamp, spike_timestamp, time, self.shortcut_message_sent, 
-                              self.ripple_number, self.ripple_time_bin)            
+                              self.ripple_number, self.ripple_time_bin, self.shortcut_message_arm)            
             
-            #this is where it decides whether or not to send shortcut message
-            # move this to below so that it sends message at end of ripple not during
-            # currently this is set to any arm > 0.8, next line is for 1 specific arm
-            
-            # need to replace this with box,arm1,arm2,etc
-            #if (self.ripple_time_bin > 2) & (box > 0.8):
-            #if (self.ripple_time_bin > 2) & (self.posterior_arm_sum[self.posterior_arm_sum > 0.8].shape[0] > 0):
-            #if (self.ripple_time_bin > 2) & (self.posterior_arm_sum[0][self.replay_target_arm] > 0.8):
-            # send shortcut message - dont sent here send after ripple is over
-            # start lockout / reset function
-                #self.shortcut_message_sent = True
-                #print('arm', self.replay_target_arm, 'sum above 80 percent for time bins: ',self.ripple_time_bin)
-                # here we should make a new dataframe saving the posterior and stim decision
-                #self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
-                #                  timestamp, self.shortcut_message_sent, self.ripple_number, self.ripple_time_bin)
+            #while the ripple is progressing we need to add the current posterior sum to the sum of all earlier ones
+            new_posterior_sum = np.asarray([box,arm1,arm2,arm3,arm4,arm5,arm6,arm7,arm8])
+            self.posterior_arm_sum = self.posterior_arm_sum + new_posterior_sum
 
         if self.stim_thresh == False:
             #print('no ripple in decoder')
-
             self.no_ripple_time_bin += 1
 
-            #send a shrotcut message if it has been a ripple (>3 bins) and now is not a ripple (>2 no ripple bins)
+            #send a shrotcut message if it has been a ripple (>3 bins) and now is not a ripple (no ripple bins = 3)
             if (self.no_ripple_time_bin == 3) & (self.ripple_time_bin > 3):
-                self.shortcut_message_sent = True
-                # return arm with max posterior 
-                # send shortcut message at end of ripple
+                
+                # normalize posterior_arm_sum
+                self.posterior_arm_sum = self.posterior_arm_sum/self.ripple_time_bin
+                # return arm with max posterior: first check if only 1 arm above 0.8, then make that arm a variable
+                # then check if each arm is the max, and if so, send that shortcut message
+                # shortcut message fn_num is an interger for function number in statescript
+                if len(np.argwhere(self.posterior_arm_sum>0.8) == 1):
+                    if np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 0:
+                        print('max posterior in box',self.posterior_arm_sum[0])
+                        self.shortcut_message_arm = self.posterior_arm_sum[0]
+                        self.networkclient.sendStateScriptShortcutMessage(1)
+                    elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 1:
+                        print('max posterior in arm 1',self.posterior_arm_sum[1])
+                        self.shortcut_message_arm = self.posterior_arm_sum[1]
+                        self.networkclient.sendStateScriptShortcutMessage(2)
+                    elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 2:
+                        print('max posterior in arm 2',self.posterior_arm_sum[2])
+                        self.shortcut_message_arm = self.posterior_arm_sum[2]
+                        self.networkclient.sendStateScriptShortcutMessage(3)
+                    elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 3:
+                        print('max posterior in arm 3',self.posterior_arm_sum[3])
+                        self.shortcut_message_arm = self.posterior_arm_sum[3]
+                        self.networkclient.sendStateScriptShortcutMessage(4)
+                    elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 4:
+                        print('max posterior in arm 4',self.posterior_arm_sum[4])
+                        self.shortcut_message_arm = self.posterior_arm_sum[4]
+                        self.networkclient.sendStateScriptShortcutMessage(5)
+                else:
+                    print('no arm posterior above 0.8',self.posterior_arm_sum)
+
+                ## send shortcut message based on posterior max arm, each arm has own function number
+                ## fn_num is an interger for function number in statescript
+                #self.networkclient.sendStateScriptShortcutMessage(22)
                 print("end of ripple message sent",self.ripple_time_bin,self.ripple_number)
                 self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
                                   bin_timestamp, spike_timestamp, time, self.shortcut_message_sent, 
-                                  self.ripple_number, self.ripple_time_bin)                
+                                  self.ripple_number, self.ripple_time_bin, self.shortcut_message_arm)
+                self.shortcut_message_sent = True
+
             if self.no_ripple_time_bin > 3:
                 self.ripple_time_bin = 0
+                self.posterior_arm_sum = np.asarray([0,0,0,0,0,0,0,0,0])
+                self.shortcut_message_arm = 10
                 self.shortcut_message_sent = False                
 
 class StimDeciderMPIRecvInterface(realtime_base.RealtimeMPIClass):
@@ -396,7 +421,9 @@ class PosteriorSumRecvInterface(realtime_base.RealtimeMPIClass):
         super(PosteriorSumRecvInterface, self).__init__(comm=comm, rank=rank, config=config)
 
         self.stim = stim_decider
-        self.msg_buffer = bytearray(48)
+        #NOTE: if you dont know how large the buffer should be, set it to a large number
+        # then you will get an error saying what it should be set to
+        self.msg_buffer = bytearray(80)
         self.req = self.comm.Irecv(buf=self.msg_buffer, tag=realtime_base.MPIMessageTag.POSTERIOR.value)
 
     def __next__(self):
@@ -414,7 +441,8 @@ class PosteriorSumRecvInterface(realtime_base.RealtimeMPIClass):
             # okay so we are receiving the message! but now it needs to get into the stim decider
             self.stim.posterior_sum(bin_timestamp=message.bin_timestamp,spike_timestamp=message.spike_timestamp,
                                     box=message.box,arm1=message.arm1,
-                                    arm2=message.arm2,arm3=message.arm3,arm4=message.arm4)             
+                                    arm2=message.arm2,arm3=message.arm3,arm4=message.arm4,arm5=message.arm5,
+                                    arm6=message.arm6,arm7=message.arm7,arm8=message.arm8)             
             #print('posterior sum message supervisor: ',message.timestamp,time*1000)
             #return posterior_sum
 
