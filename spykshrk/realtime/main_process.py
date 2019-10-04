@@ -105,10 +105,13 @@ class MainProcess(realtime_base.RealtimeProcess):
                 print("Network could not successfully initialize")
                 del self.networkclient
                 quit()
+            #added MEC
+            self.networkclient.initializeHardwareConnection()
             self.networkclient.registerStartupCallback(self.manager.handle_ntrode_list)
             #added MEC
             self.networkclient.registerStartupCallbackRippleTetrodes(self.manager.handle_ripple_ntrode_list)
             self.networkclient.registerTerminationCallback(self.manager.trigger_termination)
+
 
         self.recv_interface = MainSimulatorMPIRecvInterface(comm=comm, rank=rank,
                                                             config=config, main_manager=self.manager)
@@ -228,9 +231,9 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         self.shortcut_message_sent = False
         self.shortcut_message_arm = 10
 
-        if self.config['datasource'] == 'trodes':
-            self.networkclient = MainProcessClient("SpykshrkMainProc", config['trodes_network']['address'],config['trodes_network']['port'], self.config)
-
+        #if self.config['datasource'] == 'trodes':
+        #    self.networkclient = MainProcessClient("SpykshrkMainProc", config['trodes_network']['address'],config['trodes_network']['port'], self.config)
+        #self.networkclient.initializeHardwareConnection()
         time = MPI.Wtime()
 
         # Setup bin rec file
@@ -327,7 +330,9 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             
             #while the ripple is progressing we need to add the current posterior sum to the sum of all earlier ones
             new_posterior_sum = np.asarray([box,arm1,arm2,arm3,arm4,arm5,arm6,arm7,arm8])
+            print('incoming posterior sum', new_posterior_sum)
             self.posterior_arm_sum = self.posterior_arm_sum + new_posterior_sum
+            print('total posterior sum', self.posterior_arm_sum)
 
         if self.stim_thresh == False:
             #print('no ripple in decoder')
@@ -344,23 +349,23 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 if len(np.argwhere(self.posterior_arm_sum>0.8) == 1):
                     if np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 0:
                         print('max posterior in box',self.posterior_arm_sum[0])
-                        self.shortcut_message_arm = self.posterior_arm_sum[0]
+                        self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
                         self.networkclient.sendStateScriptShortcutMessage(1)
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 1:
                         print('max posterior in arm 1',self.posterior_arm_sum[1])
-                        self.shortcut_message_arm = self.posterior_arm_sum[1]
+                        self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
                         self.networkclient.sendStateScriptShortcutMessage(2)
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 2:
                         print('max posterior in arm 2',self.posterior_arm_sum[2])
-                        self.shortcut_message_arm = self.posterior_arm_sum[2]
+                        self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
                         self.networkclient.sendStateScriptShortcutMessage(3)
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 3:
                         print('max posterior in arm 3',self.posterior_arm_sum[3])
-                        self.shortcut_message_arm = self.posterior_arm_sum[3]
+                        self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
                         self.networkclient.sendStateScriptShortcutMessage(4)
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 4:
                         print('max posterior in arm 4',self.posterior_arm_sum[4])
-                        self.shortcut_message_arm = self.posterior_arm_sum[4]
+                        self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
                         self.networkclient.sendStateScriptShortcutMessage(5)
                 else:
                     print('no arm posterior above 0.8',self.posterior_arm_sum)

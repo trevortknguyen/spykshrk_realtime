@@ -3,7 +3,7 @@ import struct
 import numpy as np
 from mpi4py import MPI
 from threading import Thread, Timer, Event
-from spykshrk.realtime import realtime_base, realtime_logging, binary_record, datatypes
+from spykshrk.realtime import realtime_base, realtime_logging, binary_record, datatypes, main_process
 from spykshrk.realtime.simulator import simulator_process
 
 from spykshrk.realtime.datatypes import SpikePoint, LinearPosPoint, CameraModulePoint
@@ -182,6 +182,13 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
         self.spike_timestamp = 0
         self.spike_elec_grp_id = 0
 
+        time = MPI.Wtime()
+
+        #turn on networkclient for trodes - use to send message to MCU
+        #if self.config['datasource'] == 'trodes':
+        #    self.networkclient = main_process.MainProcessClient("SpykshrkMainProc", config['trodes_network']['address'],config['trodes_network']['port'], self.config)
+        #    self.networkclient.initializeHardwareConnection()
+
         #start spike sent timer
         # NOTE: currently this is turned off because it increased the dropped spikes rather than decreased them
         # to turn on, uncomment the line, self.thread.start()
@@ -218,6 +225,8 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
         self.spike_interface.stop_iterator()
 
     def process_next_data(self):
+
+        time = MPI.Wtime()
 
         msgs = self.spike_interface.__next__()
 
@@ -286,8 +295,11 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
                                            datatype=datatypes.Datatypes.SPIKES, label='spk_enc')
                         pass
 
-                if self.spk_counter % 10000 == 0:
+                if self.spk_counter % 300 == 0:
                     self.class_log.debug('Received {} spikes.'.format(self.spk_counter))
+                    #self.networkclient.initializeHardwareConnection()
+                    self.networkclient.sendStateScriptShortcutMessage(1)
+                    print('sent message to MCU via trodes',self.spike_timestamp,time)
                 pass
 
         msgs = self.pos_interface.__next__()

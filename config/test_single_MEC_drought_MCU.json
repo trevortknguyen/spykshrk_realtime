@@ -130,7 +130,7 @@
             "std": 5
         },
         "vel": 8,
-        "spk_amp": 80
+        "spk_amp": 30
     },
 
     "decoder": "pp_decoder",
