@@ -298,8 +298,8 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
                 if self.spk_counter % 300 == 0:
                     self.class_log.debug('Received {} spikes.'.format(self.spk_counter))
                     #self.networkclient.initializeHardwareConnection()
-                    self.networkclient.sendStateScriptShortcutMessage(1)
-                    print('sent message to MCU via trodes',self.spike_timestamp,time)
+                    #self.networkclient.sendStateScriptShortcutMessage(1)
+                    #print('sent message to MCU via trodes',self.spike_timestamp,time)
                 pass
 
         msgs = self.pos_interface.__next__()

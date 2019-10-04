@@ -83,16 +83,16 @@ class MainProcess(realtime_base.RealtimeProcess):
         self.stim_decider = StimDecider(rank=rank, config=config,
                                         send_interface=self.stim_decider_send_interface)
 
-        self.posterior_recv_interface = PosteriorSumRecvInterface(comm=comm, rank=rank, config=config,
-                                                                  stim_decider=self.stim_decider)
+        #self.posterior_recv_interface = PosteriorSumRecvInterface(comm=comm, rank=rank, config=config,
+        #                                                          stim_decider=self.stim_decider)
 
         #self.stim_decider = StimDecider(rank=rank, config=config,
         #                                send_interface=StimDeciderMPISendInterface(comm=comm,
         #                                                                           rank=rank,
         #                                                                           config=config))
 
-        self.data_recv = StimDeciderMPIRecvInterface(comm=comm, rank=rank, config=config,
-                                                     stim_decider=self.stim_decider)
+        #self.data_recv = StimDeciderMPIRecvInterface(comm=comm, rank=rank, config=config,
+        #                                             stim_decider=self.stim_decider)
 
         self.send_interface = MainMPISendInterface(comm=comm, rank=rank, config=config)
 
@@ -112,6 +112,12 @@ class MainProcess(realtime_base.RealtimeProcess):
             self.networkclient.registerStartupCallbackRippleTetrodes(self.manager.handle_ripple_ntrode_list)
             self.networkclient.registerTerminationCallback(self.manager.trigger_termination)
 
+        self.posterior_recv_interface = PosteriorSumRecvInterface(comm=comm, rank=rank, config=config,
+                                                                  stim_decider=self.stim_decider,
+                                                                  networkclient=self.networkclient)
+
+        self.data_recv = StimDeciderMPIRecvInterface(comm=comm, rank=rank, config=config,
+                                                     stim_decider=self.stim_decider,networkclient=self.networkclient)
 
         self.recv_interface = MainSimulatorMPIRecvInterface(comm=comm, rank=rank,
                                                             config=config, main_manager=self.manager)
@@ -258,7 +264,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
     def update_lockout_time(self, lockout_time):
         self._lockout_time = lockout_time
 
-    def update_ripple_threshold_state(self, timestamp, elec_grp_id, threshold_state):
+    def update_ripple_threshold_state(self, timestamp, elec_grp_id, threshold_state,networkclient):
         # Log timing
         self.record_timing(timestamp=timestamp, elec_grp_id=elec_grp_id,
                            datatype=datatypes.Datatypes.LFP, label='stim_rip_state')
@@ -289,6 +295,11 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 self.stim_thresh = True
                 self._last_lockout_timestamp = timestamp
                 self.class_log.debug("Ripple threshold detected {}.".format(self._ripple_thresh_states))
+                
+                # want to send the test shortcut message here
+                networkclient.sendStateScriptShortcutMessage(1)
+                print('sent shortcut message based on ripple thresh')
+                
                 self.write_record(realtime_base.RecordIDs.STIM_LOCKOUT,
                                   timestamp, time, self._lockout_count, self._in_lockout, num_above)
 
@@ -305,13 +316,14 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
 
             return num_above
 
-    def posterior_sum(self, bin_timestamp, spike_timestamp, box,arm1,arm2,arm3,arm4,arm5,arm6,arm7,arm8):
+    def posterior_sum(self, bin_timestamp, spike_timestamp, box,arm1,arm2,arm3,arm4,arm5,arm6,arm7,arm8,networkclient):
         time = MPI.Wtime()
         # caclulate running sum
         # keep track of time ripple time
         #print('posterior sum at function: ',timestamp,time*1000,self._last_lockout_timestamp)
         # try to put in the actual check for whether posterior is above 0.8 and last for 2 bins etc
         # we may need to move this function
+
         if self.stim_thresh == True:
             #print('posterior sum is: ',timestamp,box,time*1000)
             #print('stim threshold: ',self.stim_thresh,self._last_lockout_timestamp)
@@ -350,23 +362,23 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                     if np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 0:
                         print('max posterior in box',self.posterior_arm_sum[0])
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
-                        self.networkclient.sendStateScriptShortcutMessage(1)
+                        networkclient.sendStateScriptShortcutMessage(1)
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 1:
                         print('max posterior in arm 1',self.posterior_arm_sum[1])
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
-                        self.networkclient.sendStateScriptShortcutMessage(2)
+                        networkclient.sendStateScriptShortcutMessage(2)
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 2:
                         print('max posterior in arm 2',self.posterior_arm_sum[2])
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
-                        self.networkclient.sendStateScriptShortcutMessage(3)
+                        networkclient.sendStateScriptShortcutMessage(3)
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 3:
                         print('max posterior in arm 3',self.posterior_arm_sum[3])
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
-                        self.networkclient.sendStateScriptShortcutMessage(4)
+                        networkclient.sendStateScriptShortcutMessage(4)
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 4:
                         print('max posterior in arm 4',self.posterior_arm_sum[4])
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
-                        self.networkclient.sendStateScriptShortcutMessage(5)
+                        networkclient.sendStateScriptShortcutMessage(5)
                 else:
                     print('no arm posterior above 0.8',self.posterior_arm_sum)
 
@@ -386,10 +398,11 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 self.shortcut_message_sent = False                
 
 class StimDeciderMPIRecvInterface(realtime_base.RealtimeMPIClass):
-    def __init__(self, comm: MPI.Comm, rank, config, stim_decider: StimDecider):
+    def __init__(self, comm: MPI.Comm, rank, config, stim_decider: StimDecider, networkclient):
         super(StimDeciderMPIRecvInterface, self).__init__(comm=comm, rank=rank, config=config)
 
         self.stim = stim_decider
+        self.networkclient = networkclient
 
         self.mpi_status = MPI.Status()
 
@@ -415,17 +428,19 @@ class StimDeciderMPIRecvInterface(realtime_base.RealtimeMPIClass):
                 message = ripple_process.RippleThresholdState.unpack(message_bytes=self.feedback_bytes)
                 self.stim.update_ripple_threshold_state(timestamp=message.timestamp,
                                                         elec_grp_id=message.elec_grp_id,
-                                                        threshold_state=message.threshold_state)
+                                                        threshold_state=message.threshold_state,
+                                                        networkclient=self.networkclient)
 
                 self.mpi_reqs[0] = self.comm.Irecv(buf=self.feedback_bytes,
                                                    tag=realtime_base.MPIMessageTag.FEEDBACK_DATA.value)
                 
 
 class PosteriorSumRecvInterface(realtime_base.RealtimeMPIClass):
-    def __init__(self, comm: MPI.Comm, rank, config, stim_decider: StimDecider):
+    def __init__(self, comm: MPI.Comm, rank, config, stim_decider: StimDecider, networkclient):
         super(PosteriorSumRecvInterface, self).__init__(comm=comm, rank=rank, config=config)
 
         self.stim = stim_decider
+        self.networkclient = networkclient
         #NOTE: if you dont know how large the buffer should be, set it to a large number
         # then you will get an error saying what it should be set to
         self.msg_buffer = bytearray(80)
@@ -447,7 +462,7 @@ class PosteriorSumRecvInterface(realtime_base.RealtimeMPIClass):
             self.stim.posterior_sum(bin_timestamp=message.bin_timestamp,spike_timestamp=message.spike_timestamp,
                                     box=message.box,arm1=message.arm1,
                                     arm2=message.arm2,arm3=message.arm3,arm4=message.arm4,arm5=message.arm5,
-                                    arm6=message.arm6,arm7=message.arm7,arm8=message.arm8)             
+                                    arm6=message.arm6,arm7=message.arm7,arm8=message.arm8,networkclient=self.networkclient)             
             #print('posterior sum message supervisor: ',message.timestamp,time*1000)
             #return posterior_sum
 
