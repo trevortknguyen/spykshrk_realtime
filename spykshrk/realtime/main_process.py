@@ -297,8 +297,10 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 self.class_log.debug("Ripple threshold detected {}.".format(self._ripple_thresh_states))
                 
                 # want to send the test shortcut message here
-                networkclient.sendStateScriptShortcutMessage(1)
-                print('sent shortcut message based on ripple thresh')
+                #networkclient.sendStateScriptShortcutMessage(1)
+                #print('sent shortcut message based on ripple thresh')
+                networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(1);'])
+                print('sent regular message to MCU on ripple thresh')
                 
                 self.write_record(realtime_base.RecordIDs.STIM_LOCKOUT,
                                   timestamp, time, self._lockout_count, self._in_lockout, num_above)

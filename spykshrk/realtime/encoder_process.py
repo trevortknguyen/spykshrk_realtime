@@ -184,11 +184,6 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
 
         time = MPI.Wtime()
 
-        #turn on networkclient for trodes - use to send message to MCU
-        #if self.config['datasource'] == 'trodes':
-        #    self.networkclient = main_process.MainProcessClient("SpykshrkMainProc", config['trodes_network']['address'],config['trodes_network']['port'], self.config)
-        #    self.networkclient.initializeHardwareConnection()
-
         #start spike sent timer
         # NOTE: currently this is turned off because it increased the dropped spikes rather than decreased them
         # to turn on, uncomment the line, self.thread.start()
@@ -295,11 +290,8 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
                                            datatype=datatypes.Datatypes.SPIKES, label='spk_enc')
                         pass
 
-                if self.spk_counter % 300 == 0:
+                if self.spk_counter % 10000 == 0:
                     self.class_log.debug('Received {} spikes.'.format(self.spk_counter))
-                    #self.networkclient.initializeHardwareConnection()
-                    #self.networkclient.sendStateScriptShortcutMessage(1)
-                    #print('sent message to MCU via trodes',self.spike_timestamp,time)
                 pass
 
         msgs = self.pos_interface.__next__()

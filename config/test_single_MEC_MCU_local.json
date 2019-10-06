@@ -15,12 +15,12 @@
     },
 
     "files": {
-        "output_dir": "/opt/spykshrk_data/",
+        "output_dir": "~/mike_scratch/",
         "prefix": "test_single_MEC",
         "rec_postfix": "bin_rec",
         "profile_postfix": "pstats",
         "timing_postfix": "timing",
-        "backup_dir": "/opt/spykshrk_data/databackup/"
+        "backup_dir": "~/mike_scratch/backup/"
     },
 
         "trodes": {
@@ -148,7 +148,7 @@
     },
 
     "trodes_network": {
-        "address" : "tcp://192.168.0.2",
+        "address" : "tcp://127.0.0.1",
         "port": 49152,
         "decoding_tetrodes": [1,2],
         "ripple_tetrodes": [3,4]
