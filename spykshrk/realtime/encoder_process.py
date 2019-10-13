@@ -290,7 +290,7 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
                                            datatype=datatypes.Datatypes.SPIKES, label='spk_enc')
                         pass
 
-                if self.spk_counter % 10000 == 0:
+                if self.spk_counter % 1000 == 0:
                     self.class_log.debug('Received {} spikes.'.format(self.spk_counter))
                 pass
 

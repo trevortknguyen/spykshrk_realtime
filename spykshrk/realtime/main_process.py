@@ -57,12 +57,12 @@ class MainProcessClient(tnp.AbstractModuleClient):
                 self.started = True
                 self.ntrode_list_sent = True
 
-        # if command == tnp.acq_STOP:
-        #     if not self.terminated:
-        #         # self.main_manager.trigger_termination()
-        #         self.terminate()
-        #         self.terminated = True
-        #         self.started = False
+        if command == tnp.acq_STOP:
+            if not self.terminated:
+                # self.main_manager.trigger_termination()
+                self.terminate()
+                self.terminated = True
+                self.started = False
 
     def recv_quit(self):
         self.terminate()
@@ -233,7 +233,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         self.ripple_time_bin = 0
         self.no_ripple_time_bin = 0
         self.replay_target_arm = self.config['pp_decoder']['replay_target_arm']
-        self.posterior_arm_sum = np.zeros((1,9))
+        #self.posterior_arm_sum = np.zeros((1,9))
+        self.posterior_arm_sum = np.asarray([0,0,0,0,0,0,0,0,0])
         self.num_above = 0
         self.ripple_number = 0
         self.shortcut_message_sent = False
@@ -300,9 +301,9 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 
                 # want to send the test shortcut message here
                 #networkclient.sendStateScriptShortcutMessage(1)
-                #print('sent shortcut message based on ripple thresh')
+                #print('sent shortcut message based on ripple thresh',time,timestamp)
                 networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(1);'])
-                print('sent regular message to MCU on ripple thresh')
+                print('sent regular message to MCU on ripple thresh',time,timestamp)
                 
                 self.write_record(realtime_base.RecordIDs.STIM_LOCKOUT,
                                   timestamp, time, self._lockout_count, self._in_lockout, num_above)
@@ -370,23 +371,23 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                     if np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 0:
                         print('max posterior in box',self.posterior_arm_sum[0])
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
-                        networkclient.sendStateScriptShortcutMessage(1)
+                        #networkclient.sendStateScriptShortcutMessage(1)
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 1:
                         print('max posterior in arm 1',self.posterior_arm_sum[1])
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
-                        networkclient.sendStateScriptShortcutMessage(2)
+                        #networkclient.sendStateScriptShortcutMessage(2)
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 2:
                         print('max posterior in arm 2',self.posterior_arm_sum[2])
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
-                        networkclient.sendStateScriptShortcutMessage(3)
+                        #networkclient.sendStateScriptShortcutMessage(3)
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 3:
                         print('max posterior in arm 3',self.posterior_arm_sum[3])
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
-                        networkclient.sendStateScriptShortcutMessage(4)
+                        #networkclient.sendStateScriptShortcutMessage(4)
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 4:
                         print('max posterior in arm 4',self.posterior_arm_sum[4])
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
-                        networkclient.sendStateScriptShortcutMessage(5)
+                        #networkclient.sendStateScriptShortcutMessage(5)
                 else:
                     print('no arm posterior above 0.8',self.posterior_arm_sum)
 
