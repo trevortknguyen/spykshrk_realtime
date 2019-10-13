@@ -129,7 +129,12 @@ class LinearPositionAssignment:
         # this bins position into 5cm bins by dividing all the positions by 5
         # note: current max position = 146
 
-        hardcode_armorder = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16] #add progressive stagger in this order
+        # old way with split box
+        #hardcode_armorder = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16] #add progressive stagger in this order
+
+        # new way with 8 parallel segments for box
+        hardcode_armorder = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15] #add progressive stagger in this order
+
         hardcode_shiftamount = 4 # add this stagger to sum of previous shifts (was 20 for 1cm)
         # for now set all arm lengths to 60 for 1cm (12 for 5cm)
         linearization_arm_length = 12
@@ -138,16 +143,21 @@ class LinearPositionAssignment:
         #shift_linear_distance_by_arm_dictionary = dict() # initialize empty dictionary 
         # with this setup max position is 129
         for arm in hardcode_armorder: # for each outer arm
-            # if inner box, do nothing
-            if arm == 0:
-                temporary_variable_shift = 0
+            ## if inner box, do nothing
+            #if arm == 0:
+            #    temporary_variable_shift = 0
 
-            # if outer box segments add inner box
-            elif arm < 9 and arm > 0:
-                temporary_variable_shift = 4               
+            ## if outer box segments add inner box
+            #elif arm < 9 and arm > 0:
+            #    temporary_variable_shift = 4
+
+            # replace inner and outer box with 8 parallel segments
+            if arm < 8:
+                temporary_variable_shift = 0               
 
             #for first arm replace linearization_arm_length with 7 for the box
-            elif arm == 9:
+            # old segments for box, set this to 9, new parallel segments for box, set to 8
+            elif arm == 8:
                 temporary_variable_shift = hardcode_shiftamount + 7
                 #temporary_variable_shift = hardcode_shiftamount + 8 + self.shift_linear_distance_by_arm_dictionary[hardcode_armorder[arm - 1]]
 
@@ -164,10 +174,14 @@ class LinearPositionAssignment:
         # now we can use the good linearization, so box is 8 bins with 4 inner (segment 0) and 4 outer (segments 1-8)
         # bin position here - use math.ceil to round UP for arms and math.floor to round down for box
 
-        if segment == 0:
-            self.assigned_pos = math.floor(segment_pos*4 + self.shift_linear_distance_by_arm_dictionary[segment])
-        elif segment > 0 and segment < 9:
-            self.assigned_pos = math.floor(segment_pos*4 + self.shift_linear_distance_by_arm_dictionary[segment])
+        #if segment == 0:
+        #    self.assigned_pos = math.floor(segment_pos*4 + self.shift_linear_distance_by_arm_dictionary[segment])
+        #elif segment > 0 and segment < 9:
+        #    self.assigned_pos = math.floor(segment_pos*4 + self.shift_linear_distance_by_arm_dictionary[segment])
+        
+        # for linearization with just 8 parallel segments for box
+        if segment < 8:
+            self.assigned_pos = math.floor(segment_pos*8 + self.shift_linear_distance_by_arm_dictionary[segment])
         else:
             self.assigned_pos = math.ceil(segment_pos*12 + self.shift_linear_distance_by_arm_dictionary[segment])
 
