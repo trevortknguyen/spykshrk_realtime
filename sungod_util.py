@@ -193,32 +193,32 @@ def run_linearization_routine(animal, day, epoch, linearization_path, raw_path, 
         linear_distance_arm_shift[(newseg==(seg+8))]+=shift_linear_distance_by_arm_dictionary[(seg)]  
 
     #save outputs
-    output_base = linearization_path + animal + '/' + animal + '_' + str(day) + '_' +str(epoch) + '_'
+    output_base = linearization_path + animal + '_' + str(day) + '_' +str(epoch) + '_'
     lin_output1 = output_base + 'linearized_distance.npy'
     lin_output2 = output_base + 'linearized_track_segments.npy'
-    lin_output3 = output_base + 'linearization_variables.mat'
+    #lin_output3 = output_base + 'linearization_variables.mat'
     np.save(lin_output1, linear_distance_arm_shift)
     np.save(lin_output2, track_segment_id)
     os.chmod(lin_output1,0o774)
     os.chmod(lin_output2,0o774)
 
-    linearization_shift_segments_list = []
-    for key in shift_linear_distance_by_arm_dictionary:
-        temp = [key,shift_linear_distance_by_arm_dictionary[key]]
-        linearization_shift_segments_list.append(temp)    
+    # linearization_shift_segments_list = []
+    # for key in shift_linear_distance_by_arm_dictionary:
+    #     temp = [key,shift_linear_distance_by_arm_dictionary[key]]
+    #     linearization_shift_segments_list.append(temp)    
 
-        # Store variables 
-    export_this = AttrDict({'linearization_segments': edges,
-                                'linearization_nodes_coordinates': nodes,
-                                'linearization_nodes_distance_to_back_well':arm_distances,
-                                'linearization_shift_segments_list': linearization_shift_segments_list,
-                                'linearization_position_segments':track_segment_id,
-                                'linearization_position_distance_from_back_well':linear_distance,
-                                'linearization_position_distance_from_back_well_arm_shift':linear_distance_arm_shift
-                               })
+    #     # Store variables 
+    # export_this = AttrDict({'linearization_segments': edges,
+    #                             'linearization_nodes_coordinates': nodes,
+    #                             'linearization_nodes_distance_to_back_well':arm_distances,
+    #                             'linearization_shift_segments_list': linearization_shift_segments_list,
+    #                             'linearization_position_segments':track_segment_id,
+    #                             'linearization_position_distance_from_back_well':linear_distance,
+    #                             'linearization_position_distance_from_back_well_arm_shift':linear_distance_arm_shift
+    #                            })
 
         
-    sio.savemat(lin_output3,export_this)
+    # sio.savemat(lin_output3,export_this)
 
 
 def define_segment_coordinates(pos_obj, track_segment_ids):

@@ -57,12 +57,12 @@ class MainProcessClient(tnp.AbstractModuleClient):
                 self.started = True
                 self.ntrode_list_sent = True
 
-        # if command == tnp.acq_STOP:
-        #     if not self.terminated:
-        #         # self.main_manager.trigger_termination()
-        #         self.terminate()
-        #         self.terminated = True
-        #         self.started = False
+        if command == tnp.acq_STOP:
+            if not self.terminated:
+                # self.main_manager.trigger_termination()
+                self.terminate()
+                self.terminated = True
+                self.started = False
 
     def recv_quit(self):
         self.terminate()
@@ -211,10 +211,12 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                                   realtime_base.RecordIDs.STIM_MESSAGE],
                          rec_labels=[['timestamp', 'elec_grp_id', 'threshold_state'],
                                      ['timestamp', 'time', 'lockout_num', 'lockout_state','tets_above_thresh'],
-                                     ['bin_timestamp', 'spike_timestamp','time', 'stim_sent', 'ripple_number', 'ripple_time_bin','posterior_max_arm']],
+                                     ['bin_timestamp', 'spike_timestamp','time', 'stim_sent', 'ripple_number',
+                                      'ripple_time_bin','posterior_max_arm','box','arm1','arm2','arm3',
+                                      'arm4','arm5','arm6','arm7','arm8']],
                          rec_formats=['Iii',
                                       'Idiiq',
-                                      'IIdiiii'])
+                                      'IIdiiiiddddddddd'])
         self.rank = rank
         self._send_interface = send_interface
         self._ripple_n_above_thresh = ripple_n_above_thresh
@@ -231,7 +233,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         self.ripple_time_bin = 0
         self.no_ripple_time_bin = 0
         self.replay_target_arm = self.config['pp_decoder']['replay_target_arm']
-        self.posterior_arm_sum = np.zeros((1,9))
+        #self.posterior_arm_sum = np.zeros((1,9))
+        self.posterior_arm_sum = np.asarray([0,0,0,0,0,0,0,0,0])
         self.num_above = 0
         self.ripple_number = 0
         self.shortcut_message_sent = False
@@ -297,8 +300,10 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 self.class_log.debug("Ripple threshold detected {}.".format(self._ripple_thresh_states))
                 
                 # want to send the test shortcut message here
-                networkclient.sendStateScriptShortcutMessage(1)
-                print('sent shortcut message based on ripple thresh')
+                #networkclient.sendStateScriptShortcutMessage(1)
+                #print('sent shortcut message based on ripple thresh',time,timestamp)
+                networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(1);'])
+                print('sent regular message to MCU on ripple thresh',time,timestamp)
                 
                 self.write_record(realtime_base.RecordIDs.STIM_LOCKOUT,
                                   timestamp, time, self._lockout_count, self._in_lockout, num_above)
@@ -336,15 +341,19 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
 
             self.record_timing(timestamp=spike_timestamp, elec_grp_id=0,
                                datatype=datatypes.Datatypes.LFP, label='postsum_in')
-            self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
-                              bin_timestamp, spike_timestamp, time, self.shortcut_message_sent, 
-                              self.ripple_number, self.ripple_time_bin, self.shortcut_message_arm)            
             
             #while the ripple is progressing we need to add the current posterior sum to the sum of all earlier ones
             new_posterior_sum = np.asarray([box,arm1,arm2,arm3,arm4,arm5,arm6,arm7,arm8])
-            print('incoming posterior sum', new_posterior_sum)
+            #print('incoming posterior sum', new_posterior_sum)
             self.posterior_arm_sum = self.posterior_arm_sum + new_posterior_sum
-            print('total posterior sum', self.posterior_arm_sum)
+            #print('total posterior sum', self.posterior_arm_sum)
+
+            self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
+                              bin_timestamp, spike_timestamp, time, self.shortcut_message_sent, 
+                              self.ripple_number, self.ripple_time_bin, self.shortcut_message_arm,
+                              new_posterior_sum[0],new_posterior_sum[1],new_posterior_sum[2],
+                              new_posterior_sum[3],new_posterior_sum[4],new_posterior_sum[5],
+                              new_posterior_sum[6],new_posterior_sum[7],new_posterior_sum[8])    
 
         if self.stim_thresh == False:
             #print('no ripple in decoder')
@@ -362,23 +371,23 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                     if np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 0:
                         print('max posterior in box',self.posterior_arm_sum[0])
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
-                        networkclient.sendStateScriptShortcutMessage(1)
+                        #networkclient.sendStateScriptShortcutMessage(1)
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 1:
                         print('max posterior in arm 1',self.posterior_arm_sum[1])
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
-                        networkclient.sendStateScriptShortcutMessage(2)
+                        #networkclient.sendStateScriptShortcutMessage(2)
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 2:
                         print('max posterior in arm 2',self.posterior_arm_sum[2])
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
-                        networkclient.sendStateScriptShortcutMessage(3)
+                        #networkclient.sendStateScriptShortcutMessage(3)
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 3:
                         print('max posterior in arm 3',self.posterior_arm_sum[3])
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
-                        networkclient.sendStateScriptShortcutMessage(4)
+                        #networkclient.sendStateScriptShortcutMessage(4)
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 4:
                         print('max posterior in arm 4',self.posterior_arm_sum[4])
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
-                        networkclient.sendStateScriptShortcutMessage(5)
+                        #networkclient.sendStateScriptShortcutMessage(5)
                 else:
                     print('no arm posterior above 0.8',self.posterior_arm_sum)
 
@@ -388,7 +397,10 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 print("end of ripple message sent",self.ripple_time_bin,self.ripple_number)
                 self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
                                   bin_timestamp, spike_timestamp, time, self.shortcut_message_sent, 
-                                  self.ripple_number, self.ripple_time_bin, self.shortcut_message_arm)
+                                  self.ripple_number, self.ripple_time_bin, self.shortcut_message_arm,
+                                  self.posterior_arm_sum[0],self.posterior_arm_sum[1],self.posterior_arm_sum[2],
+                                  self.posterior_arm_sum[3],self.posterior_arm_sum[4],self.posterior_arm_sum[5],
+                                  self.posterior_arm_sum[6],self.posterior_arm_sum[7],self.posterior_arm_sum[8])
                 self.shortcut_message_sent = True
 
             if self.no_ripple_time_bin > 3:

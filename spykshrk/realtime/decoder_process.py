@@ -412,6 +412,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
         self.num_above = 0
         self.ripple_number = 0
         self.shortcut_message_sent = False
+        self.dropped_spikes = 0
 
     def register_pos_interface(self):
         # Register position, right now only one position channel is supported
@@ -544,11 +545,15 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                 pass
 
             elif spike_time_bin < self.current_time_bin:
+                self.dropped_spikes += 1
                 self.write_record(realtime_base.RecordIDs.DECODER_MISSED_SPIKES,
                                   spike_dec_msg.timestamp, spike_dec_msg.elec_grp_id,
                                   spike_time_bin, self.current_time_bin)
                 # Spike is in an old time bin, discard and mark as missed
-                self.class_log.debug('Spike was excluded from PP decode calculation, arrived late.')
+                # MEC - turn off this notification
+                #self.class_log.debug('Spike was excluded from PP decode calculation, arrived late.')
+                if self.dropped_spikes % 100 == 0:
+                    print('number of dropped spikes: ',self.dropped_spikes)
                 pass
 
             self.msg_counter += 1
