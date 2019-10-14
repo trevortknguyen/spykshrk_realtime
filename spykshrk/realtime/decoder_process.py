@@ -175,7 +175,7 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         # we could just move the first position here in arm coords and then each arm will start 1 bin higher
         # based on looking at counts from position this should work, so each arm is 11 units
 
-        arm_coords = np.array([[0,7],[12,23],[28,39],[44,55],[60,71],[76,87],[92,103],[108,119],[124,135]])
+        arm_coords = np.array([[0,8],[13,24],[29,40],[45,56],[61,72],[77,88],[93,104],[109,120],[125,136]])
         #arm_coords = np.array([[0,7],[11,23],[27,39],[43,55],[59,71],[75,87],[91,103],[107,119],[123,135]])
         max_pos = arm_coords[-1][-1] + 1
         pos_bins = np.arange(0,max_pos,1)
