@@ -293,7 +293,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 self._lockout_count += 1
 
             if (num_above >= self._ripple_n_above_thresh) and not self._in_lockout:
-                print('tets above ripple thresh: ',num_above,timestamp)
+                print('tets above ripple thresh: ',num_above,timestamp,self._ripple_thresh_states)
                 self._in_lockout = True
                 self.stim_thresh = True
                 self._last_lockout_timestamp = timestamp
