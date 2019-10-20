@@ -185,8 +185,11 @@ class LinearPositionAssignment:
         if segment < 8:
             self.assigned_pos = math.floor(segment_pos*9 + self.shift_linear_distance_by_arm_dictionary[segment])
             if self.assigned_pos == 9:
-                self.assigned_pos == 8
+                self.assigned_pos = 8
                 print('edge of box position binning correction')
+            if self.assigned_pos == -1:
+                self.assigned_pos = 0
+                print('position was -1')
         else:
             self.assigned_pos = math.ceil(segment_pos*12 + self.shift_linear_distance_by_arm_dictionary[segment])
 

@@ -293,7 +293,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 self._lockout_count += 1
 
             if (num_above >= self._ripple_n_above_thresh) and not self._in_lockout:
-                print('tets above ripple thresh: ',num_above,timestamp)
+                print('tets above ripple thresh: ',num_above,timestamp,self._ripple_thresh_states)
                 self._in_lockout = True
                 self.stim_thresh = True
                 self._last_lockout_timestamp = timestamp
@@ -388,12 +388,29 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                         print('max posterior in arm 4',self.posterior_arm_sum[4])
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
                         #networkclient.sendStateScriptShortcutMessage(5)
+                    elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 5:
+                        print('max posterior in arm 5',self.posterior_arm_sum[5])
+                        self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
+                        #networkclient.sendStateScriptShortcutMessage(5)
+                    elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 6:
+                        print('max posterior in arm 6',self.posterior_arm_sum[6])
+                        self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
+                        #networkclient.sendStateScriptShortcutMessage(5)
+                    elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 7:
+                        print('max posterior in arm 7',self.posterior_arm_sum[7])
+                        self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
+                        #networkclient.sendStateScriptShortcutMessage(5)
+                    elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 8:
+                        print('max posterior in arm 8',self.posterior_arm_sum[8])
+                        self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
+                        #networkclient.sendStateScriptShortcutMessage(5)
                 else:
                     print('no arm posterior above 0.8',self.posterior_arm_sum)
 
                 ## send shortcut message based on posterior max arm, each arm has own function number
                 ## fn_num is an interger for function number in statescript
                 #self.networkclient.sendStateScriptShortcutMessage(22)
+                self.shortcut_message_sent = True
                 print("end of ripple message sent",self.ripple_time_bin,self.ripple_number)
                 self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
                                   bin_timestamp, spike_timestamp, time, self.shortcut_message_sent, 
@@ -401,7 +418,6 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                                   self.posterior_arm_sum[0],self.posterior_arm_sum[1],self.posterior_arm_sum[2],
                                   self.posterior_arm_sum[3],self.posterior_arm_sum[4],self.posterior_arm_sum[5],
                                   self.posterior_arm_sum[6],self.posterior_arm_sum[7],self.posterior_arm_sum[8])
-                self.shortcut_message_sent = True
 
             if self.no_ripple_time_bin > 3:
                 self.ripple_time_bin = 0
@@ -621,13 +637,13 @@ class MainSimulatorManager(rt_logging.LoggingClass):
             # Convert json string keys into int (ntrode_id) and send
             rip_mean_base_dict = dict(map(lambda x: (int(x[0]), x[1]),
                                           self.config['ripple']['CustomRippleBaselineMeanMessage'].items()))
-            print('ripple mean: ',rip_mean_base_dict)
+            #print('ripple mean: ',rip_mean_base_dict)
             self.send_interface.send_ripple_baseline_mean(rank=rip_rank, mean_dict=rip_mean_base_dict)
 
             # Convert json string keys into int (ntrode_id) and send
             rip_std_base_dict = dict(map(lambda x: (int(x[0]), x[1]),
                                          self.config['ripple']['CustomRippleBaselineStdMessage'].items()))
-            print('ripple std: ',rip_std_base_dict)
+            #print('ripple std: ',rip_std_base_dict)
             self.send_interface.send_ripple_baseline_std(rank=rip_rank, std_dict=rip_std_base_dict)
 
     def _stim_decider_startup(self):
