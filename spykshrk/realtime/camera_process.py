@@ -12,103 +12,7 @@ from spykshrk.realtime.tetrode_models import kernel_encoder
 import spykshrk.realtime.rst.RSTPython as RST
 
 # for now this script just holds the two classes: LinearPositionAssignment and VelocityCalculator
-# the functions in these classed are called in encoder_process
-
-# class LinearPosandVelResultsMessage(realtime_logging.PrintableMessage):
-
-#     _header_byte_fmt = '=qidi'
-#     _header_byte_len = struct.calcsize(_header_byte_fmt)
-
-#     def __init__(self, timestamp, lin_pos, lin_vel):
-#         self.timestamp = timestamp
-#         self.lin_pos = lin_pos
-#         self.lin_vel = lin_vel
-
-#     def pack(self):
-#         #pos_hist_len = len(self.pos_hist)
-#         #pos_hist_byte_len = pos_hist_len * struct.calcsize('=d')
-
-#         message_bytes = struct.pack(self._header_byte_fmt,
-#                                     self.timestamp,
-#                                     self.lin_pos,
-#                                     self.lin_vel)
-
-#         #message_bytes = message_bytes + self.pos_hist.tobytes()
-#         message_bytes = message_bytes
-
-#         return message_bytes
-
-#     @classmethod
-#     def unpack(cls, message_bytes):
-#         timestamp, lin_pos, lin_vel = struct.unpack(cls._header_byte_fmt,message_bytes[0:cls._header_byte_len])
-
-#         #pos_hist = np.frombuffer(message_bytes[cls._header_byte_len:cls._header_byte_len+pos_hist_len])
-
-#         return cls(timestamp=timestamp, lin_pos=lin_pos, lin_vel=lin_vel)
-
-# class ArmCoordinatessResultsMessage(realtime_logging.PrintableMessage):
-
-#     _header_byte_fmt = '=qidi'
-#     _header_byte_len = struct.calcsize(_header_byte_fmt)
-
-#     def __init__(self, timestamp, arm_coords):
-#         self.timestamp = timestamp
-#         self.arm_coords = arm_coords
-
-#     def pack(self):
-#         #pos_hist_len = len(self.pos_hist)
-#         #pos_hist_byte_len = pos_hist_len * struct.calcsize('=d')
-
-#         message_bytes = struct.pack(self._header_byte_fmt,
-#                                     self.timestamp,
-#                                     self.arm_coords)
-
-#         #message_bytes = message_bytes + self.pos_hist.tobytes()
-
-#         return message_bytes
-
-#     @classmethod
-#     def unpack(cls, message_bytes):
-#         timestamp, arm_coords = struct.unpack(cls._header_byte_fmt,message_bytes[0:cls._header_byte_len])
-
-#         #pos_hist = np.frombuffer(message_bytes[cls._header_byte_len:cls._header_byte_len+pos_hist_len])
-
-#         return cls(timestamp=timestamp, arm_coords=arm_coords)
-
-# class CameraMPISendInterface(realtime_base.RealtimeMPIClass):
-#     def __init__(self, comm: MPI.Comm, rank, config):
-#         super(EncoderMPISendInterface, self).__init__(comm=comm, rank=rank, config=config)
-
-#     def send_record_register_messages(self, record_register_messages):
-#         self.class_log.debug("Sending binary record registration messages.")
-#         for message in record_register_messages:
-#             self.comm.send(obj=message, dest=self.config['rank']['supervisor'],
-#                            tag=realtime_base.MPIMessageTag.COMMAND_MESSAGE)
-#         self.class_log.debug("Done sending binary record registration messages.")
-
-#         # define a send function, then have a for loop for each enocder node, and decoder, and ripple
-#     def send_linear_pos_and_vel(self, query_result_message: LinearPosandVelResultsMessage):
-#         # need loop for encoder nodes
-#         self.comm.Send(buf=query_result_message.pack(), dest=self.config['rank']['enocder'],
-#                        tag=realtime_base.MPIMessageTag.LINEAR_POS_AND_VEL)
-#         self.comm.Send(buf=query_result_message.pack(), dest=self.config['rank']['decoder'],
-#                        tag=realtime_base.MPIMessageTag.LINEAR_POS_AND_VEL)        
-#         self.comm.Send(buf=query_result_message.pack(), dest=self.config['rank']['ripple'],
-#                        tag=realtime_base.MPIMessageTag.LINEAR_POS_AND_VEL)        
-    
-#     def send_arm_coordinates(self, query_result_message: ArmCoordsResultsMessage):
-#         self.comm.Send(buf=query_result_message.pack(), dest=self.config['rank']['encoder'],
-#                        tag=realtime_base.MPIMessageTag.ARM_COORDINATES)
-#         self.comm.Send(buf=query_result_message.pack(), dest=self.config['rank']['decoder'],
-#                        tag=realtime_base.MPIMessageTag.ARM_COORDINATES)
-
-#     def send_time_sync_report(self, time):
-#         self.comm.send(obj=realtime_base.TimeSyncReport(time),
-#                        dest=self.config['rank']['supervisor'],
-#                        tag=realtime_base.MPIMessageTag.COMMAND_MESSAGE)
-
-#     def all_barrier(self):
-#         self.comm.Barrier()
+# the functions in these classed are called in encoder_process and main_process
 
 class LinearPositionAssignment:
     def __init__(self):
@@ -122,12 +26,7 @@ class LinearPositionAssignment:
         # 0-6 = box, 7 = arm1 ... 14 = arm8
         # 6-9-19: seems to work as expected! matches offline linearization!
         # 8-15-19: updated for new track geometry
-        # 0 = home->rip/wait, 1-8 = rip/wait->arms, 9-16 = outer arms
-
-        #self.shift_linear_distance_by_arm_dictionary
-
-        # this bins position into 5cm bins by dividing all the positions by 5
-        # note: current max position = 146
+        # old way: 0 = home->rip/wait, 1-8 = rip/wait->arms, 9-16 = outer arms
 
         # old way with split box
         #hardcode_armorder = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16] #add progressive stagger in this order
@@ -140,7 +39,7 @@ class LinearPositionAssignment:
         linearization_arm_length = 12
     
         # Define dictionary for shifts for each arm segment
-        #shift_linear_distance_by_arm_dictionary = dict() # initialize empty dictionary 
+
         # with this setup max position is 136
         for arm in hardcode_armorder: # for each outer arm
             ## if inner box, do nothing
@@ -180,7 +79,7 @@ class LinearPositionAssignment:
         #    self.assigned_pos = math.floor(segment_pos*4 + self.shift_linear_distance_by_arm_dictionary[segment])
         
         # for linearization with just 8 parallel segments for box
-        # fixed so that box is no 9 bins (this matches 45cm at 5cm/bin)
+        # fixed so that box is 9 bins long (this matches 45cm at 5cm/bin)
         # fixed so that any values in box where segment_pos = 1, get set back to bin 8, need bin 9 to be empty
         if segment < 8:
             self.assigned_pos = math.floor(segment_pos*9 + self.shift_linear_distance_by_arm_dictionary[segment])
@@ -202,10 +101,15 @@ class VelocityCalculator:
         self.lastx = 0
         self.lasty = 0
 
-        #this is the number of speed measurements used to smooth
+        #this is the number of speed or position measurements used to smooth
         self.NSPEED_FILT_POINTS = 30
         self.speed = [0] * self.NSPEED_FILT_POINTS
         self.speedFilt = [0] * self.NSPEED_FILT_POINTS
+        self.x_pos = [0] * self.NSPEED_FILT_POINTS
+        self.x_pos_Filt = [0] * self.NSPEED_FILT_POINTS
+        self.y_pos = [0] * self.NSPEED_FILT_POINTS
+        self.y_pos_Filt = [0] * self.NSPEED_FILT_POINTS
+
 
         #this is a half-gaussian kernel used to smooth the instanteous speed
         self.speedFilterValues = [0.0393,0.0392,0.0391,0.0389,0.0387,0.0385,0.0382,0.0379,
@@ -214,8 +118,58 @@ class VelocityCalculator:
 
         for i in np.arange(0,self.NSPEED_FILT_POINTS,1):
             self.speedFilt[i] = self.speedFilterValues[i]
-        self.ind = self.NSPEED_FILT_POINTS - 1;
+            self.x_pos_Filt[i] = self.speedFilterValues[i]
+            self.y_pos_Filt[i] = self.speedFilterValues[i]
 
+        self.ind = self.NSPEED_FILT_POINTS - 1;
+        self.x_ind = self.NSPEED_FILT_POINTS - 1;
+        self.y_ind = self.NSPEED_FILT_POINTS - 1;
+
+    # this smoothes x position - okay this works, but the positions really dont match well...
+    def smooth_x_position(self, x):
+        self.smooth_x = 0
+        i = 0
+        tmpind = 0
+        cmperpx = 0.2
+
+        self.x_pos[self.x_ind] = x
+        #print(self.x_pos)
+        # this is filling up fine, but x_pos_filt[i] is always 0 ????
+
+        for i in np.arange(0,self.NSPEED_FILT_POINTS,1):
+            tmpind = (self.x_ind + i) % self.NSPEED_FILT_POINTS
+            #print('x pos filt',self.x_pos_Filt)
+            self.smooth_x = self.smooth_x + self.x_pos[tmpind]*self.x_pos_Filt[i]
+
+        self.x_ind = self.x_ind - 1
+
+        if self.x_ind < 0:
+            self.x_ind = self.NSPEED_FILT_POINTS - 1
+
+        #print('smooth x',self.smooth_x)
+        return self.smooth_x
+
+    # this smoothes y position
+    def smooth_y_position(self, y):
+        self.smooth_y = 0
+        i = 0
+        tmpind = 0
+        cmperpx = 0.2
+
+        self.y_pos[self.y_ind] = y
+
+        for i in np.arange(0,self.NSPEED_FILT_POINTS,1):
+            tmpind = (self.y_ind + i) % self.NSPEED_FILT_POINTS
+            self.smooth_y = self.smooth_y + self.y_pos[tmpind]*self.y_pos_Filt[i]
+
+        self.y_ind = self.y_ind - 1
+
+        if self.y_ind < 0:
+            self.y_ind = self.NSPEED_FILT_POINTS - 1
+
+        return self.smooth_y
+
+    # this is the velocity calculator
     def calculator(self, x, y):
         self.smoothSpeed = 0
         i = 0
@@ -228,6 +182,7 @@ class VelocityCalculator:
         # it seems like the speed is still pretty high with jittering of headstage...
         # maybe this is because positon isnt smoothed??
 
+        # this line calcualates distance between the last 2 points
         self.speed[self.ind] = ((x * cmperpx - self.lastx) * (x * cmperpx - self.lastx) +
                       (y * cmperpx - self.lasty) * (y * cmperpx - self.lasty))
         #print(x,y,self.lastx,self.lasty,network.pxpercm,self.speed[0])
@@ -241,6 +196,7 @@ class VelocityCalculator:
 
         for i in np.arange(0,self.NSPEED_FILT_POINTS,1):
             tmpind = (self.ind + i) % self.NSPEED_FILT_POINTS
+            #print('speed filt',self.speedFilt)
             self.smoothSpeed = self.smoothSpeed + self.speed[tmpind]*self.speedFilt[i]
 
         self.ind = self.ind - 1
@@ -248,6 +204,7 @@ class VelocityCalculator:
         if self.ind < 0:
             self.ind = self.NSPEED_FILT_POINTS - 1
 
+        #print('speed',self.smoothSpeed)
         return self.smoothSpeed
 
 #initialize VelocityCalculator
@@ -256,200 +213,3 @@ velCalc = VelocityCalculator()
 #initialize LinearPositionAssignment
 linPosAssign = LinearPositionAssignment()
 
-# class CameraManager(realtime_base.BinaryRecordBase):
-
-#     def __init__(self, rank, config, local_rec_manager, send_interface: EncoderMPISendInterface,
-#                  pos_interface: realtime_base.DataSourceReceiver):
-
-#         super(RStarEncoderManager, self).__init__(rank=rank,
-#                                                   local_rec_manager=local_rec_manager,
-#                                                   send_interface=send_interface,
-#                                                   rec_ids=[realtime_base.RecordIDs.ENCODER_QUERY,
-#                                                            realtime_base.RecordIDs.ENCODER_OUTPUT],
-#                                                   rec_labels=[['timestamp',
-#                                                                'elec_grp_id',
-#                                                                'weight',
-#                                                                'position'],
-#                                                               ['timestamp',
-#                                                                'elec_grp_id',
-#                                                                'position'] +
-#                                                               ['x{:0{dig}d}'.
-#                                                                format(x, dig=len(str(config['encoder']
-#                                                                                      ['position']['bins'])))
-#                                                                for x in range(config['encoder']['position']['bins'])]],
-#                                                   rec_formats=['qidd',
-#                                                                'qid'+'d'*config['encoder']['position']['bins']])
-
-#         self.rank = rank
-#         self.config = config
-#         self.mpi_send = send_interface
-#         self.pos_interface = pos_interface
-
-#         self.encoders = {}
-
-#         self.spk_counter = 0
-#         self.pos_counter = 0
-
-#         self.current_pos = 0
-#         self.current_vel = 0
-
-#         self.speed = 0
-#         self.linposassign = 0
-
-
-#     def register_pos_datatype(self):
-#         # Register position, right now only one position channel is supported
-#         self.pos_interface.register_datatype_channel(-1)
-
-#     def turn_on_datastreams(self):
-#         self.class_log.info("Turn on datastreams.")
-#         self.pos_interface.start_all_streams()
-
-#     def trigger_termination(self):
-#         self.spike_interface.stop_iterator()
-
-#     def process_next_data(self):
-
-#         msgs = self.pos_interface.__next__()
-#         if msgs is None:
-#             # No data avaliable but datastreams are still running, continue polling
-#             pass
-#         else:
-#             datapoint = msgs[0]
-#             timing_msg = msgs[1]
-#             if isinstance(datapoint, CameraModulePoint):
-#                 self.pos_counter += 1
-
-#                 #pasrsing the message into my variables
-#                 self.current_pos = datapoint.x
-#                 self.current_vel = datapoint.vel
-
-#                 #send my variables to calculators
-#                 speed = velCalc.calculator(npbuff[0][3], npbuff[0][4])
-#                 linposassign = linPosAssign.assign_position(npbuff[0][1], npbuff[0][2])
-
-#                 # want to report timing and latency of the velocity caclulator                
-#                 self.record_timing(timestamp=datapoint.timestamp, elec_grp_id=datapoint.elec_grp_id,
-#                                    datatype=datatypes.Datatypes.POSITION, label='camera')
-
-#                 self.write_record(realtime_base.RecordIDs.CAMERA_OUTPUT,
-#                                       query_result.query_time,
-#                                       query_result.elec_grp_id,
-#                                       self.current_pos,
-#                                       *query_result.query_hist)
-
-#                 self.mpi_send.send_linear_pos_and_vel(LinearPosandVelResultsMessage(timestamp=query_result.query_time,
-#                                                                                position=self.linposassign,
-#                                                                                velocity=self.speed))
-#                 self.mpi_send.send_arm_coordinates(ArmCoordinatessResultsMessage(timestamp=query_result.query_time,
-#                                                                                arm_coords=self.arm_coords))
-
-#                 if self.pos_counter % 1000 == 0:
-#                     self.class_log.info('Received {} pos datapoints.'.format(self.pos_counter))
-#                 pass
-
-
-# class CameraMPIRecvInterface(realtime_base.RealtimeMPIClass):
-#     def __init__(self, comm: MPI.Comm, rank, config, camera_manager: CameraManager):
-#         super(EncoderMPIRecvInterface, self).__init__(comm=comm, rank=rank, config=config)
-#         self.camera_manager = camera_manager
-
-#         self.req = self.comm.irecv(tag=realtime_base.MPIMessageTag.COMMAND_MESSAGE.value)
-
-#     def __next__(self):
-#         rdy, msg = self.req.test()
-#         if rdy:
-#             self.process_request_message(msg)
-
-#             self.req = self.comm.irecv(tag=realtime_base.MPIMessageTag.COMMAND_MESSAGE.value)
-
-#     def process_request_message(self, message):
-
-#         if isinstance(message, realtime_base.TerminateMessage):
-#             self.class_log.debug("Received TerminateMessage")
-#             raise StopIteration()
-
-#         elif isinstance(message, realtime_base.NumTrodesMessage):
-#             self.class_log.debug("Received number of NTrodes Message.")
-#             self.camera_manager.set_num_trodes(message)
-
-#         elif isinstance(message, ChannelSelection):
-#             self.class_log.debug("Received NTrode channel selection {:}.".format(message.ntrode_list))
-#             self.camera_manager.select_ntrodes(message.ntrode_list)
-
-#         elif isinstance(message, TurnOnDataStream):
-#             self.class_log.debug("Turn on data stream")
-#             self.camera_manager.turn_on_datastreams()
-
-#         elif isinstance(message, binary_record.BinaryRecordCreateMessage):
-#             self.camera_manager.set_record_writer_from_message(message)
-
-#         elif isinstance(message, realtime_base.TimeSyncInit):
-#             self.camera_manager.sync_time()
-
-#         elif isinstance(message, realtime_base.TimeSyncSetOffset):
-#             self.camera_manager.update_offset(message.offset_time)
-
-#         elif isinstance(message, realtime_base.StartRecordMessage):
-#             self.camera_manager.start_record_writing()
-
-#         elif isinstance(message, realtime_base.StopRecordMessage):
-#             self.camera_manager.stop_record_writing()
-
-
-# class CameraProcess(realtime_base.RealtimeProcess):
-#     def __init__(self, comm: MPI.Comm, rank, config):
-
-#         super().__init__(comm, rank, config)
-
-#         self.local_rec_manager = binary_record.RemoteBinaryRecordsManager(manager_label='state', local_rank=rank,
-#                                                                           manager_rank=config['rank']['supervisor'])
-
-#         self.mpi_send = CameraMPISendInterface(comm=comm, rank=rank, config=config)
-
-#         if self.config['datasource'] == 'simulator':
-#             pos_interface = simulator_process.SimulatorRemoteReceiver(comm=self.comm,
-#                                                                       rank=self.rank,
-#                                                                       config=self.config,
-#                                                                       datatype=datatypes.Datatypes.LINEAR_POSITION)
-#         elif self.config['datasource'] == 'trodes':
-#             pos_interface = simulator_process.TrodesDataReceiver(comm=self.comm,
-#                                                                       rank=self.rank,
-#                                                                       config=self.config,
-#                                                                       datatype=datatypes.Datatypes.LINEAR_POSITION)
-
-#         self.camera_manager = CameraManager(rank=rank,
-#                                            config=config,
-#                                            local_rec_manager=self.local_rec_manager,
-#                                            send_interface=self.mpi_send,
-#                                            pos_interface=pos_interface)
-
-#         self.mpi_recv = CameraMPIRecvInterface(comm=comm, rank=rank, config=config, encoder_manager=self.camera_manager)
-
-#         self.terminate = False
-
-#         # config['trodes_network']['networkobject'].registerTerminateCallback(self.trigger_termination)
-
-#         # First Barrier to finish setting up nodes
-#         self.class_log.debug("First Barrier")
-#         self.comm.Barrier()
-
-#     def trigger_termination(self):
-#         self.terminate = True
-
-#     def main_loop(self):
-
-#         self.camera_manager.setup_mpi()
-
-#         # First thing register pos datatype
-#         self.camera_manager.register_pos_datatype()
-
-#         try:
-#             while not self.terminate:
-#                 self.mpi_recv.__next__()
-#                 self.camera_manager.process_next_data()
-
-#         except StopIteration as ex:
-#             self.class_log.info('Terminating CameraProcess (rank: {:})'.format(self.rank))
-
-#         self.class_log.info("Camera Process reached end, exiting.")

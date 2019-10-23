@@ -41,6 +41,26 @@ class PosteriorSum(rt_logging.PrintableMessage):
         return cls(bin_timestamp=bin_timestamp, spike_timestamp=spike_timestamp, box=box,arm1=arm1,arm2=arm2,
                    arm3=arm3,arm4=arm4,arm5=arm5,arm6=arm6,arm7=arm7,arm8=arm8)
 
+class VelocityPosition(rt_logging.PrintableMessage):
+    """"Message containing velocity and linearized position from decoder_process.
+
+    This message has helper serializer/deserializer functions to be used to speed transmission.
+    """
+    _byte_format = 'Iid'
+
+    def __init__(self, bin_timestamp, pos, vel):
+        self.bin_timestamp = bin_timestamp
+        self.pos = pos
+        self.vel = vel
+
+    def pack(self):
+        return struct.pack(self._byte_format, self.bin_timestamp, self.pos, self.vel)
+
+    @classmethod
+    def unpack(cls, message_bytes):
+        bin_timestamp, pos, vel = struct.unpack(cls._byte_format, message_bytes)
+        return cls(bin_timestamp=bin_timestamp, pos=pos, vel=vel)
+
 class DecoderMPISendInterface(realtime_base.RealtimeMPIClass):
     def __init__(self, comm :MPI.Comm, rank, config):
         super(DecoderMPISendInterface, self).__init__(comm=comm, rank=rank, config=config)
@@ -60,6 +80,16 @@ class DecoderMPISendInterface(realtime_base.RealtimeMPIClass):
                        dest=self.config['rank']['supervisor'],
                        tag=realtime_base.MPIMessageTag.POSTERIOR.value)
         #print('stim_message: ',message,self.config['rank']['decoder'],self.rank)
+
+    #def sending velocity&position message to supervisor with VEL_POS tag
+    def send_vel_pos_message(self, bin_timestamp, pos, vel):
+        message = VelocityPosition(bin_timestamp, pos, vel)
+        #print('vel_message: ',message)
+
+        self.comm.Send(buf=message.pack(),
+                       dest=self.config['rank']['supervisor'],
+                       tag=realtime_base.MPIMessageTag.VEL_POS.value)
+        #print('vel_message: ',message,self.config['rank']['decoder'],self.rank)
 
     def send_time_sync_report(self, time):
         self.comm.send(obj=realtime_base.TimeSyncReport(time),
@@ -581,6 +611,9 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
 
                 self.pp_decoder.update_position(pos_timestamp=pos_data.timestamp, pos_data=current_pos, vel_data=self.current_vel)
 
+                #send message VEL_POS to main_process so that shortcut message can by filtered by velocity and position
+                self.mpi_send.send_vel_pos_message(self.current_time_bin * self.time_bin_size,
+                                                   current_pos, self.current_vel)                
 
                 #print(pos_data.x, pos_data.segment)
                 #TODO implement trodes cameramodule update position function

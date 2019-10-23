@@ -176,6 +176,8 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
 
         self.current_pos = 0
         self.current_vel = 0
+        self.smooth_x = 0
+        self.smooth_y = 0
 
         #initialize variables to record if a spike has been sent to decoder
         self.spike_sent = 3
@@ -319,9 +321,14 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
                 #NOTE (MEC, 9-1-19): we need to include encoding velocity when calling update_covariate
                 self.pos_counter += 1
 
-                # run positionassignment and velocity calculator functions
+                # run positionassignment, pos smoothing, and velocity calculator functions
+                self.smooth_x = self.velCalc.smooth_x_position(datapoint.x)
+                self.smooth_y = self.velCalc.smooth_y_position(datapoint.y)
                 self.current_vel = self.velCalc.calculator(datapoint.x, datapoint.y)
                 self.current_pos = self.linPosAssign.assign_position(datapoint.segment, datapoint.position)
+                #print('x smoothing: ',datapoint.x,self.smooth_x)
+                #print('y smoothing: ',datapoint.y,self.smooth_y)
+                
                 #print('linear position: ',self.current_pos, ' velocity: ',self.current_vel)
                 #print('segment: ',datapoint.segment)
 
