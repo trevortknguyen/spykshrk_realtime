@@ -15,12 +15,12 @@
     },
 
     "files": {
-        "output_dir": "/opt/spykshrk_data/",
+        "output_dir": "/opt/local/realtime_raw_data/",
         "prefix": "test_single_MEC",
         "rec_postfix": "bin_rec",
         "profile_postfix": "pstats",
         "timing_postfix": "timing",
-        "backup_dir": "/opt/spykshrk_data/databackup/"
+        "backup_dir": "/opt/local/realtime_raw_data/databackup/"
     },
 
         "trodes": {
