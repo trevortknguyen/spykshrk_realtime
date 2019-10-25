@@ -302,7 +302,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
 
             if (num_above >= self._ripple_n_above_thresh) and not self._in_lockout:
                 if self.velocity < self.config['encoder']['vel']:
-                    print('tets above ripple thresh: ',num_above,timestamp,self._ripple_thresh_states)
+                    print('tets above ripple thresh: ',num_above,timestamp,self._ripple_thresh_states, self.velocity)
                     #print('lockout time: ',self._lockout_time)
                 self._in_lockout = True
                 self.stim_thresh = True
@@ -313,7 +313,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 #networkclient.sendStateScriptShortcutMessage(1)
 
                 #print('sent shortcut message based on ripple thresh',time,timestamp)
-                #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(1);\n'])
+                networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(15);\n'])
                 #networkclient.sendStateScriptShortcutMessage(1)
 
                 #print('sent regular message to MCU on ripple thresh',time,timestamp)
