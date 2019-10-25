@@ -74,6 +74,7 @@ class RippleFilter(rt_logging.LoggingClass):
     def __init__(self, rec_base: realtime_base.BinaryRecordBase, param: RippleParameterMessage,
                  elec_grp_id):
         super().__init__()
+        # this is the kernel for 100 - 400 Hz, this matches the filter in FSGui
         self.rec_base = rec_base
         self.NFILT = 19
         self.NLAST_VALS = 20
