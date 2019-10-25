@@ -1,6 +1,7 @@
 import os
 import struct
 import numpy as np
+import time
 from mpi4py import MPI
 from threading import Thread, Timer, Event
 from spykshrk.realtime import realtime_base, realtime_logging, binary_record, datatypes, main_process
@@ -410,6 +411,8 @@ class EncoderProcess(realtime_base.RealtimeProcess):
                                                                       config=self.config,
                                                                       datatype=datatypes.Datatypes.LINEAR_POSITION)
         elif self.config['datasource'] == 'trodes':
+            print('about to configure trdoes network for tetrode: ',self.rank)
+            time.sleep(1*self.rank)
             spike_interface = simulator_process.TrodesDataReceiver(comm=self.comm,
                                                                         rank=self.rank,
                                                                         config=self.config,
@@ -420,6 +423,7 @@ class EncoderProcess(realtime_base.RealtimeProcess):
                                                                       config=self.config,
                                                                       datatype=datatypes.Datatypes.LINEAR_POSITION)
 
+            print('finished trodes setup for tetrode: ',self.rank)
         self.enc_man = RStarEncoderManager(rank=rank,
                                            config=config,
                                            local_rec_manager=self.local_rec_manager,

@@ -4,6 +4,7 @@ from collections import deque
 
 from mpi4py import MPI
 
+import time
 import spykshrk.realtime.binary_record as binary_record
 import spykshrk.realtime.datatypes as datatypes
 import spykshrk.realtime.realtime_base as realtime_base
@@ -592,10 +593,13 @@ class RippleProcess(realtime_base.RealtimeProcess):
                                                                     config=self.config,
                                                                     datatype=datatypes.Datatypes.LFP)
         elif self.config['datasource'] == 'trodes':
+            print('about to configure trdoes network for ripple tetrode: ',self.rank)
+            time.sleep(1*self.rank)
             data_interface = simulator_process.TrodesDataReceiver(comm=self.comm,
                                                                                 rank=self.rank,
                                                                                 config=self.config,
                                                                                 datatype=datatypes.Datatypes.LFP)
+            print('finished trodes setup for tetrode: ',self.rank)
         else:
             raise realtime_base.DataSourceError("No valid data source selected")
 

@@ -98,8 +98,13 @@ class MainProcess(realtime_base.RealtimeProcess):
 
         self.manager = MainSimulatorManager(rank=rank, config=config, parent=self, send_interface=self.send_interface,
                                             stim_decider=self.stim_decider)
-        
+        print('===============================')
+        print('In MainProcess: datasource = ', config['datasource'])
+        print('===============================')
         if config['datasource'] == 'trodes':
+            print('about to configure trdoes network for tetrode: ',self.manager.handle_ntrode_list,self.rank)
+            time.sleep(0.5*self.rank)
+
             self.networkclient = MainProcessClient("SpykshrkMainProc", config['trodes_network']['address'],config['trodes_network']['port'], self.config)
             if self.networkclient.initialize() != 0:
                 print("Network could not successfully initialize")
@@ -111,6 +116,8 @@ class MainProcess(realtime_base.RealtimeProcess):
             #added MEC
             self.networkclient.registerStartupCallbackRippleTetrodes(self.manager.handle_ripple_ntrode_list)
             self.networkclient.registerTerminationCallback(self.manager.trigger_termination)
+            print('completed trodes setup')
+
 
         self.vel_pos_recv_interface = VelocityPositionRecvInterface(comm=comm, rank=rank, config=config,
                                                                   stim_decider=self.stim_decider,

@@ -51,12 +51,18 @@ class LinearPositionAssignment:
             #    temporary_variable_shift = 4
 
             # replace inner and outer box with 8 parallel segments
-            if arm < 8:
+            
+            # toggle this for 8 vs 4 arms
+            #if arm < 8:
+            if arm < 4:
                 temporary_variable_shift = 0               
 
             #for first arm replace linearization_arm_length with 7 for the box
             # old segments for box, set this to 9, new parallel segments for box, set to 8
-            elif arm == 8:
+            
+            # toggle this for 4 vs 8 arms
+            #elif arm == 8:
+            elif arm == 4:
                 temporary_variable_shift = hardcode_shiftamount + 8
                 #temporary_variable_shift = hardcode_shiftamount + 8 + self.shift_linear_distance_by_arm_dictionary[hardcode_armorder[arm - 1]]
 
@@ -81,7 +87,21 @@ class LinearPositionAssignment:
         # for linearization with just 8 parallel segments for box
         # fixed so that box is 9 bins long (this matches 45cm at 5cm/bin)
         # fixed so that any values in box where segment_pos = 1, get set back to bin 8, need bin 9 to be empty
-        if segment < 8:
+
+        # for 8 arms
+        #if segment < 8:
+        #    self.assigned_pos = math.floor(segment_pos*9 + self.shift_linear_distance_by_arm_dictionary[segment])
+        #    if self.assigned_pos == 9:
+        #        self.assigned_pos = 8
+        #        print('edge of box position binning correction')
+        #    if self.assigned_pos == -1:
+        #        self.assigned_pos = 0
+        #        print('position was -1')
+        #else:
+        #    self.assigned_pos = math.ceil(segment_pos*12 + self.shift_linear_distance_by_arm_dictionary[segment])
+
+        # for 4 arms
+        if segment < 4:
             self.assigned_pos = math.floor(segment_pos*9 + self.shift_linear_distance_by_arm_dictionary[segment])
             if self.assigned_pos == 9:
                 self.assigned_pos = 8

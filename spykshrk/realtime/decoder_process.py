@@ -205,8 +205,10 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         # we could just move the first position here in arm coords and then each arm will start 1 bin higher
         # based on looking at counts from position this should work, so each arm is 11 units
 
-        arm_coords = np.array([[0,8],[13,24],[29,40],[45,56],[61,72],[77,88],[93,104],[109,120],[125,136]])
-        #arm_coords = np.array([[0,7],[11,23],[27,39],[43,55],[59,71],[75,87],[91,103],[107,119],[123,135]])
+        # 8 arm version
+        #arm_coords = np.array([[0,8],[13,24],[29,40],[45,56],[61,72],[77,88],[93,104],[109,120],[125,136]])
+        # 4 arm version
+        arm_coords = np.array([[0,8],[13,24],[29,40],[45,56],[61,72]])
         max_pos = arm_coords[-1][-1] + 1
         pos_bins = np.arange(0,max_pos,1)
 
@@ -220,10 +222,17 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         transition_mat = diags(k,offset).toarray()
         box_end_bin = arm_coords[0,1]
 
+        # 8 arm version
+        #for x in arm_coords[:,0]:
+        #    transition_mat[int(x),int(x)] = (5/9)
+        #    transition_mat[box_end_bin,int(x)] = (1/9)
+        #    transition_mat[int(x),box_end_bin] = (1/9)
+
+        # 4 arm version
         for x in arm_coords[:,0]:
-            transition_mat[int(x),int(x)] = (5/9)
-            transition_mat[box_end_bin,int(x)] = (1/9)
-            transition_mat[int(x),box_end_bin] = (1/9)
+            transition_mat[int(x),int(x)] = (7/15)
+            transition_mat[box_end_bin,int(x)] = (1/5)
+            transition_mat[int(x),box_end_bin] = (1/5)
 
         for y in arm_coords[:,1]:
             transition_mat[int(y),int(y)] = (2/3)
@@ -232,9 +241,16 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         transition_mat[0,box_end_bin] = 0
         transition_mat[box_end_bin,box_end_bin] = 0
         transition_mat[0,0] = (2/3)
-        transition_mat[box_end_bin-1, box_end_bin-1] = (5/9)
-        transition_mat[box_end_bin-1,box_end_bin] = (1/9)
-        transition_mat[box_end_bin, box_end_bin-1] = (1/9)
+
+        # 8 arm version
+        #transition_mat[box_end_bin-1, box_end_bin-1] = (5/9)
+        #transition_mat[box_end_bin-1,box_end_bin] = (1/9)
+        #transition_mat[box_end_bin, box_end_bin-1] = (1/9)
+
+        # 4 arm version
+        transition_mat[box_end_bin-1, box_end_bin-1] = (7/15)
+        transition_mat[box_end_bin-1,box_end_bin] = (1/5)
+        transition_mat[box_end_bin, box_end_bin-1] = (1/5)
 
         # uniform offset (gain, currently 0.0001)
         # 9-1-19 this is now taken from config file
@@ -363,9 +379,13 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         return self.posterior
 
     def calculate_posterior_arm_sum(self, posterior, ripple_time_bin):
-        #this needs to hold on to the past 20 time bins so maybe we need to intailize like we do the velocity filter
 
-        arm_coords_rt = [[0,7],[12,23],[28,39],[44,55],[60,71],[76,87],[92,103],[108,119],[124,135]]
+        # 8 arm version - i think this should match the transition matrix (before was all values-1, not sure why)
+        #arm_coords_rt = [[0,8],[13,24],[29,40],[45,56],[61,72],[77,88],[93,104],[109,120],[125,136]]
+        
+        # 4 arm version
+        arm_coords_rt = [[0,8],[13,24],[29,40],[45,56],[61,72]]
+
         #post_sum_bin_length = 20
         posterior = posterior
         ripple_time_bin = ripple_time_bin
@@ -421,6 +441,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
         # self.mpi_send.send_record_register_messages(self.get_record_register_messages())
 
         self.msg_counter = 0
+        self.pos_msg_counter = 0
         self.ntrode_list = []
 
         self.current_time_bin = 0
@@ -614,6 +635,10 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                 #send message VEL_POS to main_process so that shortcut message can by filtered by velocity and position
                 self.mpi_send.send_vel_pos_message(self.current_time_bin * self.time_bin_size,
                                                    current_pos, self.current_vel)                
+
+                self.pos_msg_counter += 1
+                if self.pos_msg_counter % 30 == 0:
+                    print('position = ',current_pos,' and velocity = ',self.current_vel)
 
                 #print(pos_data.x, pos_data.segment)
                 #TODO implement trodes cameramodule update position function
