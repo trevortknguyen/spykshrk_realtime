@@ -231,6 +231,7 @@ class BinaryRecordsFileWriter:
 
         # write header to file
         self._file_handle.write(bytearray(self._header_json, encoding='utf-8'))
+        self._file_handle.flush()
         print('wrote json header',self._mpi_rank)
 
         self._rec_counter = 0
