@@ -91,7 +91,7 @@ class TrodesImport:
 		
 
 		for day in self.days:
-			markname = self.ff_dir+self.name+'marks'+str(day)+'.mat'
+			markname = self.ff_dir+self.name+'marks'+f'{day:02}'+'.mat'  #pads day with leading 0 if needed
 			markmat = scipy.io.loadmat(markname,squeeze_me=True,struct_as_record=False)
 
 			for ep in self.epochs:
@@ -123,7 +123,7 @@ class TrodesImport:
 
 		for day in self.days:
 			for ep in self.epochs:
-				posname = self.ff_dir+self.name+'pos'+str(day)+'.mat'
+				posname = self.ff_dir+self.name+'pos'+f'{day:02}'+'.mat'
 				posmat = scipy.io.loadmat(posname,squeeze_me=True,struct_as_record=False)
 				pos_time = self.Fs*posmat['pos'][day-1][ep-1].data[:,0]
 				pos_time = pos_time.astype(np.int64,copy=False)
@@ -155,7 +155,7 @@ class TrodesImport:
 
 		for day in self.days:
 			for ep in self.epochs:
-				ripname = self.ff_dir+self.name+'ca1rippleskons'+str(day)+'.mat'
+				ripname = self.ff_dir+self.name+'ca1rippleskons'+f'{day:02}'+'.mat'
 				ripmat = scipy.io.loadmat(ripname,squeeze_me=True,struct_as_record=False)
 
 				#generate a pandas table with starttime, endtime, and maxthresh columns, then instantiate RippleTimes 
@@ -197,7 +197,7 @@ class TrodesImport:
 
 		for day in self.days:
 			for ep in self.epochs:
-				trialsname = self.ff_dir+self.name+'trials'+str(day)+'.mat'
+				trialsname = self.ff_dir+self.name+'trials'+f'{day:02}'+'.mat'
 				trialsmat = scipy.io.loadmat(trialsname,squeeze_me=True,struct_as_record=False)
 				#generate a pandas table with starttime, endtime, and maxthresh columns, then instantiate RippleTimes 
 				trialdata = {'starttime':trialsmat['trials'][day-1][ep-1].starttime,
