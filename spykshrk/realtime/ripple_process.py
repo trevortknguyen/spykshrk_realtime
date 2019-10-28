@@ -4,6 +4,7 @@ from collections import deque
 
 from mpi4py import MPI
 
+import time
 import spykshrk.realtime.binary_record as binary_record
 import spykshrk.realtime.datatypes as datatypes
 import spykshrk.realtime.realtime_base as realtime_base
@@ -74,6 +75,7 @@ class RippleFilter(rt_logging.LoggingClass):
     def __init__(self, rec_base: realtime_base.BinaryRecordBase, param: RippleParameterMessage,
                  elec_grp_id):
         super().__init__()
+        # this is the kernel for 100 - 400 Hz, this matches the filter in FSGui
         self.rec_base = rec_base
         self.NFILT = 19
         self.NLAST_VALS = 20
@@ -231,12 +233,17 @@ class RippleFilter(rt_logging.LoggingClass):
         if self.in_lockout:
             rd = self.update_filter(((self.current_time - self.last_stim_time) / self.param.lockout_time)
                                     * data)
+            # to turn off ripple filter use next line and comment out line above
+            #rd = 1
             self.current_val = self.ripple_mean
             self.thresh_crossed = False
 
         else:
 
             rd = self.update_filter(data)
+            #to turn off ripple filter use next line and comment out line above
+            #print(rd)
+            #rd = 1
 
             y = abs(rd)
 
@@ -466,8 +473,8 @@ class RippleManager(realtime_base.BinaryRecordBaseWithTiming, rt_logging.Logging
 
                 #print('at ripple: ',datapoint.timestamp,datapoint.data)
 
-                self.record_timing(timestamp=datapoint.timestamp, elec_grp_id=datapoint.elec_grp_id,
-                                   datatype=datatypes.Datatypes.LFP, label='rip_send')
+                #self.record_timing(timestamp=datapoint.timestamp, elec_grp_id=datapoint.elec_grp_id,
+                #                   datatype=datatypes.Datatypes.LFP, label='rip_send')
 
                 # this sends to stim_decider class in main_process.py that then applies the # of tetrode filter
                 self.mpi_send.send_ripple_thresh_state(timestamp=datapoint.timestamp,
@@ -586,10 +593,13 @@ class RippleProcess(realtime_base.RealtimeProcess):
                                                                     config=self.config,
                                                                     datatype=datatypes.Datatypes.LFP)
         elif self.config['datasource'] == 'trodes':
+            print('about to configure trdoes network for ripple tetrode: ',self.rank)
+            time.sleep(1*self.rank)
             data_interface = simulator_process.TrodesDataReceiver(comm=self.comm,
                                                                                 rank=self.rank,
                                                                                 config=self.config,
                                                                                 datatype=datatypes.Datatypes.LFP)
+            print('finished trodes setup for tetrode: ',self.rank)
         else:
             raise realtime_base.DataSourceError("No valid data source selected")
 

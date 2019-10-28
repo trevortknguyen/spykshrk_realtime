@@ -114,7 +114,9 @@ def main(argv):
             main_proc.networkclient.closeConnections()
             del main_proc.networkclient
     else:
-        time.sleep(rank/10.0)
+        # MEC and LMF: edited this to add a delay between startup of each trodes network
+        #time.sleep(rank/10.0)
+        time.sleep(rank*1)
         if config['datasource'] == 'trodes':
             # configure trodes network highfreqdatatypes (main supervisor process has own client)
             network = PythonClient(config, rank)

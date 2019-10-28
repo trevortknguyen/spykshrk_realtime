@@ -1,6 +1,7 @@
 import os
 import struct
 import numpy as np
+import time
 from mpi4py import MPI
 from threading import Thread, Timer, Event
 from spykshrk.realtime import realtime_base, realtime_logging, binary_record, datatypes, main_process
@@ -176,6 +177,8 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
 
         self.current_pos = 0
         self.current_vel = 0
+        self.smooth_x = 0
+        self.smooth_y = 0
 
         #initialize variables to record if a spike has been sent to decoder
         self.spike_sent = 3
@@ -290,7 +293,7 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
                                            datatype=datatypes.Datatypes.SPIKES, label='spk_enc')
                         pass
 
-                if self.spk_counter % 10000 == 0:
+                if self.spk_counter % 1000 == 0:
                     self.class_log.debug('Received {} spikes.'.format(self.spk_counter))
                 pass
 
@@ -319,9 +322,14 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
                 #NOTE (MEC, 9-1-19): we need to include encoding velocity when calling update_covariate
                 self.pos_counter += 1
 
-                # run positionassignment and velocity calculator functions
+                # run positionassignment, pos smoothing, and velocity calculator functions
+                self.smooth_x = self.velCalc.smooth_x_position(datapoint.x)
+                self.smooth_y = self.velCalc.smooth_y_position(datapoint.y)
                 self.current_vel = self.velCalc.calculator(datapoint.x, datapoint.y)
                 self.current_pos = self.linPosAssign.assign_position(datapoint.segment, datapoint.position)
+                #print('x smoothing: ',datapoint.x,self.smooth_x)
+                #print('y smoothing: ',datapoint.y,self.smooth_y)
+                
                 #print('linear position: ',self.current_pos, ' velocity: ',self.current_vel)
                 #print('segment: ',datapoint.segment)
 
@@ -403,6 +411,8 @@ class EncoderProcess(realtime_base.RealtimeProcess):
                                                                       config=self.config,
                                                                       datatype=datatypes.Datatypes.LINEAR_POSITION)
         elif self.config['datasource'] == 'trodes':
+            print('about to configure trdoes network for tetrode: ',self.rank)
+            time.sleep(1*self.rank)
             spike_interface = simulator_process.TrodesDataReceiver(comm=self.comm,
                                                                         rank=self.rank,
                                                                         config=self.config,
@@ -413,6 +423,7 @@ class EncoderProcess(realtime_base.RealtimeProcess):
                                                                       config=self.config,
                                                                       datatype=datatypes.Datatypes.LINEAR_POSITION)
 
+            print('finished trodes setup for tetrode: ',self.rank)
         self.enc_man = RStarEncoderManager(rank=rank,
                                            config=config,
                                            local_rec_manager=self.local_rec_manager,

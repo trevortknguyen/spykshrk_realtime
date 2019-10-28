@@ -41,6 +41,26 @@ class PosteriorSum(rt_logging.PrintableMessage):
         return cls(bin_timestamp=bin_timestamp, spike_timestamp=spike_timestamp, box=box,arm1=arm1,arm2=arm2,
                    arm3=arm3,arm4=arm4,arm5=arm5,arm6=arm6,arm7=arm7,arm8=arm8)
 
+class VelocityPosition(rt_logging.PrintableMessage):
+    """"Message containing velocity and linearized position from decoder_process.
+
+    This message has helper serializer/deserializer functions to be used to speed transmission.
+    """
+    _byte_format = 'Iid'
+
+    def __init__(self, bin_timestamp, pos, vel):
+        self.bin_timestamp = bin_timestamp
+        self.pos = pos
+        self.vel = vel
+
+    def pack(self):
+        return struct.pack(self._byte_format, self.bin_timestamp, self.pos, self.vel)
+
+    @classmethod
+    def unpack(cls, message_bytes):
+        bin_timestamp, pos, vel = struct.unpack(cls._byte_format, message_bytes)
+        return cls(bin_timestamp=bin_timestamp, pos=pos, vel=vel)
+
 class DecoderMPISendInterface(realtime_base.RealtimeMPIClass):
     def __init__(self, comm :MPI.Comm, rank, config):
         super(DecoderMPISendInterface, self).__init__(comm=comm, rank=rank, config=config)
@@ -60,6 +80,16 @@ class DecoderMPISendInterface(realtime_base.RealtimeMPIClass):
                        dest=self.config['rank']['supervisor'],
                        tag=realtime_base.MPIMessageTag.POSTERIOR.value)
         #print('stim_message: ',message,self.config['rank']['decoder'],self.rank)
+
+    #def sending velocity&position message to supervisor with VEL_POS tag
+    def send_vel_pos_message(self, bin_timestamp, pos, vel):
+        message = VelocityPosition(bin_timestamp, pos, vel)
+        #print('vel_message: ',message)
+
+        self.comm.Send(buf=message.pack(),
+                       dest=self.config['rank']['supervisor'],
+                       tag=realtime_base.MPIMessageTag.VEL_POS.value)
+        #print('vel_message: ',message,self.config['rank']['decoder'],self.rank)
 
     def send_time_sync_report(self, time):
         self.comm.send(obj=realtime_base.TimeSyncReport(time),
@@ -175,8 +205,10 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         # we could just move the first position here in arm coords and then each arm will start 1 bin higher
         # based on looking at counts from position this should work, so each arm is 11 units
 
-        arm_coords = np.array([[0,7],[12,23],[28,39],[44,55],[60,71],[76,87],[92,103],[108,119],[124,135]])
-        #arm_coords = np.array([[0,7],[11,23],[27,39],[43,55],[59,71],[75,87],[91,103],[107,119],[123,135]])
+        # 8 arm version
+        #arm_coords = np.array([[0,8],[13,24],[29,40],[45,56],[61,72],[77,88],[93,104],[109,120],[125,136]])
+        # 4 arm version
+        arm_coords = np.array([[0,8],[13,24],[29,40],[45,56],[61,72]])
         max_pos = arm_coords[-1][-1] + 1
         pos_bins = np.arange(0,max_pos,1)
 
@@ -190,10 +222,17 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         transition_mat = diags(k,offset).toarray()
         box_end_bin = arm_coords[0,1]
 
+        # 8 arm version
+        #for x in arm_coords[:,0]:
+        #    transition_mat[int(x),int(x)] = (5/9)
+        #    transition_mat[box_end_bin,int(x)] = (1/9)
+        #    transition_mat[int(x),box_end_bin] = (1/9)
+
+        # 4 arm version
         for x in arm_coords[:,0]:
-            transition_mat[int(x),int(x)] = (5/9)
-            transition_mat[box_end_bin,int(x)] = (1/9)
-            transition_mat[int(x),box_end_bin] = (1/9)
+            transition_mat[int(x),int(x)] = (7/15)
+            transition_mat[box_end_bin,int(x)] = (1/5)
+            transition_mat[int(x),box_end_bin] = (1/5)
 
         for y in arm_coords[:,1]:
             transition_mat[int(y),int(y)] = (2/3)
@@ -202,9 +241,16 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         transition_mat[0,box_end_bin] = 0
         transition_mat[box_end_bin,box_end_bin] = 0
         transition_mat[0,0] = (2/3)
-        transition_mat[box_end_bin-1, box_end_bin-1] = (5/9)
-        transition_mat[box_end_bin-1,box_end_bin] = (1/9)
-        transition_mat[box_end_bin, box_end_bin-1] = (1/9)
+
+        # 8 arm version
+        #transition_mat[box_end_bin-1, box_end_bin-1] = (5/9)
+        #transition_mat[box_end_bin-1,box_end_bin] = (1/9)
+        #transition_mat[box_end_bin, box_end_bin-1] = (1/9)
+
+        # 4 arm version
+        transition_mat[box_end_bin-1, box_end_bin-1] = (7/15)
+        transition_mat[box_end_bin-1,box_end_bin] = (1/5)
+        transition_mat[box_end_bin, box_end_bin-1] = (1/5)
 
         # uniform offset (gain, currently 0.0001)
         # 9-1-19 this is now taken from config file
@@ -333,9 +379,13 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         return self.posterior
 
     def calculate_posterior_arm_sum(self, posterior, ripple_time_bin):
-        #this needs to hold on to the past 20 time bins so maybe we need to intailize like we do the velocity filter
 
-        arm_coords_rt = [[0,7],[12,23],[28,39],[44,55],[60,71],[76,87],[92,103],[108,119],[124,135]]
+        # 8 arm version - i think this should match the transition matrix (before was all values-1, not sure why)
+        #arm_coords_rt = [[0,8],[13,24],[29,40],[45,56],[61,72],[77,88],[93,104],[109,120],[125,136]]
+        
+        # 4 arm version
+        arm_coords_rt = [[0,8],[13,24],[29,40],[45,56],[61,72]]
+
         #post_sum_bin_length = 20
         posterior = posterior
         ripple_time_bin = ripple_time_bin
@@ -391,6 +441,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
         # self.mpi_send.send_record_register_messages(self.get_record_register_messages())
 
         self.msg_counter = 0
+        self.pos_msg_counter = 0
         self.ntrode_list = []
 
         self.current_time_bin = 0
@@ -412,6 +463,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
         self.num_above = 0
         self.ripple_number = 0
         self.shortcut_message_sent = False
+        self.dropped_spikes = 0
 
     def register_pos_interface(self):
         # Register position, right now only one position channel is supported
@@ -544,11 +596,15 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                 pass
 
             elif spike_time_bin < self.current_time_bin:
+                self.dropped_spikes += 1
                 self.write_record(realtime_base.RecordIDs.DECODER_MISSED_SPIKES,
                                   spike_dec_msg.timestamp, spike_dec_msg.elec_grp_id,
                                   spike_time_bin, self.current_time_bin)
                 # Spike is in an old time bin, discard and mark as missed
-                self.class_log.debug('Spike was excluded from PP decode calculation, arrived late.')
+                # MEC - turn off this notification
+                #self.class_log.debug('Spike was excluded from PP decode calculation, arrived late.')
+                if self.dropped_spikes % 100 == 0:
+                    print('number of dropped spikes: ',self.dropped_spikes)
                 pass
 
             self.msg_counter += 1
@@ -576,6 +632,13 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
 
                 self.pp_decoder.update_position(pos_timestamp=pos_data.timestamp, pos_data=current_pos, vel_data=self.current_vel)
 
+                #send message VEL_POS to main_process so that shortcut message can by filtered by velocity and position
+                self.mpi_send.send_vel_pos_message(self.current_time_bin * self.time_bin_size,
+                                                   current_pos, self.current_vel)                
+
+                self.pos_msg_counter += 1
+                if self.pos_msg_counter % 30 == 0:
+                    print('position = ',current_pos,' and velocity = ',self.current_vel)
 
                 #print(pos_data.x, pos_data.segment)
                 #TODO implement trodes cameramodule update position function

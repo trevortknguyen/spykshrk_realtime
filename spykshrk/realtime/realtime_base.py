@@ -26,6 +26,7 @@ class MPIMessageTag(IntEnum):
     SPIKE_DECODE_DATA = 20
     STIM_DECISION = 21
     POSTERIOR = 22
+    VEL_POS = 23
 
 
 class RecordIDs(IntEnum):

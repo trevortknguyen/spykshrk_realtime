@@ -57,12 +57,12 @@ class MainProcessClient(tnp.AbstractModuleClient):
                 self.started = True
                 self.ntrode_list_sent = True
 
-        # if command == tnp.acq_STOP:
-        #     if not self.terminated:
-        #         # self.main_manager.trigger_termination()
-        #         self.terminate()
-        #         self.terminated = True
-        #         self.started = False
+        if command == tnp.acq_STOP:
+            if not self.terminated:
+                # self.main_manager.trigger_termination()
+                self.terminate()
+                self.terminated = True
+                self.started = False
 
     def recv_quit(self):
         self.terminate()
@@ -98,8 +98,13 @@ class MainProcess(realtime_base.RealtimeProcess):
 
         self.manager = MainSimulatorManager(rank=rank, config=config, parent=self, send_interface=self.send_interface,
                                             stim_decider=self.stim_decider)
-        
+        print('===============================')
+        print('In MainProcess: datasource = ', config['datasource'])
+        print('===============================')
         if config['datasource'] == 'trodes':
+            print('about to configure trdoes network for tetrode: ',self.manager.handle_ntrode_list,self.rank)
+            time.sleep(0.5*self.rank)
+
             self.networkclient = MainProcessClient("SpykshrkMainProc", config['trodes_network']['address'],config['trodes_network']['port'], self.config)
             if self.networkclient.initialize() != 0:
                 print("Network could not successfully initialize")
@@ -111,6 +116,12 @@ class MainProcess(realtime_base.RealtimeProcess):
             #added MEC
             self.networkclient.registerStartupCallbackRippleTetrodes(self.manager.handle_ripple_ntrode_list)
             self.networkclient.registerTerminationCallback(self.manager.trigger_termination)
+            print('completed trodes setup')
+
+
+        self.vel_pos_recv_interface = VelocityPositionRecvInterface(comm=comm, rank=rank, config=config,
+                                                                  stim_decider=self.stim_decider,
+                                                                  networkclient=self.networkclient)        
 
         self.posterior_recv_interface = PosteriorSumRecvInterface(comm=comm, rank=rank, config=config,
                                                                   stim_decider=self.stim_decider,
@@ -154,6 +165,7 @@ class MainProcess(realtime_base.RealtimeProcess):
 
             self.recv_interface.__next__()
             self.data_recv.__next__()
+            self.vel_pos_recv_interface.__next__()
             self.posterior_recv_interface.__next__()
 
         self.class_log.info("Main Process Main reached end, exiting.")
@@ -233,11 +245,15 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         self.ripple_time_bin = 0
         self.no_ripple_time_bin = 0
         self.replay_target_arm = self.config['pp_decoder']['replay_target_arm']
-        self.posterior_arm_sum = np.zeros((1,9))
+        #self.posterior_arm_sum = np.zeros((1,9))
+        self.posterior_arm_sum = np.asarray([0,0,0,0,0,0,0,0,0])
         self.num_above = 0
         self.ripple_number = 0
         self.shortcut_message_sent = False
         self.shortcut_message_arm = 10
+
+        self.velocity = 0
+        self.linearized_position = 0
 
         #if self.config['datasource'] == 'trodes':
         #    self.networkclient = MainProcessClient("SpykshrkMainProc", config['trodes_network']['address'],config['trodes_network']['port'], self.config)
@@ -292,17 +308,22 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 self._lockout_count += 1
 
             if (num_above >= self._ripple_n_above_thresh) and not self._in_lockout:
-                print('tets above ripple thresh: ',num_above,timestamp)
+                if self.velocity < self.config['encoder']['vel']:
+                    print('tets above ripple thresh: ',num_above,timestamp,self._ripple_thresh_states, self.velocity)
+                    #print('lockout time: ',self._lockout_time)
                 self._in_lockout = True
                 self.stim_thresh = True
                 self._last_lockout_timestamp = timestamp
-                self.class_log.debug("Ripple threshold detected {}.".format(self._ripple_thresh_states))
+                #self.class_log.debug("Ripple threshold detected {}.".format(self._ripple_thresh_states))
                 
                 # want to send the test shortcut message here
                 #networkclient.sendStateScriptShortcutMessage(1)
-                #print('sent shortcut message based on ripple thresh')
-                networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(1);'])
-                print('sent regular message to MCU on ripple thresh')
+
+                #print('sent shortcut message based on ripple thresh',time,timestamp)
+                networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(15);\n'])
+                #networkclient.sendStateScriptShortcutMessage(1)
+
+                #print('sent regular message to MCU on ripple thresh',time,timestamp)
                 
                 self.write_record(realtime_base.RecordIDs.STIM_LOCKOUT,
                                   timestamp, time, self._lockout_count, self._in_lockout, num_above)
@@ -320,21 +341,33 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
 
             return num_above
 
+    # MEC: this function brings in velocity and linearized position from decoder process
+    # it is working as expected - both velocity filter and position filter!
+    # to do: incorporate these two variables below in posterior sum
+    def velocity_position(self, bin_timestamp, vel, pos):
+        self.velocity = vel
+        self.linearized_position = pos
+
+        if self.velocity < self.config['encoder']['vel']:
+            #print('immobile, vel = ',self.velocity)
+            pass
+        if self.linearized_position >= 3 and self.linearized_position <= 5:
+            #print('position at rip/wait!')
+            pass
+
+    # MEC: this function calculates the sum of the posterior over the course of each ripple, then sends shortcut message
+    # need to add velocity filter so that it only calculates sum during immobility ripples
+    # need to add location filter so it only sends message when rat is at rip/wait well
     def posterior_sum(self, bin_timestamp, spike_timestamp, box,arm1,arm2,arm3,arm4,arm5,arm6,arm7,arm8,networkclient):
         time = MPI.Wtime()
-        # caclulate running sum
-        # keep track of time ripple time
-        #print('posterior sum at function: ',timestamp,time*1000,self._last_lockout_timestamp)
-        # try to put in the actual check for whether posterior is above 0.8 and last for 2 bins etc
-        # we may need to move this function
 
-        if self.stim_thresh == True:
+        if self.stim_thresh == True and self.velocity < self.config['encoder']['vel']:
             #print('posterior sum is: ',timestamp,box,time*1000)
             #print('stim threshold: ',self.stim_thresh,self._last_lockout_timestamp)
-            #print('ripple time bin: ',self.ripple_time_bin)
+            print('ripple number: ',self.ripple_number,' time bin: ',self.ripple_time_bin)
             if self.ripple_time_bin == 0:
                 self.ripple_number += 1
-                print('ripple number: ',self.ripple_number)
+                #print('ripple number: ',self.ripple_number)
             self.no_ripple_time_bin = 0
             self.ripple_time_bin += 1
 
@@ -354,11 +387,13 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                               new_posterior_sum[3],new_posterior_sum[4],new_posterior_sum[5],
                               new_posterior_sum[6],new_posterior_sum[7],new_posterior_sum[8])    
 
-        if self.stim_thresh == False:
+        if self.stim_thresh == False and self.velocity < self.config['encoder']['vel']:
             #print('no ripple in decoder')
             self.no_ripple_time_bin += 1
 
             #send a shrotcut message if it has been a ripple (>3 bins) and now is not a ripple (no ripple bins = 3)
+            # includes velocity filter now
+            # TO DO: also need a filter to make sure we dont send a several messages in quick sucession
             if (self.no_ripple_time_bin == 3) & (self.ripple_time_bin > 3):
                 
                 # normalize posterior_arm_sum
@@ -370,29 +405,46 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                     if np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 0:
                         print('max posterior in box',self.posterior_arm_sum[0])
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
-                        networkclient.sendStateScriptShortcutMessage(1)
+                        #networkclient.sendStateScriptShortcutMessage(1)
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 1:
                         print('max posterior in arm 1',self.posterior_arm_sum[1])
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
-                        networkclient.sendStateScriptShortcutMessage(2)
+                        #networkclient.sendStateScriptShortcutMessage(2)
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 2:
                         print('max posterior in arm 2',self.posterior_arm_sum[2])
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
-                        networkclient.sendStateScriptShortcutMessage(3)
+                        #networkclient.sendStateScriptShortcutMessage(3)
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 3:
                         print('max posterior in arm 3',self.posterior_arm_sum[3])
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
-                        networkclient.sendStateScriptShortcutMessage(4)
+                        #networkclient.sendStateScriptShortcutMessage(4)
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 4:
                         print('max posterior in arm 4',self.posterior_arm_sum[4])
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
-                        networkclient.sendStateScriptShortcutMessage(5)
+                        #networkclient.sendStateScriptShortcutMessage(5)
+                    elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 5:
+                        print('max posterior in arm 5',self.posterior_arm_sum[5])
+                        self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
+                        #networkclient.sendStateScriptShortcutMessage(5)
+                    elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 6:
+                        print('max posterior in arm 6',self.posterior_arm_sum[6])
+                        self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
+                        #networkclient.sendStateScriptShortcutMessage(5)
+                    elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 7:
+                        print('max posterior in arm 7',self.posterior_arm_sum[7])
+                        self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
+                        #networkclient.sendStateScriptShortcutMessage(5)
+                    elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 8:
+                        print('max posterior in arm 8',self.posterior_arm_sum[8])
+                        self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
+                        #networkclient.sendStateScriptShortcutMessage(5)
                 else:
                     print('no arm posterior above 0.8',self.posterior_arm_sum)
 
                 ## send shortcut message based on posterior max arm, each arm has own function number
                 ## fn_num is an interger for function number in statescript
                 #self.networkclient.sendStateScriptShortcutMessage(22)
+                self.shortcut_message_sent = True
                 print("end of ripple message sent",self.ripple_time_bin,self.ripple_number)
                 self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
                                   bin_timestamp, spike_timestamp, time, self.shortcut_message_sent, 
@@ -400,7 +452,6 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                                   self.posterior_arm_sum[0],self.posterior_arm_sum[1],self.posterior_arm_sum[2],
                                   self.posterior_arm_sum[3],self.posterior_arm_sum[4],self.posterior_arm_sum[5],
                                   self.posterior_arm_sum[6],self.posterior_arm_sum[7],self.posterior_arm_sum[8])
-                self.shortcut_message_sent = True
 
             if self.no_ripple_time_bin > 3:
                 self.ripple_time_bin = 0
@@ -474,6 +525,33 @@ class PosteriorSumRecvInterface(realtime_base.RealtimeMPIClass):
                                     box=message.box,arm1=message.arm1,
                                     arm2=message.arm2,arm3=message.arm3,arm4=message.arm4,arm5=message.arm5,
                                     arm6=message.arm6,arm7=message.arm7,arm8=message.arm8,networkclient=self.networkclient)             
+            #print('posterior sum message supervisor: ',message.timestamp,time*1000)
+            #return posterior_sum
+
+        else:
+            return None
+
+class VelocityPositionRecvInterface(realtime_base.RealtimeMPIClass):
+    def __init__(self, comm: MPI.Comm, rank, config, stim_decider: StimDecider, networkclient):
+        super(VelocityPositionRecvInterface, self).__init__(comm=comm, rank=rank, config=config)
+
+        self.stim = stim_decider
+        self.networkclient = networkclient
+        #NOTE: if you dont know how large the buffer should be, set it to a large number
+        # then you will get an error saying what it should be set to
+        self.msg_buffer = bytearray(16)
+        self.req = self.comm.Irecv(buf=self.msg_buffer, tag=realtime_base.MPIMessageTag.VEL_POS.value)
+
+    def __next__(self):
+        rdy = self.req.Test()
+        time = MPI.Wtime()
+        if rdy:
+
+            message = decoder_process.VelocityPosition.unpack(self.msg_buffer)
+            self.req = self.comm.Irecv(buf=self.msg_buffer, tag=realtime_base.MPIMessageTag.VEL_POS.value)
+
+            # okay so we are receiving the message! but now it needs to get into the stim decider
+            self.stim.velocity_position(bin_timestamp=message.bin_timestamp, pos=message.pos, vel=message.vel)             
             #print('posterior sum message supervisor: ',message.timestamp,time*1000)
             #return posterior_sum
 
@@ -620,13 +698,13 @@ class MainSimulatorManager(rt_logging.LoggingClass):
             # Convert json string keys into int (ntrode_id) and send
             rip_mean_base_dict = dict(map(lambda x: (int(x[0]), x[1]),
                                           self.config['ripple']['CustomRippleBaselineMeanMessage'].items()))
-            print('ripple mean: ',rip_mean_base_dict)
+            #print('ripple mean: ',rip_mean_base_dict)
             self.send_interface.send_ripple_baseline_mean(rank=rip_rank, mean_dict=rip_mean_base_dict)
 
             # Convert json string keys into int (ntrode_id) and send
             rip_std_base_dict = dict(map(lambda x: (int(x[0]), x[1]),
                                          self.config['ripple']['CustomRippleBaselineStdMessage'].items()))
-            print('ripple std: ',rip_std_base_dict)
+            #print('ripple std: ',rip_std_base_dict)
             self.send_interface.send_ripple_baseline_std(rank=rip_rank, std_dict=rip_std_base_dict)
 
     def _stim_decider_startup(self):
