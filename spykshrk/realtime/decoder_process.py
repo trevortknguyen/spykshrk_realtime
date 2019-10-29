@@ -490,8 +490,9 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
             # okay so the problem is that it is missing lots of lfp data because spike_dec_msg skips a lot - empty bins?
             # correct - only run when a spike comes in - so if we have few empty bins that will be okay
 
-            self.record_timing(timestamp=spike_dec_msg.timestamp, elec_grp_id=spike_dec_msg.elec_grp_id,
-                               datatype=datatypes.Datatypes.SPIKES, label='dec_recv')
+            if self.msg_counter % 100 == 0:
+                self.record_timing(timestamp=spike_dec_msg.timestamp, elec_grp_id=spike_dec_msg.elec_grp_id,
+                                   datatype=datatypes.Datatypes.SPIKES, label='dec_recv')
             #print('message recieved by decoder:',spike_dec_msg.timestamp,spike_dec_msg.elec_grp_id)
 
 
@@ -611,8 +612,10 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
             if self.msg_counter % 1000 == 0:
                 self.class_log.debug('Received {} decoded messages.'.format(self.msg_counter))
 
-            self.record_timing(timestamp=spike_dec_msg.timestamp, elec_grp_id=spike_dec_msg.elec_grp_id,
-                               datatype=datatypes.Datatypes.SPIKES, label='dec_proc')
+
+            if self.msg_counter % 100 == 0:
+                self.record_timing(timestamp=spike_dec_msg.timestamp, elec_grp_id=spike_dec_msg.elec_grp_id,
+                                   datatype=datatypes.Datatypes.SPIKES, label='dec_proc')
 
             pass
 
@@ -690,8 +693,9 @@ class BayesianDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
 
         if spike_dec_msg is not None:
 
-            self.record_timing(timestamp=spike_dec_msg.timestamp, elec_grp_id=spike_dec_msg.elec_grp_id,
-                               datatype=datatypes.Datatypes.SPIKES, label='dec_recv')
+            if self.msg_counter % 100 == 0:
+                self.record_timing(timestamp=spike_dec_msg.timestamp, elec_grp_id=spike_dec_msg.elec_grp_id,
+                                   datatype=datatypes.Datatypes.SPIKES, label='dec_recv')
 
             if self.current_time_bin == 0:
                 self.current_time_bin = math.floor(spike_dec_msg.timestamp/self.config['bayesian_decoder']['bin_size'])

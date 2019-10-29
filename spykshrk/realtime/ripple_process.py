@@ -385,6 +385,7 @@ class RippleManager(realtime_base.BinaryRecordBaseWithTiming, rt_logging.Logging
         self.custom_baseline_mean_dict = {}
         self.custom_baseline_std_dict = {}
         self.data_packet_counter = 0
+        self.lfp_counter = 0
 
         # self.mpi_send.send_record_register_messages(self.get_record_register_messages())
 
@@ -464,8 +465,10 @@ class RippleManager(realtime_base.BinaryRecordBaseWithTiming, rt_logging.Logging
 
             if isinstance(datapoint, LFPPoint):
                 #print("new lfp point: ",datapoint.timestamp)
-                self.record_timing(timestamp=datapoint.timestamp, elec_grp_id=datapoint.elec_grp_id,
-                                   datatype=datatypes.Datatypes.LFP, label='rip_recv')
+                self.lfp_counter +=1
+                if self.lfp_counter % 1000 == 0:
+                    self.record_timing(timestamp=datapoint.timestamp, elec_grp_id=datapoint.elec_grp_id,
+                                       datatype=datatypes.Datatypes.LFP, label='rip_recv')
 
                 filter_state = (self.ripple_filters[datapoint.elec_grp_id].
                                 process_data(timestamp=datapoint.timestamp,

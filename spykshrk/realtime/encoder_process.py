@@ -395,9 +395,10 @@ class EncoderProcess(realtime_base.RealtimeProcess):
 
         super().__init__(comm, rank, config)
 
+        print('starting local record manager for rank',rank)
         self.local_rec_manager = binary_record.RemoteBinaryRecordsManager(manager_label='state', local_rank=rank,
                                                                           manager_rank=config['rank']['supervisor'])
-
+        print('starting mpisend for rank',rank)
         self.mpi_send = EncoderMPISendInterface(comm=comm, rank=rank, config=config)
 
         if self.config['datasource'] == 'simulator':

@@ -254,6 +254,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
 
         self.velocity = 0
         self.linearized_position = 0
+        self.thresh_counter = 0
+        self.postsum_counter = 0
 
         #if self.config['datasource'] == 'trodes':
         #    self.networkclient = MainProcessClient("SpykshrkMainProc", config['trodes_network']['address'],config['trodes_network']['port'], self.config)
@@ -284,11 +286,13 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
 
     def update_ripple_threshold_state(self, timestamp, elec_grp_id, threshold_state,networkclient):
         # Log timing
-        self.record_timing(timestamp=timestamp, elec_grp_id=elec_grp_id,
-                           datatype=datatypes.Datatypes.LFP, label='stim_rip_state')
+        if self.thresh_counter % 1000 == 0:
+            self.record_timing(timestamp=timestamp, elec_grp_id=elec_grp_id,
+                               datatype=datatypes.Datatypes.LFP, label='stim_rip_state')
         time = MPI.Wtime()
 
         if self._enabled:
+            self.thresh_counter += 1
 
             self._ripple_thresh_states.setdefault(elec_grp_id, 0)
             # only write state if state changed
@@ -311,6 +315,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 if self.velocity < self.config['encoder']['vel']:
                     print('tets above ripple thresh: ',num_above,timestamp,self._ripple_thresh_states, self.velocity)
                     #print('lockout time: ',self._lockout_time)
+                    #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(15);\n'])
                 self._in_lockout = True
                 self.stim_thresh = True
                 self._last_lockout_timestamp = timestamp
@@ -320,7 +325,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 #networkclient.sendStateScriptShortcutMessage(1)
 
                 #print('sent shortcut message based on ripple thresh',time,timestamp)
-                networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(15);\n'])
+                #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(15);\n'])
                 #networkclient.sendStateScriptShortcutMessage(1)
 
                 #print('sent regular message to MCU on ripple thresh',time,timestamp)
@@ -365,14 +370,17 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             #print('posterior sum is: ',timestamp,box,time*1000)
             #print('stim threshold: ',self.stim_thresh,self._last_lockout_timestamp)
             print('ripple number: ',self.ripple_number,' time bin: ',self.ripple_time_bin)
+            #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(15);\n'])
             if self.ripple_time_bin == 0:
                 self.ripple_number += 1
                 #print('ripple number: ',self.ripple_number)
             self.no_ripple_time_bin = 0
             self.ripple_time_bin += 1
+            self.postsum_counter += 1
 
-            self.record_timing(timestamp=spike_timestamp, elec_grp_id=0,
-                               datatype=datatypes.Datatypes.LFP, label='postsum_in')
+            if self.postsum_counter % 1000 == 0:
+                self.record_timing(timestamp=spike_timestamp, elec_grp_id=0,
+                                   datatype=datatypes.Datatypes.LFP, label='postsum_in')
             
             #while the ripple is progressing we need to add the current posterior sum to the sum of all earlier ones
             new_posterior_sum = np.asarray([box,arm1,arm2,arm3,arm4,arm5,arm6,arm7,arm8])
@@ -380,6 +388,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             self.posterior_arm_sum = self.posterior_arm_sum + new_posterior_sum
             #print('total posterior sum', self.posterior_arm_sum)
 
+            # MEC: 10-27-19: try turning off stim_message record to see if that helps record saving problem
             self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
                               bin_timestamp, spike_timestamp, time, self.shortcut_message_sent, 
                               self.ripple_number, self.ripple_time_bin, self.shortcut_message_arm,
@@ -395,6 +404,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             # includes velocity filter now
             # TO DO: also need a filter to make sure we dont send a several messages in quick sucession
             if (self.no_ripple_time_bin == 3) & (self.ripple_time_bin > 3):
+                networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(15);\n'])
                 
                 # normalize posterior_arm_sum
                 self.posterior_arm_sum = self.posterior_arm_sum/self.ripple_time_bin

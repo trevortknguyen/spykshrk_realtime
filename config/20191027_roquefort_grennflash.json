@@ -10,17 +10,17 @@
     }, 
 
     "rank_settings": {
-        "enable_rec": [10],
+        "enable_rec": [0,1,2,3,4,5,6,7,8,9,10,11],
         "enable_profiler": [0,1,2,3,4,5,6,7,8,9,10,11]
     },
 
     "files": {
-        "output_dir": "/mnt/vortex/mcoulter/spykshrk_realtime/roqui_binary_rec/",
-        "prefix": "20191025_roquefort_RT_02_r2",
+        "output_dir": "/mnt/vortex/mcoulter/spykshrk_realtime/roqui_1027_binary_records/",
+        "prefix": "20191027_roquefort_RT_03_r1",
         "rec_postfix": "bin_rec",
         "profile_postfix": "pstats",
         "timing_postfix": "timing",
-        "backup_dir": "/mnt/vortex/mcoulter/spykshrk_realtime/roqui_binary_rec/databackup/"
+        "backup_dir": "/mnt/vortex/mcoulter/spykshrk_realtime/roqui_1027_binary_records/databackup/"
     },
 
         "trodes": {
