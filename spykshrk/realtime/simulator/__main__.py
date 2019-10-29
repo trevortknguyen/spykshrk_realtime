@@ -97,12 +97,17 @@ def main(argv):
         # MPI is not running or is running on a single node.  Single processor mode
         pass
 
+    print('Rank {}: sleeping for {} sec'.format(rank, rank*2))
+    time.sleep(rank*0.5)
     # Make sure output directory exists
     os.makedirs(os.path.join(config['files']['output_dir']), exist_ok=True)
     # Save config to output
+    print('In __main__.py: pre json.dump, rank:', rank)
 
     output_config = open(os.path.join(config['files']['output_dir'], config['files']['prefix'] + '.config.json'), 'w')
     json.dump(config, output_config, indent=4)
+
+    print('In __main__.py: past json.dump, rank:', rank)
 
 
     # MPI node management
@@ -115,35 +120,44 @@ def main(argv):
             del main_proc.networkclient
     else:
         # MEC and LMF: edited this to add a delay between startup of each trodes network
-        #time.sleep(rank/10.0)
-        time.sleep(rank*1)
+        time.sleep(rank/10.0)
         if config['datasource'] == 'trodes':
             # configure trodes network highfreqdatatypes (main supervisor process has own client)
+            print('In __main__.py: pre network client, rank:', rank)
             network = PythonClient(config, rank)
+            print('In __main__.py: past network client, rank:', rank)
             if network.initialize() != 0:
                 print("Network could not successfully initialize")
                 del network
                 quit()
             config['trodes_network']['networkobject'] = network
+            print('In __main__.py: past network initialize', rank)
 
         elif rank == config['rank']['simulator']:
             simulator_proc = simulator_process.SimulatorProcess(comm, rank, config=config)
             simulator_proc.main_loop()
 
         if rank in config['rank']['ripples']:
+            #time.sleep(0.1)
+            print('ripple process start in main, rank: ',rank)
             ripple_proc = ripple_process.RippleProcess(comm, rank, config=config)
             if config['datasource'] == 'trodes':
                 network.registerTerminateCallback(ripple_proc.trigger_termination)
             ripple_proc.main_loop()
+            print('encoder process start success in main, rank:',rank)
 
 
         if rank in config['rank']['encoders']:
+            #time.sleep(0.1)
+            print('encoder process start in main, rank:',rank)
             encoding_proc = encoder_process.EncoderProcess(comm, rank, config=config)
             if config['datasource'] == 'trodes':
                 network.registerTerminateCallback(encoding_proc.trigger_termination)
             encoding_proc.main_loop()
+            print('encoder process start success in main, rank:',rank)
 
         if rank == config['rank']['decoder']:
+            #time.sleep(0.1)
             decoding_proc = decoder_process.DecoderProcess(comm=comm, rank=rank, config=config)
             if config['datasource'] == 'trodes':
                 network.registerTerminateCallback(decoding_proc.trigger_termination)
