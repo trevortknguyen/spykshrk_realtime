@@ -11,6 +11,7 @@ import os.path
 import getopt
 from mpi4py import MPI
 from time import sleep
+import numpy as np
 
 import time
 import json
@@ -51,9 +52,16 @@ def main(argv):
 
     # setup MPI
     comm = MPI.COMM_WORLD           # type: MPI.Comm
+    #comm.Barrier()
     size = comm.Get_size()
     rank = comm.Get_rank()
     name = MPI.Get_processor_name()
+
+    for proc_rank in np.arange(0,11):
+        if proc_rank == rank:
+            print('rank = ',rank)
+            comm.Barrier()
+
 
     # setup logging
     logging.config.dictConfig({
