@@ -102,6 +102,7 @@ def main(path_base, rat_name, day, epoch, shift_amt, path_out):
     if os.path.exists(lin_output1) == False:
         print('Linearization result doesnt exist. Doing linearization calculation!')
         sungod_util.run_linearization_routine(rat_name, day, epoch, linearization_path, raw_directory, gap_size=20)
+        linear_pos_raw['linpos_flat'] = np.load(lin_output1)   #replace x pos with linerized 
         track_segment_ids = np.load(lin_output2)
        
     else: 
@@ -237,9 +238,9 @@ def main(path_base, rat_name, day, epoch, shift_amt, path_out):
     print('Saved netcdf linearized position to '+position_file_name)
 
     #cell 15.2
-    # save posterior as hdf5 - currently doesnt work because of package issues
+    # save posterior as hdf5 
     posterior_file_name_hdf5 = os.path.join(path_out,  rat_name + '_' + str(day) + '_' + str(epoch) + '_shuffle_' + str(shift_amount) + '_posteriors_functionalized.h5')
-    posteriors._to_hdf_store(posterior_file_name_hdf5,'/analysis', 'decode/clusterless/offline/posterior', 'sungod_trans_mat')
+    posteriors._to_hdf_store(posterior_file_name_hdf5,'/analysis', 'decode/clusterless/offline/posterior', 'sungod_trans_mat', overwrite=True)
     print('Saved hdf5 posteriors to '+posterior_file_name_hdf5)
 
     #cell 16
