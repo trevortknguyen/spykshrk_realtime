@@ -41,7 +41,7 @@ def main(path_base, rat_name, day, epoch, shift_amt, path_out):
     # define data source filepaths
     path_base = path_base
     raw_directory = path_base + 'raw_data/' + rat_name + '/'
-    linearization_path = path_base + 'maze_info/'
+    linearization_path = path_base + 'maze_info/' + rat_name + '/'
     day_ep = str(day) + '_' + str(epoch)
 
     tetlist = None
@@ -96,8 +96,8 @@ def main(path_base, rat_name, day, epoch, shift_amt, path_out):
 
     # Position linearization
     # if linearization exists, load it. if not, run the linearization.
-    lin_output1 = os.path.join(linearization_path, rat_name + '/' + rat_name + '_' + day_ep + '_' + 'linearized_distance.npy')
-    lin_output2 = os.path.join(linearization_path, rat_name + '/' + rat_name + '_' + day_ep + '_' + 'linearized_track_segments.npy')
+    lin_output1 = os.path.join(linearization_path, + rat_name + '_' + day_ep + '_' + 'linearized_distance.npy')
+    lin_output2 = os.path.join(linearization_path, + rat_name + '_' + day_ep + '_' + 'linearized_track_segments.npy')
     print('linearization file 1: ',lin_output1)
     if os.path.exists(lin_output1) == False:
         print('Linearization result doesnt exist. Doing linearization calculation!')
