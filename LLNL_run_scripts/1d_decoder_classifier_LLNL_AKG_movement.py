@@ -6,6 +6,7 @@
 #cell 1
 # Setup and import packages
 import sys
+sys.path.append('/g/g20/annag/spykshrk_realtime')
 import os
 #import pdb
 from datetime import datetime, date
@@ -39,8 +40,8 @@ def main(path_base, rat_name, day, epoch, shift_amt, path_out):
 
     # define data source filepaths
     path_base = path_base
-    raw_directory = path_base + rat_name + '/filterframework/'
-    linearization_path = raw_directory + 'decoding/'   # need to update paths now that sungod_util doesn't add rat folder - add it here instead! 
+    raw_directory = path_base + 'raw_data/' + rat_name + '/'
+    linearization_path = path_base + 'maze_info/' + rat_name + '/'
     day_ep = str(day) + '_' + str(epoch)
 
     tetlist = None
@@ -64,7 +65,7 @@ def main(path_base, rat_name, day, epoch, shift_amt, path_out):
 
     shift_amt_for_shuffle = shift_amt
 
-    use_enc_as_dec = 0
+    use_enc_as_dec = 1
 
     discrete_tm_val=.99   # for classifier
 
@@ -239,7 +240,7 @@ def main(path_base, rat_name, day, epoch, shift_amt, path_out):
     #cell 15.2
     # save posterior as hdf5 
     posterior_file_name_hdf5 = os.path.join(path_out,  rat_name + '_' + str(day) + '_' + str(epoch) + '_shuffle_' + str(shift_amount) + '_posteriors_functionalized.h5')
-    posteriors._to_hdf_store(posterior_file_name_hdf5,'/analysis', 'decode/clusterless/offline/posterior', 'sungod_trans_mat',overwrite=True)
+    posteriors._to_hdf_store(posterior_file_name_hdf5,'/analysis', 'decode/clusterless/offline/posterior', 'sungod_trans_mat', overwrite=True)
     print('Saved hdf5 posteriors to '+posterior_file_name_hdf5)
 
     #cell 16
@@ -293,3 +294,4 @@ if __name__ == '__main__':
     parser.add_argument('-o', action='store', dest='path_out', help='Path to output')
     results = parser.parse_args()
 
+main(results.path_base, results.rat_name, results.day, results.epoch, results.shift_amt, results.path_out)
