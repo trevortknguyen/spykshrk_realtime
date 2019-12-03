@@ -73,51 +73,76 @@ class RippleThresholdState(rt_logging.PrintableMessage):
 
 class RippleFilter(rt_logging.LoggingClass):
     def __init__(self, rec_base: realtime_base.BinaryRecordBase, param: RippleParameterMessage,
-                 elec_grp_id):
+                 elec_grp_id,config):
         super().__init__()
         # this is the kernel for 100 - 400 Hz, this matches the filter in FSGui
         self.rec_base = rec_base
         self.NFILT = 19
         self.NLAST_VALS = 20
-        self.NUMERATOR = [2.435723358568172431e-02,
-                          -1.229133831328424326e-01,
-                          2.832924715801946602e-01,
-                          -4.629092463232863941e-01,
-                          6.834398182647745124e-01,
-                          -8.526143367711925825e-01,
-                          8.137704425816699727e-01,
-                          -6.516133270563613245e-01,
-                          4.138371933419512372e-01,
-                          2.165520280363200556e-14,
-                          -4.138371933419890403e-01,
-                          6.516133270563868596e-01,
-                          -8.137704425816841836e-01,
-                          8.526143367711996879e-01,
-                          -6.834398182647782871e-01,
-                          4.629092463232882815e-01,
-                          -2.832924715801954929e-01,
-                          1.229133831328426407e-01,
-                          -2.435723358568174512e-02]
 
-        self.DENOMINATOR = [1.000000000000000000e+00,
-                            -7.449887056735371438e+00,
-                            2.866742370538527496e+01,
-                            -7.644272470167831557e+01,
-                            1.585893197862293391e+02,
-                            -2.703338821178639932e+02,
-                            3.898186201116285474e+02,
-                            -4.840217978093359079e+02,
-                            5.230782138295531922e+02,
-                            -4.945387299274730140e+02,
-                            4.094389697124813665e+02,
-                            -2.960738943482194827e+02,
-                            1.857150345772943751e+02,
-                            -9.980204002570326338e+01,
-                            4.505294594295533273e+01,
-                            -1.655156422615593215e+01,
-                            4.683913633549676270e+00,
-                            -9.165841559639211766e-01,
-                            9.461443242601841330e-02]
+        # original 100-400 Hz ripple filter
+        # self.NUMERATOR = [2.435723358568172431e-02,
+        #                   -1.229133831328424326e-01,
+        #                   2.832924715801946602e-01,
+        #                   -4.629092463232863941e-01,
+        #                   6.834398182647745124e-01,
+        #                   -8.526143367711925825e-01,
+        #                   8.137704425816699727e-01,
+        #                   -6.516133270563613245e-01,
+        #                   4.138371933419512372e-01,
+        #                   2.165520280363200556e-14,
+        #                   -4.138371933419890403e-01,
+        #                   6.516133270563868596e-01,
+        #                   -8.137704425816841836e-01,
+        #                   8.526143367711996879e-01,
+        #                   -6.834398182647782871e-01,
+        #                   4.629092463232882815e-01,
+        #                   -2.832924715801954929e-01,
+        #                   1.229133831328426407e-01,
+        #                   -2.435723358568174512e-02]
+
+        # self.DENOMINATOR = [1.000000000000000000e+00,
+        #                     -7.449887056735371438e+00,
+        #                     2.866742370538527496e+01,
+        #                     -7.644272470167831557e+01,
+        #                     1.585893197862293391e+02,
+        #                     -2.703338821178639932e+02,
+        #                     3.898186201116285474e+02,
+        #                     -4.840217978093359079e+02,
+        #                     5.230782138295531922e+02,
+        #                     -4.945387299274730140e+02,
+        #                     4.094389697124813665e+02,
+        #                     -2.960738943482194827e+02,
+        #                     1.857150345772943751e+02,
+        #                     -9.980204002570326338e+01,
+        #                     4.505294594295533273e+01,
+        #                     -1.655156422615593215e+01,
+        #                     4.683913633549676270e+00,
+        #                     -9.165841559639211766e-01,
+        #                     9.461443242601841330e-02]
+
+        # anna's 150-250 Hz ripple filter
+        self.NUMERATOR = [0.00129180641792292,
+        -0.0129686462053354,0.0649860663276546,
+        -0.213040690450758,0.505568917616276,
+        -0.907525263464183,1.24408910068877,
+        -1.26054939315621,0.806575646754607,
+        0,-0.806575646754607,
+        1.26054939315621,-1.24408910068877,
+        0.907525263464183,-0.505568917616276,
+        0.213040690450758,-0.0649860663276546,
+        0.0129686462053354,-0.00129180641792292]
+
+        self.DENOMINATOR = [1,
+        -11.7211644621401,69.4141606894030,
+        -272.943693781472,793.733182246242,
+        -1805.56956364536,3320.66911787227,
+        -5039.18721590951,6388.83865252807,
+        -6813.09822646561,6124.33733155433,
+        -4630.48270472608,2924.84894521595,
+        -1524.33752473424,642.249494056762,
+        -211.659943388859,51.5861946277428,
+        -8.34803786957350,0.682686766261136]
 
         self.elec_grp_id = elec_grp_id
         self.param = param
@@ -142,6 +167,8 @@ class RippleFilter(rt_logging.LoggingClass):
         self.last_stim_time = 0
         self.in_lockout = False
         self.thresh_crossed = False
+        self.lfp_display_counter = 0
+        self.config = config
 
     @property
     def custom_baseline_mean(self):
@@ -246,6 +273,14 @@ class RippleFilter(rt_logging.LoggingClass):
             #rd = 1
 
             y = abs(rd)
+
+            if self.config['ripple_conditioning']['display_baseline'] == True:
+                self.ripple_mean += (y - self.ripple_mean) / self.param.samp_divisor
+                self.ripple_std += (abs(y - self.ripple_mean) - self.ripple_std) / self.param.samp_divisor
+                self.lfp_display_counter += 1
+                if self.lfp_display_counter % 1500 == 0:
+                    print('LFP baseline mean for tetrode',self.elec_grp_id,' = ',self.ripple_mean)
+                    print('LFP baseline stdev for tetrode',self.elec_grp_id,' = ',self.ripple_std)
 
             if not self.stim_enabled:
                 self.ripple_mean += (y - self.ripple_mean) / self.param.samp_divisor
@@ -358,7 +393,7 @@ class RippleMPISendInterface(realtime_base.RealtimeMPIClass):
 
 class RippleManager(realtime_base.BinaryRecordBaseWithTiming, rt_logging.LoggingClass):
     def __init__(self, rank, local_rec_manager, send_interface: RippleMPISendInterface,
-                 data_interface: realtime_base.DataSourceReceiver):
+                 data_interface: realtime_base.DataSourceReceiver, config):
         super().__init__(rank=rank,
                          local_rec_manager=local_rec_manager,
                          send_interface=send_interface,
@@ -372,7 +407,8 @@ class RippleManager(realtime_base.BinaryRecordBaseWithTiming, rt_logging.Logging
                                       'lfp_data',
                                       'rd',
                                       'current_val']],
-                         rec_formats=['Ii??ddddd'])
+                         rec_formats=['Ii??ddddd'],
+                         config = config)
 
         self.rank = rank
         self.mpi_send = send_interface
@@ -386,6 +422,7 @@ class RippleManager(realtime_base.BinaryRecordBaseWithTiming, rt_logging.Logging
         self.custom_baseline_std_dict = {}
         self.data_packet_counter = 0
         self.lfp_counter = 0
+        self.config = config
 
         # self.mpi_send.send_record_register_messages(self.get_record_register_messages())
 
@@ -399,7 +436,8 @@ class RippleManager(realtime_base.BinaryRecordBaseWithTiming, rt_logging.Logging
         for electrode_group in ntrode_list:
             self.data_interface.register_datatype_channel(channel=electrode_group)
             self.ripple_filters.setdefault(electrode_group, RippleFilter(rec_base=self, param=self.param,
-                                                                         elec_grp_id=electrode_group))
+                                                                         elec_grp_id=electrode_group,
+                                                                         config=self.config))
 
     def turn_on_datastreams(self):
         self.class_log.info("Turn on datastreams.")
@@ -464,7 +502,7 @@ class RippleManager(realtime_base.BinaryRecordBaseWithTiming, rt_logging.Logging
             timing_msg = msgs[1]
 
             if isinstance(datapoint, LFPPoint):
-                #print("new lfp point: ",datapoint.timestamp)
+                #print("new lfp point: ",datapoint.timestamp,datapoint.data)
                 self.lfp_counter +=1
                 if self.lfp_counter % 1000 == 0:
                     self.record_timing(timestamp=datapoint.timestamp, elec_grp_id=datapoint.elec_grp_id,
@@ -609,7 +647,8 @@ class RippleProcess(realtime_base.RealtimeProcess):
         self.rip_man = RippleManager(rank=rank,
                                     local_rec_manager=self.local_rec_manager,
                                     send_interface=self.mpi_send,
-                                    data_interface=data_interface)
+                                    data_interface=data_interface,
+                                    config=self.config)
 
         self.mpi_recv = RippleMPIRecvInterface(self.comm, self.rank, self.config, self.rip_man)
 

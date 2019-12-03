@@ -61,7 +61,11 @@ def main(argv):
     # staggers the startup for each rank so the trodes network will intialize one node at a time in order
     for proc_rank in np.arange(0,size):
         comm.Barrier()
-        time.sleep(10+rank*3)
+        # for drought cluster
+        #time.sleep(10+rank*3)
+
+        # for greenflash local spykshrk
+        time.sleep(1+rank*0.5)
         if proc_rank == rank:
             print('got past barrier, rank = ',rank)
           
