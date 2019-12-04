@@ -30,7 +30,8 @@
     "ripple_conditioning": {
         "display_baseline": true,
         "ripple_condition_status": true,
-        "ripple_condition_thresh": 5
+        "ripple_condition_thresh": 5,
+        "replay_conditioning": true
     },
 
     "ripple": {

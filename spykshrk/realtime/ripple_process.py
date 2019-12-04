@@ -55,6 +55,7 @@ class RippleThresholdState(rt_logging.PrintableMessage):
 
     This message has helper serializer/deserializer functions to be used to speed transmission.
     """
+    # MEC: in order to have a dynamic ripple filter, we need to add ripple size (sd) to this message
     _byte_format = 'Iii'
 
     def __init__(self, timestamp, elec_grp_id, threshold_state):

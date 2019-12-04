@@ -166,7 +166,9 @@ class MainProcess(realtime_base.RealtimeProcess):
             self.recv_interface.__next__()
             self.data_recv.__next__()
             self.vel_pos_recv_interface.__next__()
-            self.posterior_recv_interface.__next__()
+            # should make posterior receiver conditional - only on if in replay conditioning mode
+            if self.config['ripple_conditioning']['replay_conditioning'] == True:
+                self.posterior_recv_interface.__next__()
 
         self.class_log.info("Main Process Main reached end, exiting.")
 
@@ -222,12 +224,12 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                                   realtime_base.RecordIDs.STIM_LOCKOUT,
                                   realtime_base.RecordIDs.STIM_MESSAGE],
                          rec_labels=[['timestamp', 'elec_grp_id', 'threshold_state'],
-                                     ['timestamp', 'time', 'lockout_num', 'lockout_state','tets_above_thresh'],
+                                     ['timestamp', 'time', 'lockout_num', 'lockout_state','tets_above_thresh','ripple_cond_message_sent'],
                                      ['bin_timestamp', 'spike_timestamp','time', 'stim_sent', 'ripple_number',
                                       'ripple_time_bin','posterior_max_arm','box','arm1','arm2','arm3',
                                       'arm4','arm5','arm6','arm7','arm8']],
                          rec_formats=['Iii',
-                                      'Idiiq',
+                                      'Idiiqi',
                                       'IIdiiiiddddddddd'])
         self.rank = rank
         self._send_interface = send_interface
@@ -257,6 +259,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         self.thresh_counter = 0
         self.postsum_counter = 0
         self.stim_message_sent = 0
+        self.ripple_cond_message_sent = 0
 
         #if self.config['datasource'] == 'trodes':
         #    self.networkclient = MainProcessClient("SpykshrkMainProc", config['trodes_network']['address'],config['trodes_network']['port'], self.config)
@@ -309,20 +312,38 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 # End lockout
                 self._in_lockout = False
                 self.write_record(realtime_base.RecordIDs.STIM_LOCKOUT,
-                                  timestamp, time, self._lockout_count, self._in_lockout, num_above)
+                                  timestamp, time, self._lockout_count, self._in_lockout,
+                                  num_above, self.ripple_cond_message_sent)
                 self._lockout_count += 1
 
             if (num_above >= self._ripple_n_above_thresh) and not self._in_lockout:
                 if self.velocity < self.config['encoder']['vel']:
+                    self.ripple_cond_message_sent = 0
                     print('tets above ripple thresh: ',num_above,timestamp,self._ripple_thresh_states, self.velocity)
                     #print('lockout time: ',self._lockout_time)
                     #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(15);\n'])
-                #MEC this will remove lockout
+                    
+                    # this is the easiest place to send a statescript message for ripple conditioning
+                    # this will send a message for 1st threshold crossing - no time delay
+                    # need to re-introduce lockout so that only one message is sent per ripple (7500 = 5 sec)
+                    # for a dynamic filter, we need to get ripple size from the threshold message and send to statescript
+                    if self.config['ripple_conditioning']['ripple_condition_status'] == True:
+                        print('sent shortcut message based on ripple thresh',time,timestamp)
+                        networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(15);\n'])
+                        # this starts the lockout
+                        self._in_lockout = True
+                        self._last_lockout_timestamp = timestamp
+                        self.ripple_cond_message_sent = 1               
+
+                #MEC this will turn off lockout
                 #self._in_lockout = True
+                #self._last_lockout_timestamp = timestamp
+                
                 self.stim_thresh = True
-                self._last_lockout_timestamp = timestamp
                 #self.class_log.debug("Ripple threshold detected {}.".format(self._ripple_thresh_states))
                 
+                 
+
                 # want to send the test shortcut message here
                 #networkclient.sendStateScriptShortcutMessage(1)
 
@@ -333,7 +354,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 #print('sent regular message to MCU on ripple thresh',time,timestamp)
                 
                 self.write_record(realtime_base.RecordIDs.STIM_LOCKOUT,
-                                  timestamp, self.velocity, self._lockout_count, self._in_lockout, num_above)
+                                  timestamp, self.velocity, self._lockout_count, self._in_lockout,
+                                  num_above, self.ripple_cond_message_sent)
 
                 self._send_interface.start_stimulation()
                 # here we want to send the stim_decider message to the decoder
@@ -347,6 +369,30 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 #self._send_interface.send_stim_decision(timestamp, self.stim_thresh)
 
             return num_above
+
+    # not using this currently: this was an attampt to build a delay into ripple detection (above thresh for 15 msec)
+    def ripple_conditioning(self, bin_timestamp,networkclient):
+        if self.config['ripple_conditioning']['ripple_condition_status'] == True:
+            if self.stim_thresh == True:
+                # count up number of time bins above threshold - 22 for 15 msec
+                self.ripple_time_bin += 1
+
+            if self.stim_thresh == False:
+                # reset ripple time bin counter
+                self.ripple_time_bin = 0
+
+            if self.ripple_time_bin == 23:
+                # need to get 15 msec above threshold before doing anything
+
+                # dynamic: send message to statescript with magnitude of ripple
+                # need to get the latest value from the ripple filters
+
+                # static: send message to statescript to run function to turn on outer well
+                print('sent shortcut message based on ripple thresh',time,timestamp)
+                networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(15);\n'])
+                # need a message to record that shortcut message was sent - could be a additional field in STIM_LOCKOUT
+                # after message is sent, dont allow any more messages until next trial - is this logic in statescript?
+
 
     # MEC: this function brings in velocity and linearized position from decoder process
     # it is working as expected - both velocity filter and position filter!
@@ -517,11 +563,18 @@ class StimDeciderMPIRecvInterface(realtime_base.RealtimeMPIClass):
 
         if rdy:
             if self.mpi_statuses[0].source in self.config['rank']['ripples']:
+                #MEC: we need to add ripple size to this messsage
                 message = ripple_process.RippleThresholdState.unpack(message_bytes=self.feedback_bytes)
                 self.stim.update_ripple_threshold_state(timestamp=message.timestamp,
                                                         elec_grp_id=message.elec_grp_id,
                                                         threshold_state=message.threshold_state,
                                                         networkclient=self.networkclient)
+
+                # we could run the ripple conditioning function here - not using currently
+                # currently the message is just sent within the update_ripple_thresh function
+                #if self.config['ripple_conditioning']['ripple_condition_status'] == True:
+                #    # call ripple conditioning function
+                #    self.stim.ripple_conditioning(arguments)
 
                 self.mpi_reqs[0] = self.comm.Irecv(buf=self.feedback_bytes,
                                                    tag=realtime_base.MPIMessageTag.FEEDBACK_DATA.value)
