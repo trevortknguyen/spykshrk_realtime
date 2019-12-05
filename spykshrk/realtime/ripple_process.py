@@ -259,11 +259,18 @@ class RippleFilter(rt_logging.LoggingClass):
             self.in_lockout = False
 
         if self.in_lockout:
-            rd = self.update_filter(((self.current_time - self.last_stim_time) / self.param.lockout_time)
-                                    * data)
-            # to turn off ripple filter use next line and comment out line above
-            #rd = 1
-            self.current_val = self.ripple_mean
+            # MEC: i dont understand these lines and they might be setting the current_val to 0 during lockout
+            # lets just try the normal calculations during lockout times
+            # or could try lowering the lockout time to 7500
+            #rd = self.update_filter(((self.current_time - self.last_stim_time) / self.param.lockout_time)
+            #                        * data)
+            ## to turn off ripple filter use next line and comment out line above
+            ##rd = 1
+            #self.current_val = self.ripple_mean
+            #self.thresh_crossed = False
+
+            rd = self.update_filter(data)
+            self.current_val = self.custom_baseline_mean
             self.thresh_crossed = False
 
         else:
@@ -279,7 +286,7 @@ class RippleFilter(rt_logging.LoggingClass):
                 self.ripple_mean += (y - self.ripple_mean) / self.param.samp_divisor
                 self.ripple_std += (abs(y - self.ripple_mean) - self.ripple_std) / self.param.samp_divisor
                 self.lfp_display_counter += 1
-                if self.lfp_display_counter % 1500 == 0:
+                if self.lfp_display_counter % 3000 == 0:
                     print('LFP baseline mean for tetrode',self.elec_grp_id,' = ',self.ripple_mean)
                     print('LFP baseline stdev for tetrode',self.elec_grp_id,' = ',self.ripple_std)
 
