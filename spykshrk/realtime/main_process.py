@@ -333,7 +333,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                     # for a dynamic filter, we need to get ripple size from the threshold message and send to statescript
                     if self.config['ripple_conditioning']['ripple_condition_status'] == True:
                         print('sent shortcut message based on ripple thresh',time,timestamp)
-                        networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(15);\n'])
+                        networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(7);\n'])
+                        #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['homeCount = 100;\n'])
                         # this starts the lockout
                         self._in_lockout = True
                         self._last_lockout_timestamp = timestamp
