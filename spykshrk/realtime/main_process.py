@@ -298,6 +298,9 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         if self._enabled:
             self.thresh_counter += 1
 
+            if self.thresh_counter % 1500 == 0 and self._in_lockout:
+                print('in lockout for ripple detection - one line per tetrode')
+
             self._ripple_thresh_states.setdefault(elec_grp_id, 0)
             # only write state if state changed
             if self._ripple_thresh_states[elec_grp_id] != threshold_state:
@@ -326,6 +329,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                     # this is the easiest place to send a statescript message for ripple conditioning
                     # this will send a message for 1st threshold crossing - no time delay
                     # need to re-introduce lockout so that only one message is sent per ripple (7500 = 5 sec)
+                    # lockout is in timestamps I think - so 2 seconds = 60000
                     # for a dynamic filter, we need to get ripple size from the threshold message and send to statescript
                     if self.config['ripple_conditioning']['ripple_condition_status'] == True:
                         print('sent shortcut message based on ripple thresh',time,timestamp)
