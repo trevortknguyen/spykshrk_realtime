@@ -5,6 +5,9 @@ from collections import deque
 from mpi4py import MPI
 
 import time
+import fcntl
+import os
+import numpy as np
 import spykshrk.realtime.binary_record as binary_record
 import spykshrk.realtime.datatypes as datatypes
 import spykshrk.realtime.realtime_base as realtime_base
@@ -171,6 +174,12 @@ class RippleFilter(rt_logging.LoggingClass):
         self.lfp_display_counter = 0
         self.config = config
 
+        # i think we need to open the ripple threshold file here in the init
+        # this doesnt work because the file is closed when i try to use it below - try moving this down
+        #with open('config/new_ripple_threshold.txt') as self.ripple_threshold_file:
+        #    fd = self.ripple_threshold_file.fileno()
+        #    fcntl.fcntl(fd, fcntl.F_SETFL, os.O_NONBLOCK)
+
     @property
     def custom_baseline_mean(self):
         return self._custom_baseline_mean
@@ -290,6 +299,19 @@ class RippleFilter(rt_logging.LoggingClass):
                     print('LFP baseline mean for tetrode',self.elec_grp_id,' = ',self.ripple_mean)
                     print('LFP baseline stdev for tetrode',self.elec_grp_id,' = ',self.ripple_std)
 
+                # open and read text file that will allow you to update ripple threshold
+                if self.lfp_display_counter % 15000 == 0:
+                    with open('config/new_ripple_threshold.txt') as ripple_threshold_file:
+                        fd = ripple_threshold_file.fileno()
+                        fcntl.fcntl(fd, fcntl.F_SETFL, os.O_NONBLOCK)
+                        # read file
+                        for rip_thresh_file_line in ripple_threshold_file:
+                            pass
+                        new_ripple_threshold = rip_thresh_file_line
+                    #print('new ripple threshold = ',new_ripple_threshold[0])
+                    self.param.ripple_threshold = np.int(new_ripple_threshold[0])
+                    print('new ripple threshold = ',self.param.ripple_threshold)
+
             if not self.stim_enabled:
                 self.ripple_mean += (y - self.ripple_mean) / self.param.samp_divisor
                 self.ripple_std += (abs(y - self.ripple_mean) - self.ripple_std) / self.param.samp_divisor
@@ -316,7 +338,9 @@ class RippleFilter(rt_logging.LoggingClass):
                 if self.current_val >= (self.custom_baseline_mean + self.custom_baseline_std *
                                         self.param.ripple_threshold):
                     self.thresh_crossed = True
-                    #print(self.elec_grp_id,self.current_val,self.custom_baseline_mean + self.custom_baseline_std * self.param.ripple_threshold, self.custom_baseline_mean, self.custom_baseline_std, self.param.ripple_threshold)
+                    #print('ripple detected!','tetrode: ',self.elec_grp_id,'threshold: ',
+                    #      self.param.ripple_threshold,'ripple SD: ',
+                    #      (self.current_val - self.custom_baseline_mean)/self.custom_baseline_std)
                 else:
                     self.thresh_crossed = False
             else:
