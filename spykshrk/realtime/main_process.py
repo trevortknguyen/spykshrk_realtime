@@ -299,7 +299,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             self.thresh_counter += 1
 
             if self.thresh_counter % 1500 == 0 and self._in_lockout:
-                print('in lockout for ripple detection - one line per tetrode')
+                #print('in lockout for ripple detection - one line per tetrode')
+                pass
 
             self._ripple_thresh_states.setdefault(elec_grp_id, 0)
             # only write state if state changed
@@ -427,7 +428,10 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         if self.stim_thresh == True and self.velocity < self.config['encoder']['vel']:
             #print('posterior sum is: ',timestamp,box,time*1000)
             #print('stim threshold: ',self.stim_thresh,self._last_lockout_timestamp)
-            print('ripple number: ',self.ripple_number,' time bin: ',self.ripple_time_bin)
+
+            # this generates too many output lines with few tetrodes - because huge gaps from decoder
+            #print('ripple number: ',self.ripple_number,' time bin: ',self.ripple_time_bin)
+
             #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(15);\n'])
             if self.ripple_time_bin == 0:
                 self.ripple_number += 1
@@ -519,7 +523,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                         self.stim_message_sent = 0
                         #networkclient.sendStateScriptShortcutMessage(5)
                 else:
-                    print('no arm posterior above 0.8',self.posterior_arm_sum,'interval',self.stim_message_sent)
+                    print('no arm posterior above 0.8',self.posterior_arm_sum,'interval',self.stim_message_sent,'ripple: ',self.ripple_number)
 
                 ## send shortcut message based on posterior max arm, each arm has own function number
                 ## fn_num is an interger for function number in statescript
