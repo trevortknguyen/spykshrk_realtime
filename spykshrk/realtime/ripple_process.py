@@ -300,6 +300,7 @@ class RippleFilter(rt_logging.LoggingClass):
                     print('LFP baseline stdev for tetrode',self.elec_grp_id,' = ',self.ripple_std)
 
                 # open and read text file that will allow you to update ripple threshold
+                # now it looks for two digits, so need to have 0 before a single digit
                 if self.lfp_display_counter % 15000 == 0:
                     with open('config/new_ripple_threshold.txt') as ripple_threshold_file:
                         fd = ripple_threshold_file.fileno()
@@ -309,8 +310,8 @@ class RippleFilter(rt_logging.LoggingClass):
                             pass
                         new_ripple_threshold = rip_thresh_file_line
                     #print('new ripple threshold = ',new_ripple_threshold[0])
-                    self.param.ripple_threshold = np.int(new_ripple_threshold[0])
-                    print('new ripple threshold = ',self.param.ripple_threshold)
+                    self.param.ripple_threshold = np.int(new_ripple_threshold[0:2])
+                    print('new ripple threshold = ',self.param.ripple_threshold,'timestamp: ',self.current_time)
 
             if not self.stim_enabled:
                 self.ripple_mean += (y - self.ripple_mean) / self.param.samp_divisor
@@ -354,7 +355,7 @@ class RippleFilter(rt_logging.LoggingClass):
         # rec_format='Ii??dd',
         #if self.current_time < 40000000:
         self.rec_base.write_record(realtime_base.RecordIDs.RIPPLE_STATE,
-                                   self.current_time, self.elec_grp_id, self.thresh_crossed,
+                                   self.current_time, self.elec_grp_id, self.param.ripple_threshold, self.thresh_crossed,
                                    self.in_lockout, self._custom_baseline_mean, self._custom_baseline_std,
                                    int(data), rd, self.current_val)
 
@@ -432,6 +433,7 @@ class RippleManager(realtime_base.BinaryRecordBaseWithTiming, rt_logging.Logging
                          rec_ids=[realtime_base.RecordIDs.RIPPLE_STATE],
                          rec_labels=[['timestamp',
                                       'elec_grp_id',
+                                      'ripple_threshold',
                                       'thresh_crossed',
                                       'lockout',
                                       'custom_mean',
@@ -439,7 +441,7 @@ class RippleManager(realtime_base.BinaryRecordBaseWithTiming, rt_logging.Logging
                                       'lfp_data',
                                       'rd',
                                       'current_val']],
-                         rec_formats=['Ii??ddddd'],
+                         rec_formats=['Iii??ddddd'],
                          config = config)
 
         self.rank = rank
