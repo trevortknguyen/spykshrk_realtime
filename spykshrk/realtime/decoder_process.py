@@ -414,7 +414,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                                               send_interface=send_interface,
                                               rec_ids=[realtime_base.RecordIDs.DECODER_OUTPUT,
                                                        realtime_base.RecordIDs.DECODER_MISSED_SPIKES],
-                                              rec_labels=[['bin_timestamp','wall_time', 'real_pos_time', 'real_pos','spike_count',
+                                              rec_labels=[['bin_timestamp','wall_time', 'velocity', 'real_pos','spike_count',
                                                             'ripple','ripple_number','ripple_length','shortcut_message',
                                                             'box','arm1','arm2','arm3','arm4','arm5','arm6','arm7','arm8'] +
                                                           ['x{:0{dig}d}'.
@@ -642,6 +642,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                 self.pos_msg_counter += 1
                 if self.pos_msg_counter % 30 == 0:
                     print('position = ',current_pos,' and velocity = ',self.current_vel)
+                    #print('segment = ',pos_data.segment)
 
                 #print(pos_data.x, pos_data.segment)
                 #TODO implement trodes cameramodule update position function
