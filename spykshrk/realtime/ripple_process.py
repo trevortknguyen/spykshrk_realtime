@@ -296,12 +296,13 @@ class RippleFilter(rt_logging.LoggingClass):
                 self.ripple_std += (abs(y - self.ripple_mean) - self.ripple_std) / self.param.samp_divisor
                 self.lfp_display_counter += 1
                 if self.lfp_display_counter % 15000 == 0:
-                    print('LFP baseline mean for tetrode',self.elec_grp_id,' = ',self.ripple_mean)
-                    print('LFP baseline stdev for tetrode',self.elec_grp_id,' = ',self.ripple_std)
+                    print('mean',self.elec_grp_id,' = ',np.around(self.ripple_mean,decimals=2),
+                          ' stdev',self.elec_grp_id,' = ',np.around(self.ripple_std,decimals=2))
+                    #print('stdev',self.elec_grp_id,' = ',self.ripple_std)
 
                 # open and read text file that will allow you to update ripple threshold
                 # now it looks for two digits, so need to have 0 before a single digit
-                if self.lfp_display_counter % 15000 == 0:
+                if self.lfp_display_counter % 45000 == 0:
                     with open('config/new_ripple_threshold.txt') as ripple_threshold_file:
                         fd = ripple_threshold_file.fileno()
                         fcntl.fcntl(fd, fcntl.F_SETFL, os.O_NONBLOCK)
@@ -311,7 +312,8 @@ class RippleFilter(rt_logging.LoggingClass):
                         new_ripple_threshold = rip_thresh_file_line
                     #print('new ripple threshold = ',new_ripple_threshold[0])
                     self.param.ripple_threshold = np.int(new_ripple_threshold[0:2])
-                    print('new ripple threshold = ',self.param.ripple_threshold,'timestamp: ',self.current_time)
+                    # could try to only print for one ripple node - if using number of the node
+                    print('new ripple threshold = ',self.param.ripple_threshold)
 
             if not self.stim_enabled:
                 self.ripple_mean += (y - self.ripple_mean) / self.param.samp_divisor
