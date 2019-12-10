@@ -641,8 +641,8 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
 
                 self.pos_msg_counter += 1
                 if self.pos_msg_counter % 30 == 0:
-                    print('position = ',current_pos,' and velocity = ',self.current_vel)
-                    #print('segment = ',pos_data.segment)
+                    print('position = ',current_pos,' and velocity = ',np.around(self.current_vel,decimals=2))
+                    print('segment = ',pos_data.segment)
 
                 #print(pos_data.x, pos_data.segment)
                 #TODO implement trodes cameramodule update position function
