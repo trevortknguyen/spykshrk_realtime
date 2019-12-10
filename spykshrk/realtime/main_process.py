@@ -236,6 +236,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         self._ripple_n_above_thresh = ripple_n_above_thresh
         self._lockout_time = lockout_time
         self._ripple_thresh_states = {}
+        self._conditioning_ripple_thresh_states = {}
         self._enabled = False
         self.config = config
 
@@ -288,12 +289,13 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
     def update_lockout_time(self, lockout_time):
         self._lockout_time = lockout_time
 
-    def update_ripple_threshold_state(self, timestamp, elec_grp_id, threshold_state,networkclient):
+    def update_ripple_threshold_state(self, timestamp, elec_grp_id, threshold_state, conditioning_thresh_state, networkclient):
         # Log timing
         if self.thresh_counter % 1000 == 0:
             self.record_timing(timestamp=timestamp, elec_grp_id=elec_grp_id,
                                datatype=datatypes.Datatypes.LFP, label='stim_rip_state')
         time = MPI.Wtime()
+        #print('received thresh states: ',threshold_state,conditioning_thresh_state)
 
         if self._enabled:
             self.thresh_counter += 1
@@ -303,6 +305,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 pass
 
             self._ripple_thresh_states.setdefault(elec_grp_id, 0)
+            self._conditioning_ripple_thresh_states.setdefault(elec_grp_id, 0)
+            
             # only write state if state changed
             if self._ripple_thresh_states[elec_grp_id] != threshold_state:
                 self.write_record(realtime_base.RecordIDs.STIM_STATE, timestamp, elec_grp_id, threshold_state)
@@ -312,6 +316,12 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             for state in self._ripple_thresh_states.values():
                 num_above += state
 
+            #need another copy of this for conditioning threshold
+            self._conditioning_ripple_thresh_states[elec_grp_id] = conditioning_thresh_state
+            conditioning_num_above = 0
+            for conditioning_state in self._conditioning_ripple_thresh_states.values():
+                conditioning_num_above += conditioning_state
+
             if self._in_lockout and (timestamp > self._last_lockout_timestamp + self._lockout_time):
                 # End lockout
                 self._in_lockout = False
@@ -320,10 +330,12 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                                   num_above, self.ripple_cond_message_sent)
                 self._lockout_count += 1
 
-            if (num_above >= self._ripple_n_above_thresh) and not self._in_lockout:
+            if (conditioning_num_above >= self._ripple_n_above_thresh) and not self._in_lockout:            
+            #if (num_above >= self._ripple_n_above_thresh) and not self._in_lockout:
                 if self.velocity < self.config['encoder']['vel']:
                     self.ripple_cond_message_sent = 0
-                    print('tets above ripple thresh: ',num_above,timestamp,self._ripple_thresh_states, self.velocity)
+                    print('tets above cond ripple thresh: ',conditioning_num_above,timestamp,
+                          self._conditioning_ripple_thresh_states, np.around(self.velocity,decimals=2))
                     #print('lockout time: ',self._lockout_time)
                     #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(15);\n'])
                     
@@ -333,7 +345,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                     # lockout is in timestamps I think - so 2 seconds = 60000
                     # for a dynamic filter, we need to get ripple size from the threshold message and send to statescript
                     if self.config['ripple_conditioning']['ripple_condition_status'] == True:
-                        print('sent shortcut message based on ripple thresh',time,timestamp)
+                        print('sent behavior message based on ripple thresh',time,timestamp)
                         networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(7);\n'])
                         #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['homeCount = 100;\n'])
                         # this starts the lockout
@@ -361,7 +373,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 
                 self.write_record(realtime_base.RecordIDs.STIM_LOCKOUT,
                                   timestamp, self.velocity, self._lockout_count, self._in_lockout,
-                                  num_above, self.ripple_cond_message_sent)
+                                  conditioning_num_above, self.ripple_cond_message_sent)
 
                 self._send_interface.start_stimulation()
                 # here we want to send the stim_decider message to the decoder
@@ -369,6 +381,31 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 # i think _in_lockout will be 1 when stim threshold is crossed
                 #self._send_interface.send_stim_decision(timestamp, self.stim_thresh)
                 #print('stim message function called',timestamp,time*1000)
+
+            elif (num_above >= self._ripple_n_above_thresh) and not self._in_lockout:
+                if self.velocity < self.config['encoder']['vel']:
+                    print('tets above normal ripple thresh: ',num_above,timestamp,
+                          self._ripple_thresh_states, np.around(self.velocity,decimals=2))
+
+                # this needs to just turn on light
+                # i think this needs to use lockout too, otherwise too many messages
+                # but this could interfere with detection of larger ripples
+                # i think we need no lockout here because it will mask large ripples
+                # so need to come up with a better way to trigger light - turn off for now
+                if self.config['ripple_conditioning']['ripple_condition_status'] == True:
+                        #print('sent light message based on ripple thresh',time,timestamp)
+                        #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(8);\n'])
+                        # this starts the lockout
+                        #self._in_lockout = True
+                        #self._last_lockout_timestamp = timestamp
+                        # this should allow us to tell difference between ripples that trigger conditioning
+                        self.ripple_cond_message_sent = 0
+                
+                self.stim_thresh = True
+
+                self.write_record(realtime_base.RecordIDs.STIM_LOCKOUT,
+                                  timestamp, self.velocity, self._lockout_count, self._in_lockout,
+                                  num_above, self.ripple_cond_message_sent)
 
             elif num_above < self._ripple_n_above_thresh and not self._in_lockout:
                 self.stim_thresh = False
@@ -553,7 +590,7 @@ class StimDeciderMPIRecvInterface(realtime_base.RealtimeMPIClass):
 
         self.mpi_status = MPI.Status()
 
-        self.feedback_bytes = bytearray(12)
+        self.feedback_bytes = bytearray(16)
         self.timing_bytes = bytearray(100)
 
         self.mpi_reqs = []
@@ -577,6 +614,7 @@ class StimDeciderMPIRecvInterface(realtime_base.RealtimeMPIClass):
                 self.stim.update_ripple_threshold_state(timestamp=message.timestamp,
                                                         elec_grp_id=message.elec_grp_id,
                                                         threshold_state=message.threshold_state,
+                                                        conditioning_thresh_state=message.conditioning_thresh_state,
                                                         networkclient=self.networkclient)
 
                 # we could run the ripple conditioning function here - not using currently

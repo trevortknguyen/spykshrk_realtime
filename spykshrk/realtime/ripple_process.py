@@ -58,21 +58,24 @@ class RippleThresholdState(rt_logging.PrintableMessage):
 
     This message has helper serializer/deserializer functions to be used to speed transmission.
     """
-    # MEC: in order to have a dynamic ripple filter, we need to add ripple size (sd) to this message
-    _byte_format = 'Iii'
+    # MEC: in order to have different conditioning and regular ripple thresholds, add new conditioning state here
+    _byte_format = 'Iiii'
 
-    def __init__(self, timestamp, elec_grp_id, threshold_state):
+    def __init__(self, timestamp, elec_grp_id, threshold_state, conditioning_thresh_state):
         self.timestamp = timestamp
         self.elec_grp_id = elec_grp_id
         self.threshold_state = threshold_state
+        self.conditioning_thresh_state = conditioning_thresh_state
 
     def pack(self):
-        return struct.pack(self._byte_format, self.timestamp, self.elec_grp_id, self.threshold_state)
+        return struct.pack(self._byte_format, self.timestamp, self.elec_grp_id,
+                           self.threshold_state, self.conditioning_thresh_state)
 
     @classmethod
     def unpack(cls, message_bytes):
-        timestamp, elec_grp_id, threshold_state = struct.unpack(cls._byte_format, message_bytes)
-        return cls(timestamp=timestamp, elec_grp_id=elec_grp_id, threshold_state=threshold_state)
+        timestamp, elec_grp_id, threshold_state, conditioning_thresh_state = struct.unpack(cls._byte_format, message_bytes)
+        return cls(timestamp=timestamp, elec_grp_id=elec_grp_id, 
+                   threshold_state=threshold_state, conditioning_thresh_state=conditioning_thresh_state)
 
 
 class RippleFilter(rt_logging.LoggingClass):
@@ -173,6 +176,9 @@ class RippleFilter(rt_logging.LoggingClass):
         self.thresh_crossed = False
         self.lfp_display_counter = 0
         self.config = config
+
+        self.conditioning_ripple_threshold = 4
+        self.condition_thresh_crossed = False
 
         # i think we need to open the ripple threshold file here in the init
         # this doesnt work because the file is closed when i try to use it below - try moving this down
@@ -302,7 +308,8 @@ class RippleFilter(rt_logging.LoggingClass):
 
                 # open and read text file that will allow you to update ripple threshold
                 # now it looks for two digits, so need to have 0 before a single digit
-                if self.lfp_display_counter % 45000 == 0:
+                # this now updated the variable self.condition_ripple_threshold - so only changes detection in conditioning
+                if self.lfp_display_counter % 15000 == 0:
                     with open('config/new_ripple_threshold.txt') as ripple_threshold_file:
                         fd = ripple_threshold_file.fileno()
                         fcntl.fcntl(fd, fcntl.F_SETFL, os.O_NONBLOCK)
@@ -311,9 +318,11 @@ class RippleFilter(rt_logging.LoggingClass):
                             pass
                         new_ripple_threshold = rip_thresh_file_line
                     #print('new ripple threshold = ',new_ripple_threshold[0])
-                    self.param.ripple_threshold = np.int(new_ripple_threshold[0:2])
+                    self.conditioning_ripple_threshold = np.int(new_ripple_threshold[0:2])
+                    #self.param.ripple_threshold = np.int(new_ripple_threshold[0:2])
                     # could try to only print for one ripple node - if using number of the node
-                    print('new ripple threshold = ',self.param.ripple_threshold)
+                    print('conditioning ripple threshold = ',self.conditioning_ripple_threshold)
+                    print('normal ripple threshold = ',self.param.ripple_threshold)
 
             if not self.stim_enabled:
                 self.ripple_mean += (y - self.ripple_mean) / self.param.samp_divisor
@@ -338,13 +347,20 @@ class RippleFilter(rt_logging.LoggingClass):
 
             if self.param.use_custom_baseline:
                 #print(self.custom_baseline_mean, self.custom_baseline_std * self.param.ripple_threshold, self.param.ripple_threshold)
+                #make the if statement based on the conditioning_ripple_threshold and elif for param.ripple_threshold
+                # now need to add this new threshold to the ripple threshold message
                 if self.current_val >= (self.custom_baseline_mean + self.custom_baseline_std *
+                                        self.conditioning_ripple_threshold):
+                    self.condition_thresh_crossed = True                
+                elif self.current_val >= (self.custom_baseline_mean + self.custom_baseline_std *
                                         self.param.ripple_threshold):
+                    self.condition_thresh_crossed = False
                     self.thresh_crossed = True
                     #print('ripple detected!','tetrode: ',self.elec_grp_id,'threshold: ',
                     #      self.param.ripple_threshold,'ripple SD: ',
                     #      (self.current_val - self.custom_baseline_mean)/self.custom_baseline_std)
                 else:
+                    self.condition_thresh_crossed = False
                     self.thresh_crossed = False
             else:
                 if self.current_val >= self.current_thresh:
@@ -361,7 +377,7 @@ class RippleFilter(rt_logging.LoggingClass):
                                    self.in_lockout, self._custom_baseline_mean, self._custom_baseline_std,
                                    int(data), rd, self.current_val)
 
-        return self.thresh_crossed
+        return self.thresh_crossed, self.condition_thresh_crossed
 
     def get_status_dict(self):
         s = OrderedDict()
@@ -398,19 +414,20 @@ class RippleMPISendInterface(realtime_base.RealtimeMPIClass):
                        dest=self.config['rank']['supervisor'],
                        tag=realtime_base.MPIMessageTag.COMMAND_MESSAGE.value)
 
-    def send_ripple_thresh_state(self, timestamp, elec_grp_id, thresh_state):
-        message = RippleThresholdState(timestamp, elec_grp_id, thresh_state)
+    def send_ripple_thresh_state(self, timestamp, elec_grp_id, thresh_state, conditioning_thresh_state):
+        message = RippleThresholdState(timestamp, elec_grp_id, thresh_state, conditioning_thresh_state)
 
         self.comm.Send(buf=message.pack(),
                        dest=self.config['rank']['supervisor'],
                        tag=realtime_base.MPIMessageTag.FEEDBACK_DATA.value)
 
-    def send_ripple_thresh_state_decoder(self, timestamp, elec_grp_id, thresh_state):
-        message = RippleThresholdState(timestamp, elec_grp_id, thresh_state)
+    #not currently used
+    #def send_ripple_thresh_state_decoder(self, timestamp, elec_grp_id, thresh_state):
+    #    message = RippleThresholdState(timestamp, elec_grp_id, thresh_state)
 
-        self.comm.Send(buf=message.pack(),
-                       dest=self.config['rank']['decoder'],
-                       tag=realtime_base.MPIMessageTag.FEEDBACK_DATA.value)
+    #    self.comm.Send(buf=message.pack(),
+    #                   dest=self.config['rank']['decoder'],
+    #                   tag=realtime_base.MPIMessageTag.FEEDBACK_DATA.value)
 
     def forward_timing_message(self, timing_msg: timing_system.TimingMessage):
         self.comm.Send(buf=timing_msg.pack(),
@@ -544,9 +561,9 @@ class RippleManager(realtime_base.BinaryRecordBaseWithTiming, rt_logging.Logging
                     self.record_timing(timestamp=datapoint.timestamp, elec_grp_id=datapoint.elec_grp_id,
                                        datatype=datatypes.Datatypes.LFP, label='rip_recv')
 
-                filter_state = (self.ripple_filters[datapoint.elec_grp_id].
-                                process_data(timestamp=datapoint.timestamp,
-                                             data=datapoint.data))
+                filter_state, conditioning_filter_state = (self.ripple_filters[datapoint.elec_grp_id].
+                                                           process_data(timestamp=datapoint.timestamp,
+                                                           data=datapoint.data))
 
                 #print('at ripple: ',datapoint.timestamp,datapoint.data)
 
@@ -556,7 +573,8 @@ class RippleManager(realtime_base.BinaryRecordBaseWithTiming, rt_logging.Logging
                 # this sends to stim_decider class in main_process.py that then applies the # of tetrode filter
                 self.mpi_send.send_ripple_thresh_state(timestamp=datapoint.timestamp,
                                                        elec_grp_id=datapoint.elec_grp_id,
-                                                       thresh_state=filter_state)
+                                                       thresh_state=filter_state, 
+                                                       conditioning_thresh_state=conditioning_filter_state)
                 #also send thresh cross to decoder
                 #self.mpi_send.send_ripple_thresh_state_decoder(timestamp=datapoint.timestamp,
                 #                                       elec_grp_id=datapoint.elec_grp_id,
