@@ -137,12 +137,12 @@ class LinearPositionAssignment:
             self.assigned_pos = math.floor(segment_pos*6 + self.shift_linear_distance_by_arm_dictionary[segment])
             if self.assigned_pos == 6:
                 self.assigned_pos = 5
-        elif segment > 0 and segment < 7:
-            self.assigned_pos = math.floor(segment_pos*4 + self.shift_linear_distance_by_arm_dictionary[1])
+        elif segment > 0 and segment < 5:
+            self.assigned_pos = math.floor(segment_pos*4 + self.shift_linear_distance_by_arm_dictionary[segment])
             if self.assigned_pos == 9:
                 self.assigned_pos = 8
         else:
-            self.assigned_pos = math.ceil(segment_pos*12 + self.shift_linear_distance_by_arm_dictionary[segment-2])
+            self.assigned_pos = math.ceil(segment_pos*12 + self.shift_linear_distance_by_arm_dictionary[segment])
 
         return self.assigned_pos
 
