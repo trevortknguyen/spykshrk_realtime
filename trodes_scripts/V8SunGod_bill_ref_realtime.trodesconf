@@ -1,0 +1,386 @@
+<?xml version="1.0"?>
+<Configuration>
+ <GlobalConfiguration saveDisplayedChanOnly="1" filePath="" filePrefix="myAnimal" realtimeMode="1" fileChunkSize="-1"/>
+ <BenchmarkConfiguration/>
+ <HardwareConfiguration samplingRate="30000" numChannels="128">
+  <Device available="1" packetOrderPreference="10" numBytes="1" name="MCU_IO">
+   <Channel startByte="0" input="1" id="MCU_Din1" dataType="digital" bit="0"/>
+   <Channel startByte="0" input="1" id="MCU_Din2" dataType="digital" bit="1"/>
+   <Channel startByte="0" input="1" id="MCU_Din3" dataType="digital" bit="2"/>
+   <Channel startByte="0" input="1" id="MCU_Din4" dataType="digital" bit="3"/>
+   <Channel startByte="0" input="1" id="MCU_Din5" dataType="digital" bit="4"/>
+   <Channel startByte="0" input="1" id="MCU_Din6" dataType="digital" bit="5"/>
+   <Channel startByte="0" input="1" id="MCU_Din7" dataType="digital" bit="6"/>
+   <Channel startByte="0" input="1" id="MCU_Din8" dataType="digital" bit="7"/>
+  </Device>
+  <Device available="1" packetOrderPreference="20" numBytes="32" name="ECU">
+   <Channel startByte="0" input="1" id="Din1" dataType="digital" bit="0"/>
+   <Channel startByte="0" input="1" id="Din2" dataType="digital" bit="1"/>
+   <Channel startByte="0" input="1" id="Din3" dataType="digital" bit="2"/>
+   <Channel startByte="0" input="1" id="Din4" dataType="digital" bit="3"/>
+   <Channel startByte="0" input="1" id="Din5" dataType="digital" bit="4"/>
+   <Channel startByte="0" input="1" id="Din6" dataType="digital" bit="5"/>
+   <Channel startByte="0" input="1" id="Din7" dataType="digital" bit="6"/>
+   <Channel startByte="0" input="1" id="Din8" dataType="digital" bit="7"/>
+   <Channel startByte="1" input="1" id="Din9" dataType="digital" bit="0"/>
+   <Channel startByte="1" input="1" id="Din10" dataType="digital" bit="1"/>
+   <Channel startByte="1" input="1" id="Din11" dataType="digital" bit="2"/>
+   <Channel startByte="1" input="1" id="Din12" dataType="digital" bit="3"/>
+   <Channel startByte="1" input="1" id="Din13" dataType="digital" bit="4"/>
+   <Channel startByte="1" input="1" id="Din14" dataType="digital" bit="5"/>
+   <Channel startByte="1" input="1" id="Din15" dataType="digital" bit="6"/>
+   <Channel startByte="1" input="1" id="Din16" dataType="digital" bit="7"/>
+   <Channel startByte="2" input="1" id="Din17" dataType="digital" bit="0"/>
+   <Channel startByte="2" input="1" id="Din18" dataType="digital" bit="1"/>
+   <Channel startByte="2" input="1" id="Din19" dataType="digital" bit="2"/>
+   <Channel startByte="2" input="1" id="Din20" dataType="digital" bit="3"/>
+   <Channel startByte="2" input="1" id="Din21" dataType="digital" bit="4"/>
+   <Channel startByte="2" input="1" id="Din22" dataType="digital" bit="5"/>
+   <Channel startByte="2" input="1" id="Din23" dataType="digital" bit="6"/>
+   <Channel startByte="2" input="1" id="Din24" dataType="digital" bit="7"/>
+   <Channel startByte="3" input="1" id="Din25" dataType="digital" bit="0"/>
+   <Channel startByte="3" input="1" id="Din26" dataType="digital" bit="1"/>
+   <Channel startByte="3" input="1" id="Din27" dataType="digital" bit="2"/>
+   <Channel startByte="3" input="1" id="Din28" dataType="digital" bit="3"/>
+   <Channel startByte="3" input="1" id="Din29" dataType="digital" bit="4"/>
+   <Channel startByte="3" input="1" id="Din30" dataType="digital" bit="5"/>
+   <Channel startByte="3" input="1" id="Din31" dataType="digital" bit="6"/>
+   <Channel startByte="3" input="1" id="Din32" dataType="digital" bit="7"/>
+   <Channel startByte="4" input="0" id="Dout1" dataType="digital" bit="0"/>
+   <Channel startByte="4" input="0" id="Dout2" dataType="digital" bit="1"/>
+   <Channel startByte="4" input="0" id="Dout3" dataType="digital" bit="2"/>
+   <Channel startByte="4" input="0" id="Dout4" dataType="digital" bit="3"/>
+   <Channel startByte="4" input="0" id="Dout5" dataType="digital" bit="4"/>
+   <Channel startByte="4" input="0" id="Dout6" dataType="digital" bit="5"/>
+   <Channel startByte="4" input="0" id="Dout7" dataType="digital" bit="6"/>
+   <Channel startByte="4" input="0" id="Dout8" dataType="digital" bit="7"/>
+   <Channel startByte="5" input="0" id="Dout9" dataType="digital" bit="0"/>
+   <Channel startByte="5" input="0" id="Dout10" dataType="digital" bit="1"/>
+   <Channel startByte="5" input="0" id="Dout11" dataType="digital" bit="2"/>
+   <Channel startByte="5" input="0" id="Dout12" dataType="digital" bit="3"/>
+   <Channel startByte="5" input="0" id="Dout13" dataType="digital" bit="4"/>
+   <Channel startByte="5" input="0" id="Dout14" dataType="digital" bit="5"/>
+   <Channel startByte="5" input="0" id="Dout15" dataType="digital" bit="6"/>
+   <Channel startByte="5" input="0" id="Dout16" dataType="digital" bit="7"/>
+   <Channel startByte="6" input="0" id="Dout17" dataType="digital" bit="0"/>
+   <Channel startByte="6" input="0" id="Dout18" dataType="digital" bit="1"/>
+   <Channel startByte="6" input="0" id="Dout19" dataType="digital" bit="2"/>
+   <Channel startByte="6" input="0" id="Dout20" dataType="digital" bit="3"/>
+   <Channel startByte="6" input="0" id="Dout21" dataType="digital" bit="4"/>
+   <Channel startByte="6" input="0" id="Dout22" dataType="digital" bit="5"/>
+   <Channel startByte="6" input="0" id="Dout23" dataType="digital" bit="6"/>
+   <Channel startByte="6" input="0" id="Dout24" dataType="digital" bit="7"/>
+   <Channel startByte="7" input="0" id="Dout25" dataType="digital" bit="0"/>
+   <Channel startByte="7" input="0" id="Dout26" dataType="digital" bit="1"/>
+   <Channel startByte="7" input="0" id="Dout27" dataType="digital" bit="2"/>
+   <Channel startByte="7" input="0" id="Dout28" dataType="digital" bit="3"/>
+   <Channel startByte="7" input="0" id="Dout29" dataType="digital" bit="4"/>
+   <Channel startByte="7" input="0" id="Dout30" dataType="digital" bit="5"/>
+   <Channel startByte="7" input="0" id="Dout31" dataType="digital" bit="6"/>
+   <Channel startByte="7" input="0" id="Dout32" dataType="digital" bit="6"/>
+   <Channel startByte="8" input="1" id="Ain1" dataType="analog" bit="0"/>
+   <Channel startByte="10" input="1" id="Ain2" dataType="analog" bit="0"/>
+   <Channel startByte="12" input="1" id="Ain3" dataType="analog" bit="0"/>
+   <Channel startByte="14" input="1" id="Ain4" dataType="analog" bit="0"/>
+   <Channel startByte="16" input="1" id="Ain5" dataType="analog" bit="0"/>
+   <Channel startByte="18" input="1" id="Ain6" dataType="analog" bit="0"/>
+   <Channel startByte="20" input="1" id="Ain7" dataType="analog" bit="0"/>
+   <Channel startByte="22" input="1" id="Ain8" dataType="analog" bit="0"/>
+   <Channel startByte="24" input="1" id="Aout1" dataType="analog" bit="0"/>
+   <Channel startByte="26" input="1" id="Aout2" dataType="analog" bit="0"/>
+   <Channel startByte="28" input="1" id="Aout3" dataType="analog" bit="0"/>
+   <Channel startByte="30" input="1" id="Aout4" dataType="analog" bit="0"/>
+  </Device>
+  <Device available="1" packetOrderPreference="30" numBytes="8" name="headstageSensor">
+   <Channel startByte="2" interleavedDataIDByte="0" input="1" id="AccelX" dataType="analog" bit="0" interleavedDataIDBit="3"/>
+   <Channel startByte="4" interleavedDataIDByte="0" input="1" id="AccelY" dataType="analog" bit="0" interleavedDataIDBit="3"/>
+   <Channel startByte="6" interleavedDataIDByte="0" input="1" id="AccelZ" dataType="analog" bit="0" interleavedDataIDBit="3"/>
+   <Channel startByte="2" interleavedDataIDByte="0" input="1" id="GyroX" dataType="analog" bit="0" interleavedDataIDBit="2"/>
+   <Channel startByte="4" interleavedDataIDByte="0" input="1" id="GyroY" dataType="analog" bit="0" interleavedDataIDBit="2"/>
+   <Channel startByte="6" interleavedDataIDByte="0" input="1" id="GyroZ" dataType="analog" bit="0" interleavedDataIDBit="2"/>
+   <Channel startByte="2" interleavedDataIDByte="0" input="1" id="MagX" dataType="analog" bit="0" interleavedDataIDBit="1"/>
+   <Channel startByte="4" interleavedDataIDByte="0" input="1" id="MagY" dataType="analog" bit="0" interleavedDataIDBit="1"/>
+   <Channel startByte="6" interleavedDataIDByte="0" input="1" id="MagZ" dataType="analog" bit="0" interleavedDataIDBit="1"/>
+  </Device>
+ </HardwareConfiguration>
+ <ModuleConfiguration>
+  <SingleModuleConfiguration sendNetworkInfo="1" moduleName="./cameraModule" sendTrodesConfig="1">
+   <Argument value="usb" flag="-camera"/>
+   <Argument value="1280" flag="-resolutionX"/>
+   <Argument value="720" flag="-resolutionY"/>
+   <Argument flag="-linearJumpDistMult" value="50"/>
+  </SingleModuleConfiguration>
+  <SingleModuleConfiguration sendNetworkInfo="1" moduleName="./stateScript" sendTrodesConfig="1">
+  </SingleModuleConfiguration>
+ </ModuleConfiguration>
+ <StreamDisplay pages="2" columns="2" backgroundColor="#030303"/>
+ <AuxDisplayConfiguration>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Din1" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Din2" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Din3" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Din4" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Din5" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Din6" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Din7" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Din8" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Din9" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Din10" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Din11" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Din12" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Din13" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Din14" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Din15" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Din16" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Din17" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Din18" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Din19" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Din20" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Din21" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Din22" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Din23" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Din24" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Din25" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Din26" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Din27" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Din28" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Din29" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Din30" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Din31" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Din32" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Dout1" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Dout2" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Dout3" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Dout4" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Dout5" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Dout6" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Dout7" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Dout8" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Dout9" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Dout10" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Dout11" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Dout12" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Dout13" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Dout14" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Dout15" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Dout16" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Dout17" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Dout18" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Dout19" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Dout20" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Dout21" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Dout22" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Dout23" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Dout24" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Dout25" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Dout26" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Dout27" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Dout28" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Dout29" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Dout30" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Dout31" device="ECU"/>
+  <DispChannel analyze="1" color="#aaaaaa" maxDisp="2" id="Dout32" device="ECU"/>
+  <DispChannel analyze="0" color="#aa0000" maxDisp="200" id="AccelX" device="headstageSensor"/>
+  <DispChannel analyze="0" color="#aa0000" maxDisp="200" id="AccelY" device="headstageSensor"/>
+  <DispChannel analyze="0" color="#aa0000" maxDisp="200" id="AccelZ" device="headstageSensor"/>
+  <DispChannel analyze="0" color="#00aa00" maxDisp="2000" id="GyroX" device="headstageSensor"/>
+  <DispChannel analyze="0" color="#00aa00" maxDisp="2000" id="GyroY" device="headstageSensor"/>
+  <DispChannel analyze="0" color="#00aa00" maxDisp="2000" id="GyroZ" device="headstageSensor"/>
+  <DispChannel analyze="0" color="#0000aa" maxDisp="200" id="MagX" device="headstageSensor"/>
+  <DispChannel analyze="0" color="#0000aa" maxDisp="200" id="MagY" device="headstageSensor"/>
+  <DispChannel analyze="0" color="#0000aa" maxDisp="200" id="MagZ" device="headstageSensor"/>
+ </AuxDisplayConfiguration>
+ <SpikeConfiguration categories="">
+  <SpikeNTrode lfpRefOn="1" refGroup="0" lfpFilterOn="1" moduleDataOn="1" refChan="1" id="1" lowFilter="600" notchBW="10" filterOn="1" refNTrodeID="7" LFPHighFilter="400" notchFreq="60" refOn="1" LFPChan="1" highFilter="6000" color="#305cc4" groupRefOn="0" notchFilterOn="0">
+   <SpikeChannel hwChan="33" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="37" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="35" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="39" triggerOn="1" maxDisp="625" thresh="60"/>
+  </SpikeNTrode>
+  <SpikeNTrode lfpRefOn="1" refGroup="0" lfpFilterOn="1" moduleDataOn="1" refChan="1" id="2" lowFilter="600" notchBW="10" filterOn="1" refNTrodeID="7" LFPHighFilter="400" notchFreq="60" refOn="1" LFPChan="1" highFilter="6000" color="#000000" groupRefOn="0" notchFilterOn="0">
+   <SpikeChannel hwChan="41" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="43" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="45" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="47" triggerOn="1" maxDisp="625" thresh="60"/>
+  </SpikeNTrode>
+  <SpikeNTrode lfpRefOn="1" refGroup="0" lfpFilterOn="1" moduleDataOn="1" refChan="1" id="3" lowFilter="600" notchBW="10" filterOn="1" refNTrodeID="7" LFPHighFilter="400" notchFreq="60" refOn="1" LFPChan="1" highFilter="6000" color="#82763a" groupRefOn="0" notchFilterOn="0">
+   <SpikeChannel hwChan="55" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="51" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="49" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="53" triggerOn="1" maxDisp="625" thresh="60"/>
+  </SpikeNTrode>
+  <SpikeNTrode lfpRefOn="1" refGroup="0" lfpFilterOn="1" moduleDataOn="1" refChan="1" id="4" lowFilter="600" notchBW="10" filterOn="1" refNTrodeID="7" LFPHighFilter="400" notchFreq="60" refOn="1" LFPChan="1" highFilter="6000" color="#3ed789" groupRefOn="0" notchFilterOn="0">
+   <SpikeChannel hwChan="61" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="59" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="57" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="63" triggerOn="1" maxDisp="625" thresh="60"/>
+  </SpikeNTrode>
+  <SpikeNTrode lfpRefOn="1" refGroup="0" lfpFilterOn="1" moduleDataOn="1" refChan="1" id="5" lowFilter="600" notchBW="10" filterOn="1" refNTrodeID="7" LFPHighFilter="400" notchFreq="60" refOn="1" LFPChan="1" highFilter="6000" color="#b79a26" groupRefOn="0" notchFilterOn="0">
+   <SpikeChannel hwChan="56" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="58" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="60" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="62" triggerOn="1" maxDisp="625" thresh="60"/>
+  </SpikeNTrode>
+  <SpikeNTrode lfpRefOn="1" refGroup="0" lfpFilterOn="1" moduleDataOn="1" refChan="1" id="6" lowFilter="600" notchBW="10" filterOn="1" refNTrodeID="7" LFPHighFilter="400" notchFreq="60" refOn="1" LFPChan="1" highFilter="6000" color="#de1418" groupRefOn="0" notchFilterOn="0">
+   <SpikeChannel hwChan="48" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="52" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="54" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="50" triggerOn="0" maxDisp="625" thresh="60"/>
+  </SpikeNTrode>
+  <SpikeNTrode lfpRefOn="1" refGroup="0" lfpFilterOn="1" moduleDataOn="1" refChan="1" id="7" lowFilter="600" notchBW="10" filterOn="1" refNTrodeID="7" LFPHighFilter="400" notchFreq="60" refOn="1" LFPChan="1" highFilter="6000" color="#73fb75" groupRefOn="0" notchFilterOn="0">
+   <SpikeChannel hwChan="44" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="46" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="40" triggerOn="0" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="42" triggerOn="0" maxDisp="625" thresh="60"/>
+  </SpikeNTrode>
+  <SpikeNTrode lfpRefOn="1" refGroup="0" lfpFilterOn="1" moduleDataOn="1" refChan="1" id="8" lowFilter="600" notchBW="10" filterOn="1" refNTrodeID="7" LFPHighFilter="400" notchFreq="60" refOn="1" LFPChan="1" highFilter="6000" color="#a91f61" groupRefOn="0" notchFilterOn="0">
+   <SpikeChannel hwChan="36" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="34" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="32" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="38" triggerOn="1" maxDisp="625" thresh="60"/>
+  </SpikeNTrode>
+  <SpikeNTrode lfpRefOn="1" refGroup="0" lfpFilterOn="1" moduleDataOn="1" refChan="1" id="9" lowFilter="600" notchBW="10" filterOn="1" refNTrodeID="7" LFPHighFilter="400" notchFreq="60" refOn="1" LFPChan="1" highFilter="6000" color="#305cc4" groupRefOn="0" notchFilterOn="0">
+   <SpikeChannel hwChan="94" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="92" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="90" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="88" triggerOn="1" maxDisp="625" thresh="60"/>
+  </SpikeNTrode>
+  <SpikeNTrode lfpRefOn="1" refGroup="0" lfpFilterOn="1" moduleDataOn="1" refChan="1" id="10" lowFilter="600" notchBW="10" filterOn="1" refNTrodeID="7" LFPHighFilter="400" notchFreq="60" refOn="1" LFPChan="1" highFilter="6000" color="#a91f61" groupRefOn="0" notchFilterOn="0">
+   <SpikeChannel hwChan="80" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="86" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="84" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="82" triggerOn="1" maxDisp="625" thresh="60"/>
+  </SpikeNTrode>
+  <SpikeNTrode lfpRefOn="1" refGroup="0" lfpFilterOn="1" moduleDataOn="1" refChan="1" id="11" lowFilter="600" notchBW="10" filterOn="1" refNTrodeID="7" LFPHighFilter="400" notchFreq="60" refOn="1" LFPChan="1" highFilter="6000" color="#5bcd13" groupRefOn="0" notchFilterOn="0">
+   <SpikeChannel hwChan="72" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="74" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="76" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="78" triggerOn="1" maxDisp="625" thresh="60"/>
+  </SpikeNTrode>
+  <SpikeNTrode lfpRefOn="1" refGroup="0" lfpFilterOn="1" moduleDataOn="1" refChan="1" id="12" lowFilter="600" notchBW="10" filterOn="1" refNTrodeID="7" LFPHighFilter="400" notchFreq="60" refOn="1" LFPChan="1" highFilter="6000" color="#de434d" groupRefOn="0" notchFilterOn="0">
+   <SpikeChannel hwChan="69" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="71" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="65" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="67" triggerOn="1" maxDisp="625" thresh="60"/>
+  </SpikeNTrode>
+  <SpikeNTrode lfpRefOn="1" refGroup="0" lfpFilterOn="1" moduleDataOn="1" refChan="1" id="13" lowFilter="600" notchBW="10" filterOn="1" refNTrodeID="7" LFPHighFilter="400" notchFreq="60" refOn="1" LFPChan="1" highFilter="6000" color="#000000" groupRefOn="0" notchFilterOn="0">
+   <SpikeChannel hwChan="66" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="70" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="68" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="64" triggerOn="1" maxDisp="625" thresh="60"/>
+  </SpikeNTrode>
+  <SpikeNTrode lfpRefOn="0" refGroup="0" lfpFilterOn="1" moduleDataOn="1" refChan="1" id="14" lowFilter="600" notchBW="10" filterOn="1" refNTrodeID="7" LFPHighFilter="400" notchFreq="60" refOn="1" LFPChan="1" highFilter="6000" color="#000000" groupRefOn="0" notchFilterOn="0">
+   <SpikeChannel hwChan="79" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="75" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="77" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="73" triggerOn="1" maxDisp="625" thresh="60"/>
+  </SpikeNTrode>
+  <SpikeNTrode lfpRefOn="1" refGroup="0" lfpFilterOn="1" moduleDataOn="1" refChan="1" id="15" lowFilter="600" notchBW="10" filterOn="1" refNTrodeID="7" LFPHighFilter="400" notchFreq="60" refOn="1" LFPChan="1" highFilter="6000" color="#9aa49c" groupRefOn="0" notchFilterOn="0">
+   <SpikeChannel hwChan="81" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="83" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="85" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="87" triggerOn="1" maxDisp="625" thresh="60"/>
+  </SpikeNTrode>
+  <SpikeNTrode lfpRefOn="1" refGroup="0" lfpFilterOn="1" moduleDataOn="1" refChan="1" id="31" lowFilter="600" notchBW="10" filterOn="1" refNTrodeID="7" LFPHighFilter="400" notchFreq="60" refOn="1" LFPChan="1" highFilter="6000" color="#000000" groupRefOn="0" notchFilterOn="0">
+   <SpikeChannel hwChan="89" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="91" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="93" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="95" triggerOn="1" maxDisp="625" thresh="60"/>
+  </SpikeNTrode>
+  <SpikeNTrode lfpRefOn="1" refGroup="0" lfpFilterOn="1" moduleDataOn="1" refChan="1" id="16" lowFilter="600" notchBW="10" filterOn="1" refNTrodeID="19" LFPHighFilter="400" notchFreq="60" refOn="1" LFPChan="1" highFilter="6000" color="#305cc4" groupRefOn="0" notchFilterOn="0">
+   <SpikeChannel hwChan="97" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="99" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="103" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="101" triggerOn="1" maxDisp="625" thresh="60"/>
+  </SpikeNTrode>
+  <SpikeNTrode lfpRefOn="1" refGroup="0" lfpFilterOn="1" moduleDataOn="1" refChan="1" id="17" lowFilter="600" notchBW="10" filterOn="1" refNTrodeID="19" LFPHighFilter="400" notchFreq="60" refOn="1" LFPChan="1" highFilter="6000" color="#edd400" groupRefOn="0" notchFilterOn="0">
+   <SpikeChannel hwChan="105" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="111" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="109" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="107" triggerOn="1" maxDisp="625" thresh="60"/>
+  </SpikeNTrode>
+  <SpikeNTrode lfpRefOn="1" refGroup="0" lfpFilterOn="1" moduleDataOn="1" refChan="1" id="18" lowFilter="600" notchBW="10" filterOn="1" refNTrodeID="19" LFPHighFilter="400" notchFreq="60" refOn="1" LFPChan="1" highFilter="6000" color="#305cc4" groupRefOn="0" notchFilterOn="0">
+   <SpikeChannel hwChan="115" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="113" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="119" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="117" triggerOn="1" maxDisp="625" thresh="60"/>
+  </SpikeNTrode>
+  <SpikeNTrode lfpRefOn="1" refGroup="0" lfpFilterOn="1" moduleDataOn="1" refChan="1" id="19" lowFilter="600" notchBW="10" filterOn="1" refNTrodeID="19" LFPHighFilter="400" notchFreq="60" refOn="0" LFPChan="1" highFilter="6000" color="#3ed789" groupRefOn="0" notchFilterOn="0">
+   <SpikeChannel hwChan="127" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="123" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="125" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="121" triggerOn="1" maxDisp="625" thresh="60"/>
+  </SpikeNTrode>
+  <SpikeNTrode lfpRefOn="1" refGroup="0" lfpFilterOn="1" moduleDataOn="1" refChan="1" id="20" lowFilter="600" notchBW="10" filterOn="1" refNTrodeID="19" LFPHighFilter="400" notchFreq="60" refOn="1" LFPChan="1" highFilter="6000" color="#b79a26" groupRefOn="0" notchFilterOn="0">
+   <SpikeChannel hwChan="126" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="122" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="124" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="120" triggerOn="1" maxDisp="625" thresh="60"/>
+  </SpikeNTrode>
+  <SpikeNTrode lfpRefOn="1" refGroup="0" lfpFilterOn="1" moduleDataOn="1" refChan="1" id="21" lowFilter="600" notchBW="10" filterOn="1" refNTrodeID="19" LFPHighFilter="400" notchFreq="60" refOn="1" LFPChan="1" highFilter="6000" color="#a91f61" groupRefOn="0" notchFilterOn="0">
+   <SpikeChannel hwChan="112" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="114" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="116" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="118" triggerOn="1" maxDisp="625" thresh="60"/>
+  </SpikeNTrode>
+  <SpikeNTrode lfpRefOn="1" refGroup="0" lfpFilterOn="1" moduleDataOn="1" refChan="1" id="22" lowFilter="600" notchBW="10" filterOn="1" refNTrodeID="19" LFPHighFilter="400" notchFreq="60" refOn="1" LFPChan="1" highFilter="6000" color="#000000" groupRefOn="0" notchFilterOn="0">
+   <SpikeChannel hwChan="106" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="104" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="108" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="110" triggerOn="1" maxDisp="625" thresh="60"/>
+  </SpikeNTrode>
+  <SpikeNTrode lfpRefOn="1" refGroup="0" lfpFilterOn="1" moduleDataOn="1" refChan="1" id="23" lowFilter="600" notchBW="10" filterOn="1" refNTrodeID="19" LFPHighFilter="400" notchFreq="60" refOn="1" LFPChan="1" highFilter="6000" color="#000000" groupRefOn="0" notchFilterOn="0">
+   <SpikeChannel hwChan="102" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="100" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="98" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="96" triggerOn="1" maxDisp="625" thresh="60"/>
+  </SpikeNTrode>
+  <SpikeNTrode lfpRefOn="1" refGroup="0" lfpFilterOn="1" moduleDataOn="1" refChan="1" id="24" lowFilter="600" notchBW="10" filterOn="1" refNTrodeID="19" LFPHighFilter="400" notchFreq="60" refOn="1" LFPChan="1" highFilter="6000" color="#305cc4" groupRefOn="0" notchFilterOn="0">
+   <SpikeChannel hwChan="26" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="24" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="30" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="28" triggerOn="1" maxDisp="625" thresh="60"/>
+  </SpikeNTrode>
+  <SpikeNTrode lfpRefOn="1" refGroup="0" lfpFilterOn="1" moduleDataOn="1" refChan="1" id="25" lowFilter="600" notchBW="10" filterOn="1" refNTrodeID="19" LFPHighFilter="400" notchFreq="60" refOn="1" LFPChan="1" highFilter="6000" color="#5bcd13" groupRefOn="0" notchFilterOn="0">
+   <SpikeChannel hwChan="16" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="18" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="20" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="22" triggerOn="1" maxDisp="625" thresh="60"/>
+  </SpikeNTrode>
+  <SpikeNTrode lfpRefOn="1" refGroup="0" lfpFilterOn="1" moduleDataOn="1" refChan="1" id="26" lowFilter="600" notchBW="10" filterOn="1" refNTrodeID="19" LFPHighFilter="400" notchFreq="60" refOn="1" LFPChan="1" highFilter="6000" color="#de434d" groupRefOn="0" notchFilterOn="0">
+   <SpikeChannel hwChan="6" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="2" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="4" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="0" triggerOn="1" maxDisp="625" thresh="60"/>
+  </SpikeNTrode>
+  <SpikeNTrode lfpRefOn="1" refGroup="0" lfpFilterOn="1" moduleDataOn="1" refChan="1" id="27" lowFilter="600" notchBW="10" filterOn="1" refNTrodeID="19" LFPHighFilter="400" notchFreq="60" refOn="1" LFPChan="1" highFilter="6000" color="#729fcf" groupRefOn="0" notchFilterOn="0">
+   <SpikeChannel hwChan="8" triggerOn="0" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="10" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="12" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="14" triggerOn="1" maxDisp="625" thresh="60"/>
+  </SpikeNTrode>
+  <SpikeNTrode lfpRefOn="1" refGroup="0" lfpFilterOn="1" moduleDataOn="1" refChan="1" id="28" lowFilter="600" notchBW="10" filterOn="1" refNTrodeID="19" LFPHighFilter="400" notchFreq="60" refOn="1" LFPChan="1" highFilter="6000" color="#c614eb" groupRefOn="0" notchFilterOn="0">
+   <SpikeChannel hwChan="1" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="3" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="5" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="7" triggerOn="1" maxDisp="625" thresh="60"/>
+  </SpikeNTrode>
+  <SpikeNTrode lfpRefOn="1" refGroup="0" lfpFilterOn="1" moduleDataOn="1" refChan="1" id="29" lowFilter="600" notchBW="10" filterOn="1" refNTrodeID="19" LFPHighFilter="400" notchFreq="60" refOn="1" LFPChan="1" highFilter="6000" color="#90f0ff" groupRefOn="0" notchFilterOn="0">
+   <SpikeChannel hwChan="9" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="11" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="13" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="15" triggerOn="1" maxDisp="625" thresh="60"/>
+  </SpikeNTrode>
+  <SpikeNTrode lfpRefOn="1" refGroup="0" lfpFilterOn="1" moduleDataOn="1" refChan="1" id="30" lowFilter="600" notchBW="10" filterOn="1" refNTrodeID="19" LFPHighFilter="400" notchFreq="60" refOn="1" LFPChan="1" highFilter="6000" color="#9f6bc4" groupRefOn="0" notchFilterOn="0">
+   <SpikeChannel hwChan="17" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="23" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="21" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="19" triggerOn="1" maxDisp="625" thresh="60"/>
+  </SpikeNTrode>
+  <SpikeNTrode lfpRefOn="1" refGroup="0" lfpFilterOn="1" moduleDataOn="1" refChan="1" id="32" lowFilter="600" notchBW="10" filterOn="1" refNTrodeID="24" LFPHighFilter="400" notchFreq="60" refOn="1" LFPChan="1" highFilter="6000" color="#000000" groupRefOn="0" notchFilterOn="0">
+   <SpikeChannel hwChan="25" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="27" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="29" triggerOn="1" maxDisp="625" thresh="60"/>
+   <SpikeChannel hwChan="31" triggerOn="1" maxDisp="625" thresh="60"/>
+  </SpikeNTrode>
+ </SpikeConfiguration>
+</Configuration>
