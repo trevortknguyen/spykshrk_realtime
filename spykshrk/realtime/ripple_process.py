@@ -301,7 +301,7 @@ class RippleFilter(rt_logging.LoggingClass):
                 self.ripple_mean += (y - self.ripple_mean) / self.param.samp_divisor
                 self.ripple_std += (abs(y - self.ripple_mean) - self.ripple_std) / self.param.samp_divisor
                 self.lfp_display_counter += 1
-                if self.lfp_display_counter % 1500 == 0:
+                if self.lfp_display_counter % 15000 == 0:
                     print('mean',self.elec_grp_id,' = ',np.around(self.ripple_mean,decimals=2),
                           ' stdev',self.elec_grp_id,' = ',np.around(self.ripple_std,decimals=2))
                     #print('stdev',self.elec_grp_id,' = ',self.ripple_std)

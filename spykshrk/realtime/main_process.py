@@ -384,8 +384,9 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
 
             elif (num_above >= self._ripple_n_above_thresh) and not self._in_lockout:
                 if self.velocity < self.config['encoder']['vel']:
-                    print('tets above normal ripple thresh: ',num_above,timestamp,
-                          self._ripple_thresh_states, np.around(self.velocity,decimals=2))
+                    #print('tets above normal ripple thresh: ',num_above,timestamp,
+                    #      self._ripple_thresh_states, np.around(self.velocity,decimals=2))
+                    pass
 
                 # this needs to just turn on light
                 # i think this needs to use lockout too, otherwise too many messages
