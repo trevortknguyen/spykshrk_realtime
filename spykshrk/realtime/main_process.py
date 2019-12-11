@@ -245,6 +245,10 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         self._in_lockout = False
         self.stim_thresh = False
 
+        # separate lockout for conditioning
+        self._conditioning_last_lockout_timestamp = 0
+        self._conditioning_in_lockout = False
+
         self.ripple_time_bin = 0
         self.no_ripple_time_bin = 0
         self.replay_target_arm = self.config['pp_decoder']['replay_target_arm']
@@ -288,6 +292,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
 
     def update_lockout_time(self, lockout_time):
         self._lockout_time = lockout_time
+        self._conditioning_lockout_time = lockout_time
 
     def update_ripple_threshold_state(self, timestamp, elec_grp_id, threshold_state, conditioning_thresh_state, networkclient):
         # Log timing
@@ -301,7 +306,11 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             self.thresh_counter += 1
 
             if self.thresh_counter % 1500 == 0 and self._in_lockout:
-                #print('in lockout for ripple detection - one line per tetrode')
+                #print('in normal lockout for ripple detection - one line per tetrode')
+                pass
+            
+            if self.thresh_counter % 1500 == 0 and self._conditioning_in_lockout:
+                #print('in conditoning lockout for ripple detection - one line per tetrode')
                 pass
 
             self._ripple_thresh_states.setdefault(elec_grp_id, 0)
@@ -330,7 +339,18 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                                   num_above, self.ripple_cond_message_sent)
                 self._lockout_count += 1
 
-            if (conditioning_num_above >= self._ripple_n_above_thresh) and not self._in_lockout:            
+            #need another copy of this for conditioning lockout
+            # note: currently only one variable for counting both lockouts
+            if self._conditioning_in_lockout and (timestamp > self._conditioning_last_lockout_timestamp + 
+                                                  self._conditioning_lockout_time):
+                # End lockout
+                self._conditioning_in_lockout = False
+                self.write_record(realtime_base.RecordIDs.STIM_LOCKOUT,
+                                  timestamp, time, self._lockout_count, self._conditioning_in_lockout,
+                                  num_above, self.ripple_cond_message_sent)
+                self._lockout_count += 1
+
+            if (conditioning_num_above >= self._ripple_n_above_thresh) and not self._conditioning_in_lockout:            
             #if (num_above >= self._ripple_n_above_thresh) and not self._in_lockout:
                 if self.velocity < self.config['encoder']['vel']:
                     self.ripple_cond_message_sent = 0
@@ -349,11 +369,11 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                         networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(7);\n'])
                         #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['homeCount = 100;\n'])
                         # this starts the lockout
-                        self._in_lockout = True
-                        self._last_lockout_timestamp = timestamp
+                        self._conditioning_in_lockout = True
+                        self._conditioning_last_lockout_timestamp = timestamp
                         self.ripple_cond_message_sent = 1               
 
-                #MEC this will turn off lockout
+                #MEC this will get rid of lockout
                 #self._in_lockout = True
                 #self._last_lockout_timestamp = timestamp
                 
@@ -372,7 +392,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 #print('sent regular message to MCU on ripple thresh',time,timestamp)
                 
                 self.write_record(realtime_base.RecordIDs.STIM_LOCKOUT,
-                                  timestamp, self.velocity, self._lockout_count, self._in_lockout,
+                                  timestamp, self.velocity, self._lockout_count, self._conditioning_in_lockout,
                                   conditioning_num_above, self.ripple_cond_message_sent)
 
                 self._send_interface.start_stimulation()
@@ -384,8 +404,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
 
             elif (num_above >= self._ripple_n_above_thresh) and not self._in_lockout:
                 if self.velocity < self.config['encoder']['vel']:
-                    #print('tets above normal ripple thresh: ',num_above,timestamp,
-                    #      self._ripple_thresh_states, np.around(self.velocity,decimals=2))
+                    print('tets above normal ripple thresh: ',num_above,timestamp,
+                          self._ripple_thresh_states, np.around(self.velocity,decimals=2))
                     pass
 
                 # this needs to just turn on light
@@ -397,8 +417,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                         #print('sent light message based on ripple thresh',time,timestamp)
                         #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(8);\n'])
                         # this starts the lockout
-                        #self._in_lockout = True
-                        #self._last_lockout_timestamp = timestamp
+                        self._in_lockout = True
+                        self._last_lockout_timestamp = timestamp
                         # this should allow us to tell difference between ripples that trigger conditioning
                         self.ripple_cond_message_sent = 0
                 
@@ -408,7 +428,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                                   timestamp, self.velocity, self._lockout_count, self._in_lockout,
                                   num_above, self.ripple_cond_message_sent)
 
-            elif num_above < self._ripple_n_above_thresh and not self._in_lockout:
+            # i think this should care about both lockouts - but im not sure
+            elif num_above < self._ripple_n_above_thresh and not self._in_lockout and not self._conditioning_in_lockout:
                 self.stim_thresh = False
                 #self._send_interface.send_stim_decision(timestamp, self.stim_thresh)
 
@@ -507,7 +528,9 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             # no, these are still 5 msec bins
 
             if (self.no_ripple_time_bin == 3) & (self.ripple_time_bin > 3) & (self.stim_message_sent>(250/5)):
-                networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(15);\n'])
+                # comment this out because its making false lights for ripple detection
+                #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(15);\n'])
+                pass
                 
                 # normalize posterior_arm_sum
                 self.posterior_arm_sum = self.posterior_arm_sum/self.ripple_time_bin
@@ -519,47 +542,47 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                         print('max posterior in box',self.posterior_arm_sum[0],'interval',self.stim_message_sent)
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
                         self.stim_message_sent = 0
-                        #networkclient.sendStateScriptShortcutMessage(1)
+                        #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(15);\n'])
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 1:
                         print('max posterior in arm 1',self.posterior_arm_sum[1],'interval',self.stim_message_sent)
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
                         self.stim_message_sent = 0
-                        #networkclient.sendStateScriptShortcutMessage(2)
+                        #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(15);\n'])
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 2:
                         print('max posterior in arm 2',self.posterior_arm_sum[2],'interval',self.stim_message_sent)
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
                         self.stim_message_sent = 0
-                        #networkclient.sendStateScriptShortcutMessage(3)
+                        #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(15);\n'])
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 3:
                         print('max posterior in arm 3',self.posterior_arm_sum[3],'interval',self.stim_message_sent)
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
                         self.stim_message_sent = 0
-                        #networkclient.sendStateScriptShortcutMessage(4)
+                        #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(15);\n'])
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 4:
                         print('max posterior in arm 4',self.posterior_arm_sum[4],'interval',self.stim_message_sent)
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
                         self.stim_message_sent = 0
-                        #networkclient.sendStateScriptShortcutMessage(5)
+                        #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(15);\n'])
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 5:
                         print('max posterior in arm 5',self.posterior_arm_sum[5],'interval',self.stim_message_sent)
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
                         self.stim_message_sent = 0
-                        #networkclient.sendStateScriptShortcutMessage(5)
+                        #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(15);\n'])
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 6:
                         print('max posterior in arm 6',self.posterior_arm_sum[6],'interval',self.stim_message_sent)
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
                         self.stim_message_sent = 0
-                        #networkclient.sendStateScriptShortcutMessage(5)
+                        #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(15);\n'])
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 7:
                         print('max posterior in arm 7',self.posterior_arm_sum[7],'interval',self.stim_message_sent)
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
                         self.stim_message_sent = 0
-                        #networkclient.sendStateScriptShortcutMessage(5)
+                        #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(15);\n'])
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 8:
                         print('max posterior in arm 8',self.posterior_arm_sum[8],'interval',self.stim_message_sent)
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
                         self.stim_message_sent = 0
-                        #networkclient.sendStateScriptShortcutMessage(5)
+                        #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(15);\n'])
                 else:
                     print('no arm posterior above 0.8',self.posterior_arm_sum,'interval',self.stim_message_sent,'ripple: ',self.ripple_number)
 

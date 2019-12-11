@@ -317,8 +317,8 @@ class RippleFilter(rt_logging.LoggingClass):
                         for rip_thresh_file_line in ripple_threshold_file:
                             pass
                         new_ripple_threshold = rip_thresh_file_line
-                    #print('new ripple threshold = ',new_ripple_threshold[0])
-                    self.conditioning_ripple_threshold = np.int(new_ripple_threshold[0:2])
+                    # this allows half SD increase in ripple threshold (looks for three digits, eg 065 = 6.5 SD)
+                    self.conditioning_ripple_threshold = np.int(new_ripple_threshold[0:3])/10
                     #self.param.ripple_threshold = np.int(new_ripple_threshold[0:2])
                     # could try to only print for one ripple node - if using number of the node
                     print('conditioning ripple threshold = ',self.conditioning_ripple_threshold)
