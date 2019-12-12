@@ -404,8 +404,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
 
             elif (num_above >= self._ripple_n_above_thresh) and not self._in_lockout:
                 if self.velocity < self.config['encoder']['vel']:
-                    print('tets above normal ripple thresh: ',num_above,timestamp,
-                          self._ripple_thresh_states, np.around(self.velocity,decimals=2))
+                    #print('tets above normal ripple thresh: ',num_above,timestamp,
+                    #      self._ripple_thresh_states, np.around(self.velocity,decimals=2))
                     pass
 
                 # this needs to just turn on light
@@ -415,7 +415,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 # so need to come up with a better way to trigger light - turn off for now
                 if self.config['ripple_conditioning']['ripple_condition_status'] == True:
                         #print('sent light message based on ripple thresh',time,timestamp)
-                        #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(8);\n'])
+                        #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(15);\n'])
                         # this starts the lockout
                         self._in_lockout = True
                         self._last_lockout_timestamp = timestamp
