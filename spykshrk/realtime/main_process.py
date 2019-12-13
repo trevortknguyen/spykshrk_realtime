@@ -368,6 +368,10 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                         print('sent behavior message based on ripple thresh',time,timestamp)
                         networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(7);\n'])
                         #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['homeCount = 100;\n'])
+
+                        # to test statescript for replay content detection use this function - should set reward in arm 1
+                        #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(8);\n'])
+                        
                         # this starts the lockout
                         self._conditioning_in_lockout = True
                         self._conditioning_last_lockout_timestamp = timestamp
@@ -542,27 +546,27 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                         print('max posterior in box',self.posterior_arm_sum[0],'interval',self.stim_message_sent)
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
                         self.stim_message_sent = 0
-                        #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(15);\n'])
+                        #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(8);\n'])
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 1:
                         print('max posterior in arm 1',self.posterior_arm_sum[1],'interval',self.stim_message_sent)
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
                         self.stim_message_sent = 0
-                        #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(15);\n'])
+                        networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(8);\n'])
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 2:
                         print('max posterior in arm 2',self.posterior_arm_sum[2],'interval',self.stim_message_sent)
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
                         self.stim_message_sent = 0
-                        #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(15);\n'])
+                        networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(9);\n'])
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 3:
                         print('max posterior in arm 3',self.posterior_arm_sum[3],'interval',self.stim_message_sent)
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
                         self.stim_message_sent = 0
-                        #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(15);\n'])
+                        networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(10);\n'])
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 4:
                         print('max posterior in arm 4',self.posterior_arm_sum[4],'interval',self.stim_message_sent)
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
                         self.stim_message_sent = 0
-                        #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(15);\n'])
+                        networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(11);\n'])
                     elif np.argwhere(self.posterior_arm_sum>0.8)[0][0] == 5:
                         print('max posterior in arm 5',self.posterior_arm_sum[5],'interval',self.stim_message_sent)
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>0.8)[0][0]
