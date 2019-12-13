@@ -97,7 +97,71 @@ function 7
 	end		
 end;
 
-% function to flip light in port 6
+% function to get arm 1 as goal from spykshrk
+function 8
+	if ripwait == 1 do
+		disp('REPLAY_ARM1')
+		disp('BEEP 1')
+		disp('BEEP 2')
+		ripwait = 0
+		trialtype = 2	
+		proximity = 0 	
+	end
+	portout[6]=1 % reward
+	do in 100 
+		portout[6]=0 % reset reward
+	end		
+end;
+
+% function to get arm 2 as goal from spykshrk
+function 9
+	if ripwait == 1 do
+		disp('REPLAY_ARM2')
+		disp('BEEP 1')
+		disp('BEEP 2')
+		ripwait = 0
+		trialtype = 2	
+		proximity = 0 	
+	end
+	portout[6]=1 % reward
+	do in 100 
+		portout[6]=0 % reset reward
+	end		
+end;
+
+% function to get arm 3 as goal from spykshrk
+function 10
+	if ripwait == 1 do
+		disp('REPLAY_ARM3')
+		disp('BEEP 1')
+		disp('BEEP 2')
+		ripwait = 0
+		trialtype = 2	
+		proximity = 0 	
+	end
+	portout[6]=1 % reward
+	do in 100 
+		portout[6]=0 % reset reward
+	end		
+end;
+
+% function to get arm 4 as goal from spykshrk
+function 11
+	if ripwait == 1 do
+		disp('REPLAY_ARM4')
+		disp('BEEP 1')
+		disp('BEEP 2')
+		ripwait = 0
+		trialtype = 2	
+		proximity = 0 	
+	end
+	portout[6]=1 % reward
+	do in 100 
+		portout[6]=0 % reset reward
+	end		
+end;
+
+% function to only flip light in port 6
 function 15
 	disp('trigger from spykshrk')	
 	portout[6]=1 % reward

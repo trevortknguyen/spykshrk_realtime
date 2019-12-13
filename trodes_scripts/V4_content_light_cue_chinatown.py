@@ -61,10 +61,21 @@ def doHome():
 		print("SCQTMESSAGE: trialtype = "+str(trialtype)+";\n")  
 		#delaytime = chooseDelay()
 		# set goal well to 1 arm for this trial - get line from old script
-		goalWell = np.random.choice(outerWells,1,replace=False)
-		print("SCQTMESSAGE: homeCount = homeCount + 1;\n") # update homecount in SC
-		print("SCQTMESSAGE: rewardWell = "+str(homePump)+";\n")
-		print("SCQTMESSAGE: trigger(1);\n")   # deliver reward
+		# set goal well based on replay content from spykshrk after enough visits to each arm
+		if arm1_Goal>0 and arm2_Goal>0 and arm3_Goal>0 and arm4_Goal>0:
+			# goalWell is defined by spykshrk via callback functions
+			# this wont work because this will be one trial behind
+			if goalWell == 0:
+				print('goalWell is not defined')
+
+			print("SCQTMESSAGE: homeCount = homeCount + 1;\n") # update homecount in SC
+			print("SCQTMESSAGE: rewardWell = "+str(homePump)+";\n")
+			print("SCQTMESSAGE: trigger(1);\n")   # deliver reward
+		else:
+			goalWell = np.random.choice(outerWells,1,replace=False)
+			print("SCQTMESSAGE: homeCount = homeCount + 1;\n") # update homecount in SC
+			print("SCQTMESSAGE: rewardWell = "+str(homePump)+";\n")
+			print("SCQTMESSAGE: trigger(1);\n")   # deliver reward
 	#check for home poke out of sequence, start lockout 1
 	elif trialtype > 0 and trialtype < 3 and lastWell != currWell:
 		lockout([0,1])
@@ -132,21 +143,39 @@ def endWait():
 	global goalWell
 	global currWell
 	global outerWells
+	global arm1_Goal
+	global arm2_Goal
+	global arm3_Goal
+	global arm4_Goal
 
 	if trialtype == 2:   # wait complete
 
 		# check for required number of visits to each outer arm here
-		# if number of visits > 3 then set goal arm from spykshrk output to statescript
+		# if number of visits > 0 then set goal arm from spykshrk output to statescript
+		if arm1_Goal>0 and arm2_Goal>0 and arm3_Goal>0 and arm4_Goal>0:
+			# the statescript function for each arm now produces the beep after recieving the REPLAY_ARM message
+			# so goalWell should be updated based on the message from spykshrk not the random number
+			print("SCQTMESSAGE: dio = "+str(currWell)+";\n")     # turn off rip light
+			print("SCQTMESSAGE: trigger(4);\n")
 
-		print("SCQTMESSAGE: dio = "+str(currWell)+";\n")     # turn off rip light
-		print("SCQTMESSAGE: trigger(4);\n")
+			# turn on all outer lights
+        	for num in range(len(outerWells)):
+            	print("SCQTMESSAGE: dio = "+str(outerWells[num])+";\n")
+            	print("SCQTMESSAGE: trigger(3);\n")
 
-		# turn on light for goalWell only
-		print("SCQTMESSAGE: dio = "+str(goalWell[0])+";\n")
-		print("SCQTMESSAGE: trigger(3);\n")
+			print("SCQTMESSAGE: trigger(5);\n")   # display stats
+			print("SCQTMESSAGE: disp('CURRENTGOAL IS "+str(goalWell)+"');\n")
 
-		print("SCQTMESSAGE: trigger(5);\n")   # display stats
-		print("SCQTMESSAGE: disp('CURRENTGOAL IS "+str(goalWell)+"');\n") 
+		else:
+			print("SCQTMESSAGE: dio = "+str(currWell)+";\n")     # turn off rip light
+			print("SCQTMESSAGE: trigger(4);\n")
+
+			# turn on light for goalWell only
+			print("SCQTMESSAGE: dio = "+str(goalWell[0])+";\n")
+			print("SCQTMESSAGE: trigger(3);\n")
+
+			print("SCQTMESSAGE: trigger(5);\n")   # display stats
+			print("SCQTMESSAGE: disp('CURRENTGOAL IS "+str(goalWell)+"');\n") 
 
 
 def doOuter(val):
@@ -167,14 +196,14 @@ def doOuter(val):
 			print("SCQTMESSAGE: trigger(2);\n")   # deliver reward
 			allGoal+=1
 			# create and add to counter for each of the 4 outer arms
-			if arm1:
-				arm1Reward+=1
-			elif arm2:
-				arm2Reward+=1
-			elif arm3:
-				arm3Reward+=1
-			elif arm4:
-				arm4Reward+=1
+			if currWell == outerWells[0]:
+				arm1_Goal+=1
+			elif currWell == outerWells[1]:
+				arm2_Goal+=1
+			elif currWell == outerWells[2]:
+				arm3_Goal+=1
+			elif currWell == outerWells[3]:
+				arm4_Goal+=1
 				
 			print("SCQTMESSAGE: goalTotal = "+str(allGoal)+";\n") # update goaltotal in SC
 
@@ -278,7 +307,8 @@ def makewhitenoise():  #play white noise for duration of lockout
 # call this function. This function MUST BE NAMED 'callback'!!!!
 def callback(line):
 
-	global waslock 
+	global waslock
+	global goalWell 
 
 	if line.find("UP") >= 0: #input triggered
 		pokeIn(re.findall(r'\d+',line))
@@ -299,6 +329,15 @@ def callback(line):
 		makewhitenoise()
 	if line.find("waslock") >= 0:  #update waslock value
 		updateWaslock(re.findall(r'\d+',line))
+	# function for reading specific arm output from spykshrk
+	if line.find("REPLAY_ARM1") >= 0:
+		goalWell = 10
+	if line.find("REPLAY_ARM2") >= 0:
+		goalWell = 11
+	if line.find("REPLAY_ARM3") >= 0:
+		goalWell = 12
+	if line.find("REPLAY_ARM4") >= 0:
+		goalWell = 13
 
 
 # all variables are initialized - this applies to first trial or first contigency, etc
@@ -319,6 +358,12 @@ trialtype = 0
 
 
 allGoal = 0
+
+# counters for each indivudal arm
+arm1_Goal = 0
+arm2_Goal = 0
+arm3_Goal = 0
+arm4_Goal = 0
 
 # choose one well at random of the 4
 goalWell = 0
