@@ -24,6 +24,8 @@ int waslock = 0
 int ripwait = 0			% state of waiting for rip
 int riptime = 0			% track lenth of time intil rip 
 int ripstart = 0		% starttime of ripwait
+int replay_arm = 0
+int taskState = 1 % 1 is cued trials 2 is content based trials
 
 % initialize lights at home
 portout[1] = 1
@@ -80,90 +82,40 @@ function 6 % end lockout and reactivate home
 	end
 end;
 
-% function to make click if rip detected
+% function send beep when large ripple is detected
 function 7
-	if ripwait == 1 do
+	disp('large ripple trigger from spykshrk')
+	if (ripwait == 1 && taskState==1) do
 		disp('BEEP 1')
-		disp('BEEP 2')
-		riptime = clock() - ripstart
-		disp(riptime)
 		ripwait = 0
 		trialtype = 2	
-		proximity = 0 	
-	end
-	portout[6]=1 % reward
-	do in 100 
-		portout[6]=0 % reset reward
-	end		
+		proximity = 0
+		% this is format at add 50 msec delay
+		do in 50
+			disp('BEEP 2')
+		end 	
+	end	
 end;
 
-% function to get arm 1 as goal from spykshrk
-function 8
-	if ripwait == 1 do
-		disp('REPLAY_ARM1')
-		disp('BEEP 1')
-		disp('BEEP 2')
-		ripwait = 0
-		trialtype = 2	
-		proximity = 0 	
-	end
-	portout[6]=1 % reward
-	do in 100 
-		portout[6]=0 % reset reward
-	end		
-end;
-
-% function to get arm 2 as goal from spykshrk
-function 9
-	if ripwait == 1 do
-		disp('REPLAY_ARM2')
-		disp('BEEP 1')
-		disp('BEEP 2')
-		ripwait = 0
-		trialtype = 2	
-		proximity = 0 	
-	end
-	portout[6]=1 % reward
-	do in 100 
-		portout[6]=0 % reset reward
-	end		
-end;
-
-% function to get arm 3 as goal from spykshrk
-function 10
-	if ripwait == 1 do
-		disp('REPLAY_ARM3')
-		disp('BEEP 1')
-		disp('BEEP 2')
-		ripwait = 0
-		trialtype = 2	
-		proximity = 0 	
-	end
-	portout[6]=1 % reward
-	do in 100 
-		portout[6]=0 % reset reward
-	end		
-end;
-
-% function to get arm 4 as goal from spykshrk
-function 11
-	if ripwait == 1 do
-		disp('REPLAY_ARM4')
-		disp('BEEP 1')
-		disp('BEEP 2')
-		ripwait = 0
-		trialtype = 2	
-		proximity = 0 	
-	end
-	portout[6]=1 % reward
-	do in 100 
-		portout[6]=0 % reset reward
-	end		
-end;
-
-% function to only flip light in port 6
+% function send beep when replay_arm variable is updated separately at the same time
+% we should be able to use the current value for replay_arm after disp('BEEP 1')
 function 15
-	disp('trigger from spykshrk')	
+	disp('content trigger from spykshrk')
+	if (ripwait == 1 && taskState==2) do
+		disp('BEEP 1')
+		ripwait = 0
+		trialtype = 2	
+		proximity = 0
+		% this is format at add 50 msec delay
+		do in 50
+			disp('BEEP 2')
+		end 	
+	end	
+end;
+
+% function to flip light in port 6 if large ripple detected
+function 16
+	disp('large ripple from spykshrk')
 	portout[6]=1 % reward
 	do in 100 
 		portout[6]=0 % reset reward

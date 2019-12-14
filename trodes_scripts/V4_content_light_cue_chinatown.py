@@ -6,6 +6,8 @@ import random
 import numpy as np
 import pyaudio
 import wave
+from itertools import compress
+
 # V8pre_forage
 # visits to incorrect wells cause 5s lockout
 # exception is repeat visit to prior well (is ok, no lockout)
@@ -62,20 +64,14 @@ def doHome():
 		#delaytime = chooseDelay()
 		# set goal well to 1 arm for this trial - get line from old script
 		# set goal well based on replay content from spykshrk after enough visits to each arm
-		if arm1_Goal>0 and arm2_Goal>0 and arm3_Goal>0 and arm4_Goal>0:
-			# goalWell is defined by spykshrk via callback functions
-			# this wont work because this will be one trial behind
-			if goalWell == 0:
-				print('goalWell is not defined')
 
-			print("SCQTMESSAGE: homeCount = homeCount + 1;\n") # update homecount in SC
-			print("SCQTMESSAGE: rewardWell = "+str(homePump)+";\n")
-			print("SCQTMESSAGE: trigger(1);\n")   # deliver reward
-		else:
-			goalWell = np.random.choice(outerWells,1,replace=False)
-			print("SCQTMESSAGE: homeCount = homeCount + 1;\n") # update homecount in SC
-			print("SCQTMESSAGE: rewardWell = "+str(homePump)+";\n")
-			print("SCQTMESSAGE: trigger(1);\n")   # deliver reward
+		# yes this is wrong for content rewared wells, but content information will reset
+		# goalWell in beep function
+		# this is where cued trials are set and we want to control disrubiton 
+		#goalWell = np.random.choice(outerWells,1,replace=False)
+		print("SCQTMESSAGE: homeCount = homeCount + 1;\n") # update homecount in SC
+		print("SCQTMESSAGE: rewardWell = "+str(homePump)+";\n")
+		print("SCQTMESSAGE: trigger(1);\n")   # deliver reward
 	#check for home poke out of sequence, start lockout 1
 	elif trialtype > 0 and trialtype < 3 and lastWell != currWell:
 		lockout([0,1])
@@ -130,6 +126,7 @@ def beep():
 	global centercount
 
 	centercount+=1
+	# begin outer arm trial section of task
 	trialtype = 2                   # ready for outer visit
 	print("SCQTMESSAGE: trialtype = "+str(trialtype)+";\n")
 	#deliver reward
@@ -137,6 +134,46 @@ def beep():
 		print("SCQTMESSAGE: rewardWell = "+str(centerPump)+";\n")
 	print("SCQTMESSAGE: trigger(1);\n")
 	print("SCQTMESSAGE: centerCount = centerCount + 1;\n") # update centercount in SC
+
+# define goalWell
+def chooseGoal():
+	global taskState
+	global replay_arm
+	global outerarm_required_rewards
+	global arm1_Goal
+	global arm2_Goal
+	global arm3_Goal
+	global arm4_Goal
+	global goalWell
+	global outerWells
+
+	# taskstate ==1 is cued trials
+	if taskState == 1:
+		# this is boolean way of setting this to 1 or 0
+		# valid+_goals is not global just local to this funciton
+		valid_goals = [arm1_Goal<outerarm_required_rewards,
+					   arm2_Goal<outerarm_required_rewards,
+					   arm3_Goal<outerarm_required_rewards,
+					   arm4_Goal<outerarm_required_rewards]
+		print(valid_goals)
+		# this line doesnt work
+		#print(outerWells[valid_goals])
+		# try this:
+		print(list(compress(outerWells,valid_goals)))
+
+		# now only choose from list of outerwells where valid_goals == 1
+		goalWell = np.random.choice(list(compress(outerWells,valid_goals)),1,replace=False)
+		print('cued goalWell is: ',goalWell)
+		#goalWell = np.random.choice(outerWells[valid_goals],1,replace=False)
+
+
+	# if taskState == 2, content trials
+	# define goalWell as outerwell matching replay arm
+	else:
+		goalWell = [outerWells[replay_arm]]
+		print('content goalWell is: ',goalWell)
+
+
 
 def endWait():
 	global trialtype
@@ -150,32 +187,30 @@ def endWait():
 
 	if trialtype == 2:   # wait complete
 
-		# check for required number of visits to each outer arm here
-		# if number of visits > 0 then set goal arm from spykshrk output to statescript
-		if arm1_Goal>0 and arm2_Goal>0 and arm3_Goal>0 and arm4_Goal>0:
-			# the statescript function for each arm now produces the beep after recieving the REPLAY_ARM message
-			# so goalWell should be updated based on the message from spykshrk not the random number
-			print("SCQTMESSAGE: dio = "+str(currWell)+";\n")     # turn off rip light
-			print("SCQTMESSAGE: trigger(4);\n")
+		print("SCQTMESSAGE: dio = "+str(currWell)+";\n")     # turn off rip light
+		print("SCQTMESSAGE: trigger(4);\n")	
 
-			# turn on all outer lights
-        	for num in range(len(outerWells)):
-            	print("SCQTMESSAGE: dio = "+str(outerWells[num])+";\n")
-            	print("SCQTMESSAGE: trigger(3);\n")
-
-			print("SCQTMESSAGE: trigger(5);\n")   # display stats
-			print("SCQTMESSAGE: disp('CURRENTGOAL IS "+str(goalWell)+"');\n")
-
-		else:
-			print("SCQTMESSAGE: dio = "+str(currWell)+";\n")     # turn off rip light
-			print("SCQTMESSAGE: trigger(4);\n")
-
+		print("SCQTMESSAGE: trigger(5);\n")   # display stats
+		print("SCQTMESSAGE: disp('CURRENTGOAL IS "+str(goalWell[0])+"');\n") 
+		
+		# use taskState to determine whether this is a cued trial or content trial
+		# only for which outer lights to turn on
+		if taskState == 1:
 			# turn on light for goalWell only
+			# brackets required to get integer only for statescript
 			print("SCQTMESSAGE: dio = "+str(goalWell[0])+";\n")
 			print("SCQTMESSAGE: trigger(3);\n")
 
-			print("SCQTMESSAGE: trigger(5);\n")   # display stats
-			print("SCQTMESSAGE: disp('CURRENTGOAL IS "+str(goalWell)+"');\n") 
+
+		# taskState = 2
+		else:
+			# the statescript function for each arm now produces the beep after recieving the REPLAY_ARM message
+			# so goalWell should be updated based on the message from spykshrk not the random number
+
+			# turn on all outer lights
+			for num in range(len(outerWells)):
+				print("SCQTMESSAGE: dio = "+str(outerWells[num])+";\n")
+				print("SCQTMESSAGE: trigger(3);\n")
 
 
 def doOuter(val):
@@ -187,6 +222,12 @@ def doOuter(val):
 	global lastWell
 	global homeWell
 	global waslock
+	global arm1_Goal
+	global arm2_Goal
+	global arm3_Goal
+	global arm4_Goal
+	global taskState
+	global outerarm_required_rewards
 
 	if trialtype == 2:
 		trialtype = 0      # outer satisfied, head home next
@@ -198,12 +239,25 @@ def doOuter(val):
 			# create and add to counter for each of the 4 outer arms
 			if currWell == outerWells[0]:
 				arm1_Goal+=1
+				#print('arm1',arm1_Goal)
 			elif currWell == outerWells[1]:
 				arm2_Goal+=1
+				#print('arm2',arm2_Goal)
 			elif currWell == outerWells[2]:
 				arm3_Goal+=1
+				#print('arm3',arm3_Goal)
 			elif currWell == outerWells[3]:
 				arm4_Goal+=1
+				#print('arm4',arm4_Goal)
+			print('arm1',arm1_Goal,'arm2',arm2_Goal,'arm3',arm3_Goal,'arm4',arm4_Goal)
+
+			# use this info to update taskState
+			# if required rewards met for all arms, switch to content trials (taskState=2)
+			# could replace this with a vector with the visits for each arm
+			if arm1_Goal>=outerarm_required_rewards and arm2_Goal>=outerarm_required_rewards and arm3_Goal>=outerarm_required_rewards and arm4_Goal>=outerarm_required_rewards:
+				taskState = 2
+				print("SCQTMESSAGE: taskState = "+str(taskState)+";\n") # update taskstate in SC
+				print('switched to content trials')
 				
 			print("SCQTMESSAGE: goalTotal = "+str(allGoal)+";\n") # update goaltotal in SC
 
@@ -308,7 +362,8 @@ def makewhitenoise():  #play white noise for duration of lockout
 def callback(line):
 
 	global waslock
-	global goalWell 
+	global goalWell
+	global replay_arm 
 
 	if line.find("UP") >= 0: #input triggered
 		pokeIn(re.findall(r'\d+',line))
@@ -318,8 +373,10 @@ def callback(line):
 	if line.find("riptime") >=0:
 		addtime(re.findall(r'\d+',line))
 	if line.find("BEEP 1") >= 0: # make a beep and deliver reward
-		beep()
+		chooseGoal()
+		#beep()
 	if line.find("BEEP 2") >= 0: # make a beep and deliver reward
+		beep()
 		generate_beep()
 	if line.find("LOCKOUT") >= 0: # lockout procedure
 		lockout(re.findall(r'\d+',line))
@@ -330,17 +387,12 @@ def callback(line):
 	if line.find("waslock") >= 0:  #update waslock value
 		updateWaslock(re.findall(r'\d+',line))
 	# function for reading specific arm output from spykshrk
-	if line.find("REPLAY_ARM1") >= 0:
-		goalWell = 10
-	if line.find("REPLAY_ARM2") >= 0:
-		goalWell = 11
-	if line.find("REPLAY_ARM3") >= 0:
-		goalWell = 12
-	if line.find("REPLAY_ARM4") >= 0:
-		goalWell = 13
+	if line.find("replay_arm") >= 0:
+		replay_arm = re.findall(r'\d+',line)
 
 
-# all variables are initialized - this applies to first trial or first contigency, etc
+# all global variables are initialized
+# all variables can be used anywhere in this script
 # define wells
 homeWell = 1
 centerWell = 2
@@ -364,6 +416,16 @@ arm1_Goal = 0
 arm2_Goal = 0
 arm3_Goal = 0
 arm4_Goal = 0
+outerarm_required_rewards = 1
+
+# task state variable
+# 1 = cued reward well
+# 2 = content contigent rewrad well
+taskState = 1
+# should start at -1 so that it doesnt return a real arm
+# this may require a check that replay-arm does not equal -1
+replay_arm = 0
+
 
 # choose one well at random of the 4
 goalWell = 0

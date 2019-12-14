@@ -6,17 +6,17 @@
         "supervisor": 0,
         "decoder": 1,
         "ripples": [2,3,4,5,6],
-        "encoders": [7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23]
+        "encoders": [7,8,9,10,11,12]
     }, 
 
     "rank_settings": {
-        "enable_rec": [0, 1, 2, 3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23],
-        "enable_profiler": [0, 1, 2, 3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23]
+        "enable_rec": [0, 1, 2, 3,4,5,6,7,8,9,10,11,12],
+        "enable_profiler": [0, 1, 2, 3,4,5,6,7,8,9,10,11,12]
     },
 
     "files": {
         "output_dir": "/media/lorenlab/34e4605c-c436-46d4-b43a-80da18b12d97/spykshrk_output",
-        "prefix": "20191213_bill_02_r1_westerlies_streaming",
+        "prefix": "20191213_bill_03_testscript_westerlies_streaming",
         "rec_postfix": "bin_rec",
         "profile_postfix": "pstats",
         "timing_postfix": "timing",
@@ -38,7 +38,7 @@
         "RippleParameterMessage": {
             "rip_coeff1": 1.2,
             "rip_coeff2": 0.2,
-            "ripple_threshold": 4,
+            "ripple_threshold": 7,
             "samp_divisor": 10000,
             "n_above_thresh": 2,
             "lockout_time": 15000,
@@ -156,7 +156,7 @@
     "trodes_network": {
         "address" : "tcp://127.0.0.1",
         "port": 49152,
-        "decoding_tetrodes": [1,4,5,6,9,10,11,16,18,20,21,24,25,27,28,29,30],
+        "decoding_tetrodes": [1,4,5,6,9,10],
         "ripple_tetrodes": [10,11,17,25,28]
     }
 }
