@@ -97,11 +97,12 @@ function 7
 	end	
 end;
 
-% function send beep when replay_arm variable is updated separately at the same time
+% function send beep when content is detected, replay_arm variable is updated at the same time
 % we should be able to use the current value for replay_arm after disp('BEEP 1')
 function 15
 	disp('content trigger from spykshrk')
 	if (ripwait == 1 && taskState==2) do
+		disp(replay_arm)
 		disp('BEEP 1')
 		ripwait = 0
 		trialtype = 2	

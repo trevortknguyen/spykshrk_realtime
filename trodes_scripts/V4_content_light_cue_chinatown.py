@@ -169,9 +169,12 @@ def chooseGoal():
 
 	# if taskState == 2, content trials
 	# define goalWell as outerwell matching replay arm
+	# replay_arm - 1 to make 0 based becuase it is used an an index into outerWells
+	# if replay arm not updated will index to -1 and error out
 	else:
-		goalWell = [outerWells[replay_arm]]
+		goalWell = [outerWells[replay_arm-1]]
 		print('content goalWell is: ',goalWell)
+		print('replay arm is: ',replay_arm)
 
 
 
@@ -387,8 +390,11 @@ def callback(line):
 	if line.find("waslock") >= 0:  #update waslock value
 		updateWaslock(re.findall(r'\d+',line))
 	# function for reading specific arm output from spykshrk
+	# note: had to reprint statescript variable replay_arm after it comes in, in order for python to see it
 	if line.find("replay_arm") >= 0:
 		replay_arm = re.findall(r'\d+',line)
+		replay_arm = int(replay_arm[1])
+		print('replay arm from callback', replay_arm)
 
 
 # all global variables are initialized
