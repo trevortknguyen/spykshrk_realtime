@@ -679,7 +679,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 # message if no location > 0.8 in posterior sum
                 else:
                     print('no arm posterior above 0.8',self.posterior_arm_sum,'interval',self.stim_message_sent,'ripple: ',self.ripple_number)
-                    networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['replay_arm = 3;\ntrigger(15);\n'])
+                    #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['replay_arm = 3;\ntrigger(15);\n'])
 
                 ## send shortcut message based on posterior max arm, each arm has own function number
                 ## fn_num is an interger for function number in statescript
