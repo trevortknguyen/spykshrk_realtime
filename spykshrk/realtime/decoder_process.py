@@ -73,7 +73,7 @@ class DecoderMPISendInterface(realtime_base.RealtimeMPIClass):
 
     #def sending posterior message to supervisor with POSTERIOR tag
     def send_posterior_message(self, bin_timestamp, spike_timestamp, box,arm1,arm2,arm3,arm4,arm5,arm6,arm7,arm8):
-        message = PosteriorSum(bin_timestamp, spike_timestamp, box,arm1,arm2,arm4,arm4,arm5,arm6,arm7,arm8)
+        message = PosteriorSum(bin_timestamp, spike_timestamp, box,arm1,arm2,arm3,arm4,arm5,arm6,arm7,arm8)
         #print('stim_message: ',message)
 
         self.comm.Send(buf=message.pack(),
@@ -401,6 +401,12 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         for j in np.arange(0,len(arm_coords_rt),1):
             self.posterior_sum_result[0,j] = posterior[arm_coords_rt[j][0]:(arm_coords_rt[j][1]+1)].sum()
             #print(self.posterior_sum_result)
+            #print('whole posterior sum',posterior.sum())
+        # posterior sum vector seems good - always adds to 1
+        # yes, i can find a ripple that doesnt sum to 1, but this line didnt display anything
+        if self.posterior_sum_result.sum() < 0.99:
+            print('posterior sum vector sum',self.posterior_sum_result.sum())
+        #print('posterior',posterior)
 
         return self.posterior_sum_result
 

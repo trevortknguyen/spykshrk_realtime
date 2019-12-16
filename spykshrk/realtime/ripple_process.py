@@ -307,7 +307,8 @@ class RippleFilter(rt_logging.LoggingClass):
                     #print('stdev',self.elec_grp_id,' = ',self.ripple_std)
 
                 # open and read text file that will allow you to update ripple threshold
-                # now it looks for two digits, so need to have 0 before a single digit
+                # now it looks for three digits, 055 > 5.5 sd
+                # now updates ripple_thresh and normal_thresh (for content trials)
                 # this now updated the variable self.condition_ripple_threshold - so only changes detection in conditioning
                 if self.lfp_display_counter % 15000 == 0:
                     with open('config/new_ripple_threshold.txt') as ripple_threshold_file:
@@ -318,8 +319,10 @@ class RippleFilter(rt_logging.LoggingClass):
                             pass
                         new_ripple_threshold = rip_thresh_file_line
                     # this allows half SD increase in ripple threshold (looks for three digits, eg 065 = 6.5 SD)
+                    # first three characters are ripple_thresh
                     self.conditioning_ripple_threshold = np.int(new_ripple_threshold[0:3])/10
-                    #self.param.ripple_threshold = np.int(new_ripple_threshold[0:2])
+                    # next three after space are normal thresh (content)
+                    self.param.ripple_threshold = np.int(new_ripple_threshold[4:7])/10
                     # could try to only print for one ripple node - if using number of the node
                     print('conditioning ripple threshold = ',self.conditioning_ripple_threshold)
                     print('normal ripple threshold = ',self.param.ripple_threshold)
@@ -460,7 +463,7 @@ class RippleManager(realtime_base.BinaryRecordBaseWithTiming, rt_logging.Logging
                                       'lfp_data',
                                       'rd',
                                       'current_val']],
-                         rec_formats=['Iii??ddddd'],
+                         rec_formats=['Iid??ddddd'],
                          config = config)
 
         self.rank = rank
