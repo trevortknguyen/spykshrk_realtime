@@ -484,8 +484,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
 
         # reset posterior arm threshold based on the new_ripple_threshold text file
         # this should run every 10 sec, using thresh_counter which refers to each message from ripple node
-        if self.thresh_counter % 1000 == 0:
-            print('thresh_counter: ',self.thresh_counter)
+        if self.thresh_counter % 5000 == 0:
+            #print('thresh_counter: ',self.thresh_counter)
             with open('config/new_ripple_threshold.txt') as posterior_threshold_file:
                 fd = posterior_threshold_file.fileno()
                 fcntl.fcntl(fd, fcntl.F_SETFL, os.O_NONBLOCK)
