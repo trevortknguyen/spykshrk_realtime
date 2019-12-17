@@ -376,7 +376,8 @@ class RippleFilter(rt_logging.LoggingClass):
         # rec_format='Ii??dd',
         #if self.current_time < 40000000:
         self.rec_base.write_record(realtime_base.RecordIDs.RIPPLE_STATE,
-                                   self.current_time, self.elec_grp_id, self.param.ripple_threshold, self.thresh_crossed,
+                                   self.current_time, self.elec_grp_id, self.param.ripple_threshold, 
+                                   self.conditioning_ripple_threshold, self.thresh_crossed,
                                    self.in_lockout, self._custom_baseline_mean, self._custom_baseline_std,
                                    int(data), rd, self.current_val)
 
@@ -455,7 +456,8 @@ class RippleManager(realtime_base.BinaryRecordBaseWithTiming, rt_logging.Logging
                          rec_ids=[realtime_base.RecordIDs.RIPPLE_STATE],
                          rec_labels=[['timestamp',
                                       'elec_grp_id',
-                                      'ripple_threshold',
+                                      'content_rip_threshold',
+                                      'conditioning_rip_threshold',
                                       'thresh_crossed',
                                       'lockout',
                                       'custom_mean',
@@ -463,7 +465,7 @@ class RippleManager(realtime_base.BinaryRecordBaseWithTiming, rt_logging.Logging
                                       'lfp_data',
                                       'rd',
                                       'current_val']],
-                         rec_formats=['Iid??ddddd'],
+                         rec_formats=['Iidd??ddddd'],
                          config = config)
 
         self.rank = rank
