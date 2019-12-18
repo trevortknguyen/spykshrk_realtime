@@ -264,6 +264,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
 
         self.velocity = 0
         self.linearized_position = 0
+        self.vel_pos_counter = 0
         self.thresh_counter = 0
         self.postsum_counter = 0
         self.stim_message_sent = 0
@@ -465,6 +466,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
     def velocity_position(self, bin_timestamp, vel, pos):
         self.velocity = vel
         self.linearized_position = pos
+        self.vel_pos_counter += 1
 
         if self.velocity < self.config['encoder']['vel']:
             #print('immobile, vel = ',self.velocity)
@@ -486,7 +488,9 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
 
         # reset posterior arm threshold based on the new_ripple_threshold text file
         # this should run every 10 sec, using thresh_counter which refers to each message from ripple node
-        if self.thresh_counter % 5000 == 0:
+        # pos_vel counter seems to work better - this is still way faster, not sure how often it gets sent...
+        #if self.thresh_counter % 5000 == 0:
+        if self.vel_pos_counter % 1000 == 0:
             #print('thresh_counter: ',self.thresh_counter)
             with open('config/new_ripple_threshold.txt') as posterior_threshold_file:
                 fd = posterior_threshold_file.fileno()
@@ -500,6 +504,49 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             # this seesm to work, but in the sum function posterior_arm_threshold is seen as 0, why??
             self.posterior_arm_threshold = np.int(new_posterior_threshold[8:10])/10
             print('posterior arm threshold = ',self.posterior_arm_threshold)
+
+        # read arm_reward text file written by trodes to tell us the last arm that was rewarded
+        # use this to prevent repeated rewards to a specific arm (set arm1_replay_counter)
+        if self.vel_pos_counter % 500 == 0:
+            # reset counters each time you read the file - b/c file might not change
+            self.arm1_replay_counter = 0
+            self.arm2_replay_counter = 0
+            self.arm3_replay_counter = 0
+            self.arm4_replay_counter = 0
+            #print('thresh_counter: ',self.thresh_counter)
+            with open('config/rewarded_arm_trodes.txt') as rewarded_arm_file:
+                fd = rewarded_arm_file.fileno()
+                fcntl.fcntl(fd, fcntl.F_SETFL, os.O_NONBLOCK)
+                # read file
+                for rewarded_arm_file_line in rewarded_arm_file:
+                    pass
+                rewarded_arm = rewarded_arm_file_line
+            rewarded_arm = np.int(rewarded_arm[0:2])
+            print('last rewarded arm = ',rewarded_arm)
+            if rewarded_arm == 1:
+                print('last reward in arm 1')
+                self.arm1_replay_counter += 1
+                self.arm2_replay_counter = 0
+                self.arm3_replay_counter = 0
+                self.arm4_replay_counter = 0
+            elif rewarded_arm == 2:
+                print('last reward in arm 2')
+                self.arm1_replay_counter = 0
+                self.arm2_replay_counter += 1
+                self.arm3_replay_counter = 0
+                self.arm4_replay_counter = 0
+            elif rewarded_arm == 3:
+                print('last reward in arm 3')
+                self.arm1_replay_counter = 0
+                self.arm2_replay_counter = 0
+                self.arm3_replay_counter += 1
+                self.arm4_replay_counter = 0
+            elif rewarded_arm == 4:
+                print('last reward in arm 4')
+                self.arm1_replay_counter = 0
+                self.arm2_replay_counter = 0
+                self.arm3_replay_counter = 0
+                self.arm4_replay_counter += 1
 
         if self.stim_thresh == True and self.velocity < self.config['encoder']['vel']:
             # is posterior arm sum getting set back to 0 every time?
@@ -598,13 +645,14 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                             networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['replay_arm = 1;\ntrigger(15);\n'])
                             print('sent StateScript message for arm 1 replay')
                             # arm replay counters, only active at wait well and adds to current counter and sets other arms to 0
-                            if self.linearized_position >= 3 and self.linearized_position <= 5:
-                                self.arm1_replay_counter += 1
-                                self.arm2_replay_counter = 0
-                                self.arm3_replay_counter = 0
-                                self.arm4_replay_counter = 0
-                                print('arm counters: ',self.arm1_replay_counter,self.arm2_replay_counter,
-                                      self.arm3_replay_counter,self.arm4_replay_counter)
+                            # we moved these counters up to take in a text file from trodes with last rewarded arm
+                            #if self.linearized_position >= 3 and self.linearized_position <= 5:
+                            #    self.arm1_replay_counter += 1
+                            #    self.arm2_replay_counter = 0
+                            #    self.arm3_replay_counter = 0
+                            #    self.arm4_replay_counter = 0
+                            print('arm counters: ',self.arm1_replay_counter,self.arm2_replay_counter,
+                                  self.arm3_replay_counter,self.arm4_replay_counter)
                         else:
                             print('more than ',self.max_arm_repeats,' replays of arm 1 in a row!')
 
@@ -617,13 +665,13 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                         if self.arm2_replay_counter < self.max_arm_repeats:
                             networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['replay_arm = 2;\ntrigger(15);\n'])
                             print('sent StateScript message for arm 2 replay')
-                            if self.linearized_position >= 3 and self.linearized_position <= 5:
-                                self.arm1_replay_counter = 0
-                                self.arm2_replay_counter += 1
-                                self.arm3_replay_counter = 0
-                                self.arm4_replay_counter = 0
-                                print('arm counters: ',self.arm1_replay_counter,self.arm2_replay_counter,
-                                      self.arm3_replay_counter,self.arm4_replay_counter)
+                            #if self.linearized_position >= 3 and self.linearized_position <= 5:
+                            #    self.arm1_replay_counter = 0
+                            #    self.arm2_replay_counter += 1
+                            #    self.arm3_replay_counter = 0
+                            #    self.arm4_replay_counter = 0
+                            print('arm counters: ',self.arm1_replay_counter,self.arm2_replay_counter,
+                                  self.arm3_replay_counter,self.arm4_replay_counter)
                         else:
                             print('more than ',self.max_arm_repeats,' replays of arm 2 in a row!')
 
@@ -636,13 +684,13 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                         if self.arm3_replay_counter < self.max_arm_repeats:
                             networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['replay_arm = 3;\ntrigger(15);\n'])
                             print('sent StateScript message for arm 3 replay')
-                            if self.linearized_position >= 3 and self.linearized_position <= 5:
-                                self.arm1_replay_counter = 0
-                                self.arm2_replay_counter = 0
-                                self.arm3_replay_counter += 1
-                                self.arm4_replay_counter = 0
-                                print('arm counters: ',self.arm1_replay_counter,self.arm2_replay_counter,
-                                      self.arm3_replay_counter,self.arm4_replay_counter)
+                            #if self.linearized_position >= 3 and self.linearized_position <= 5:
+                            #    self.arm1_replay_counter = 0
+                            #    self.arm2_replay_counter = 0
+                            #    self.arm3_replay_counter += 1
+                            #    self.arm4_replay_counter = 0
+                            print('arm counters: ',self.arm1_replay_counter,self.arm2_replay_counter,
+                                  self.arm3_replay_counter,self.arm4_replay_counter)
                         else:
                             print('more than ',self.max_arm_repeats,' replays of arm 3 in a row!')
 
@@ -655,13 +703,13 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                         if self.arm4_replay_counter < self.max_arm_repeats:
                             networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['replay_arm = 4;\ntrigger(15);\n'])
                             print('sent StateScript message for arm 4 replay')
-                            if self.linearized_position >= 3 and self.linearized_position <= 5:
-                                self.arm1_replay_counter = 0
-                                self.arm2_replay_counter = 0
-                                self.arm3_replay_counter = 0
-                                self.arm4_replay_counter += 1
-                                print('arm counters: ',self.arm1_replay_counter,self.arm2_replay_counter,
-                                      self.arm3_replay_counter,self.arm4_replay_counter)
+                            #if self.linearized_position >= 3 and self.linearized_position <= 5:
+                            #    self.arm1_replay_counter = 0
+                            #    self.arm2_replay_counter = 0
+                            #    self.arm3_replay_counter = 0
+                            #    self.arm4_replay_counter += 1
+                            print('arm counters: ',self.arm1_replay_counter,self.arm2_replay_counter,
+                                  self.arm3_replay_counter,self.arm4_replay_counter)
                         else:
                             print('more than ',self.max_arm_repeats,' replays of arm 4 in a row!')
                     
