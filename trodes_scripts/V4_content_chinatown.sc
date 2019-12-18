@@ -94,7 +94,11 @@ function 7
 		do in 50
 			disp('BEEP 2')
 		end 	
-	end	
+	end
+	portout[6]=1 % reward
+	do in 100 
+		portout[6]=0 % reset reward
+	end		
 end;
 
 % function send beep when content is detected, replay_arm variable is updated at the same time

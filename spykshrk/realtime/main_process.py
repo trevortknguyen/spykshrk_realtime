@@ -229,7 +229,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                          rec_labels=[['timestamp', 'elec_grp_id', 'threshold_state'],
                                      ['timestamp', 'time', 'lockout_num', 'lockout_state','tets_above_thresh','ripple_cond_message_sent'],
                                      ['bin_timestamp', 'spike_timestamp','time', 'stim_sent', 'ripple_number',
-                                      'ripple_time_bin','posterior_max_arm','content_threshold','max_arm_repeats'
+                                      'ripple_time_bin','posterior_max_arm','content_threshold','max_arm_repeats',
                                       'box','arm1','arm2','arm3','arm4','arm5','arm6','arm7','arm8']],
                          rec_formats=['Iii',
                                       'Idiiqi',
@@ -632,7 +632,9 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                         self.stim_message_sent = 0
                         # note for testing this seems to be triggered most frequently
                         #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['replay_arm = 1;\ntrigger(15);\n'])
-                    
+                        #print('arm counters: ',self.arm1_replay_counter,self.arm2_replay_counter,
+                        #      self.arm3_replay_counter,self.arm4_replay_counter)
+
                     # replay detection of arm 1
                     elif np.argwhere(self.posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 1:
                         print('max posterior in arm 1',np.around(self.posterior_arm_sum[1],decimals=2),'interval',self.stim_message_sent,

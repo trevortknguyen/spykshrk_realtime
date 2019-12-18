@@ -254,6 +254,16 @@ def doOuter(val):
 				#print('arm4',arm4_Goal)
 			print('arm1',arm1_Goal,'arm2',arm2_Goal,'arm3',arm3_Goal,'arm4',arm4_Goal)
 
+			# write to a file that will record last rewarded arm so that spykshrk can read it
+			# bug: at first content trial it writes all 4 wells, not sure why, after that it works
+			# write (currWell - 9) to get back to arms 1-4
+			print('current well',currWell)
+			with open("/home/lorenlab/spykshrk_realtime/config/rewarded_arm_trodes.txt","a") as reward_arm_file:
+				try:
+					reward_arm_file.write(str(currWell-9) + '\n')
+				finally: 
+					reward_arm_file.close()
+
 			# use this info to update taskState
 			# if required rewards met for all arms, switch to content trials (taskState=2)
 			# could replace this with a vector with the visits for each arm
@@ -422,7 +432,7 @@ arm1_Goal = 0
 arm2_Goal = 0
 arm3_Goal = 0
 arm4_Goal = 0
-outerarm_required_rewards = 1
+outerarm_required_rewards = 4
 
 # task state variable
 # 1 = cued reward well
