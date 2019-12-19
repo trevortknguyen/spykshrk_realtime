@@ -627,7 +627,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                     # replay detection of box
                     if np.argwhere(self.posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 0:
                         print('max posterior in box',np.around(self.posterior_arm_sum[0],decimals=2),'interval',self.stim_message_sent,
-                              'posterior sum: ',np.around(self.posterior_arm_sum.sum(),decimals=2))
+                              'posterior sum: ',np.around(self.posterior_arm_sum.sum(),decimals=2),'position ',np.around(self.linearized_position,decimals=2))
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>self.posterior_arm_threshold)[0][0]
                         self.stim_message_sent = 0
                         # note for testing this seems to be triggered most frequently
@@ -638,7 +638,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                     # replay detection of arm 1
                     elif np.argwhere(self.posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 1:
                         print('max posterior in arm 1',np.around(self.posterior_arm_sum[1],decimals=2),'interval',self.stim_message_sent,
-                              'posterior sum: ',np.around(self.posterior_arm_sum.sum(),decimals=2))
+                              'posterior sum: ',np.around(self.posterior_arm_sum.sum(),decimals=2),'position ',np.around(self.linearized_position,decimals=2))
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>self.posterior_arm_threshold)[0][0]
                         self.stim_message_sent = 0
                         # only send message for arm 1 replay if less than replays 3 in a row
@@ -661,7 +661,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                     # replay detection of arm 2
                     elif np.argwhere(self.posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 2:
                         print('max posterior in arm 2',np.around(self.posterior_arm_sum[2],decimals=2),'interval',self.stim_message_sent,
-                              'posterior sum: ',np.around(self.posterior_arm_sum.sum(),decimals=2))
+                              'posterior sum: ',np.around(self.posterior_arm_sum.sum(),decimals=2),'position ',np.around(self.linearized_position,decimals=2))
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>self.posterior_arm_threshold)[0][0]
                         self.stim_message_sent = 0
                         if self.arm2_replay_counter < self.max_arm_repeats:
@@ -680,7 +680,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                     # replay detection of arm 3
                     elif np.argwhere(self.posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 3:
                         print('max posterior in arm 3',np.around(self.posterior_arm_sum[3],decimals=2),'interval',self.stim_message_sent,
-                              'posterior sum: ',np.around(self.posterior_arm_sum.sum(),decimals=2))
+                              'posterior sum: ',np.around(self.posterior_arm_sum.sum(),decimals=2),'position ',np.around(self.linearized_position,decimals=2))
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>self.posterior_arm_threshold)[0][0]
                         self.stim_message_sent = 0
                         if self.arm3_replay_counter < self.max_arm_repeats:
@@ -699,7 +699,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                     # replay detection of arm 4
                     elif np.argwhere(self.posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 4:
                         print('max posterior in arm 4',np.around(self.posterior_arm_sum[4],decimals=2),'interval',self.stim_message_sent,
-                              'posterior sum: ',np.around(self.posterior_arm_sum.sum(),decimals=2))
+                              'posterior sum: ',np.around(self.posterior_arm_sum.sum(),decimals=2),'position ',np.around(self.linearized_position,decimals=2))
                         self.shortcut_message_arm = np.argwhere(self.posterior_arm_sum>self.posterior_arm_threshold)[0][0]
                         self.stim_message_sent = 0
                         if self.arm4_replay_counter < self.max_arm_repeats:
@@ -743,7 +743,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 # message if no arm > posterior threshold in posterior sum
                 else:
                     print('no arm posterior above ',self.posterior_arm_threshold,' ',np.around(self.posterior_arm_sum,decimals=2),'interval',self.stim_message_sent,
-                          'ripple: ',self.ripple_number,'posterior sum: ',self.posterior_arm_sum.sum())
+                          'ripple: ',self.ripple_number,'posterior sum: ',self.posterior_arm_sum.sum(),'position ',np.around(self.linearized_position,decimals=2))
                     #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['replay_arm = 3;\ntrigger(15);\n'])
 
                 ## send shortcut message based on posterior max arm, each arm has own function number
