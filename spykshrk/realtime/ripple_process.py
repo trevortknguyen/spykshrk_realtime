@@ -297,35 +297,38 @@ class RippleFilter(rt_logging.LoggingClass):
 
             y = abs(rd)
 
+            # calculate and display lfp baseline
+            self.ripple_mean += (y - self.ripple_mean) / self.param.samp_divisor
+            self.ripple_std += (abs(y - self.ripple_mean) - self.ripple_std) / self.param.samp_divisor
+            self.lfp_display_counter += 1
+            # display every 1 sec during baseline, every 10 sec during run session
             if self.config['ripple_conditioning']['display_baseline'] == True:
-                self.ripple_mean += (y - self.ripple_mean) / self.param.samp_divisor
-                self.ripple_std += (abs(y - self.ripple_mean) - self.ripple_std) / self.param.samp_divisor
-                self.lfp_display_counter += 1
-                if self.lfp_display_counter % 15000 == 0:
+                if self.lfp_display_counter % 1500 == 0:
                     print('mean',self.elec_grp_id,' = ',np.around(self.ripple_mean,decimals=2),
                           ' stdev',self.elec_grp_id,' = ',np.around(self.ripple_std,decimals=2))
-                    #print('stdev',self.elec_grp_id,' = ',self.ripple_std)
-
-                # open and read text file that will allow you to update ripple threshold
-                # now it looks for three digits, 055 > 5.5 sd
-                # now updates ripple_thresh and normal_thresh (for content trials)
-                # this now updated the variable self.condition_ripple_threshold - so only changes detection in conditioning
+            else:
                 if self.lfp_display_counter % 15000 == 0:
-                    with open('config/new_ripple_threshold.txt') as ripple_threshold_file:
-                        fd = ripple_threshold_file.fileno()
-                        fcntl.fcntl(fd, fcntl.F_SETFL, os.O_NONBLOCK)
-                        # read file
-                        for rip_thresh_file_line in ripple_threshold_file:
-                            pass
-                        new_ripple_threshold = rip_thresh_file_line
-                    # this allows half SD increase in ripple threshold (looks for three digits, eg 065 = 6.5 SD)
-                    # first three characters are ripple_thresh
-                    self.conditioning_ripple_threshold = np.int(new_ripple_threshold[0:3])/10
-                    # next three after space are normal thresh (content)
-                    self.param.ripple_threshold = np.int(new_ripple_threshold[4:7])/10
-                    # could try to only print for one ripple node - if using number of the node
-                    print('conditioning ripple threshold = ',self.conditioning_ripple_threshold)
-                    print('normal ripple threshold = ',self.param.ripple_threshold)
+                    print('mean',self.elec_grp_id,' = ',np.around(self.ripple_mean,decimals=2),
+                          ' stdev',self.elec_grp_id,' = ',np.around(self.ripple_std,decimals=2))                    
+
+            # open and read text file that will allow you to update ripple threshold
+            # looks for three digits, 055 > 5.5 sd
+            # updates ripple_thresh and normal_thresh (for content trials)
+            if self.lfp_display_counter % 15000 == 0:
+                with open('config/new_ripple_threshold.txt') as ripple_threshold_file:
+                    fd = ripple_threshold_file.fileno()
+                    fcntl.fcntl(fd, fcntl.F_SETFL, os.O_NONBLOCK)
+                    # read file
+                    for rip_thresh_file_line in ripple_threshold_file:
+                        pass
+                    new_ripple_threshold = rip_thresh_file_line
+                # first three characters are ripple_thresh
+                self.conditioning_ripple_threshold = np.int(new_ripple_threshold[0:3])/10
+                # next three after space are normal thresh (content)
+                self.param.ripple_threshold = np.int(new_ripple_threshold[4:7])/10
+                # could try to only print for one ripple node - if using number of the node
+                print('conditioning ripple threshold = ',self.conditioning_ripple_threshold,
+                      'content ripple threshold = ',self.param.ripple_threshold)
 
             if not self.stim_enabled:
                 self.ripple_mean += (y - self.ripple_mean) / self.param.samp_divisor

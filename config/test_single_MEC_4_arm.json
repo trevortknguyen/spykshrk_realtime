@@ -16,7 +16,7 @@
 
     "files": {
         "output_dir": "/mnt/vortex/mcoulter/spykshrk_realtime/output",
-        "prefix": "20191218_test_greenflash_ripple",
+        "prefix": "20191222_test_greenflash_ripple",
         "rec_postfix": "bin_rec",
         "profile_postfix": "pstats",
         "timing_postfix": "timing",
@@ -28,7 +28,7 @@
     },
 
     "ripple_conditioning": {
-        "display_baseline": true,
+        "display_baseline": false,
         "posterior_sum_threshold": 0.5
     },
 

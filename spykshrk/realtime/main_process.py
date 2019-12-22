@@ -226,12 +226,12 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                                   realtime_base.RecordIDs.STIM_MESSAGE],
                          rec_labels=[['timestamp', 'elec_grp_id', 'threshold_state'],
                                      ['timestamp', 'time', 'lockout_num', 'lockout_state','tets_above_thresh','big_rip_message_sent'],
-                                     ['bin_timestamp', 'spike_timestamp','time', 'shortcut_message_sent', 'ripple_number',
-                                      'ripple_time_bin','posterior_max_arm','content_threshold','max_arm_repeats',
+                                     ['bin_timestamp', 'spike_timestamp','lfp_timestamp','time', 'shortcut_message_sent', 'ripple_number',
+                                      'ripple_time_bin','posterior_max_arm','content_threshold','ripple_end','max_arm_repeats',
                                       'box','arm1','arm2','arm3','arm4','arm5','arm6','arm7','arm8']],
                          rec_formats=['Iii',
                                       'Idiiqi',
-                                      'IIdiiiididdddddddd'])
+                                      'IIidiiiidiiddddddddd'])
         self.rank = rank
         self._send_interface = send_interface
         self._ripple_n_above_thresh = ripple_n_above_thresh
@@ -277,6 +277,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         self.posterior_arm_threshold = self.config['ripple_conditioning']['posterior_sum_threshold']
         # set max repeats allowed at each arm during content trials
         self.max_arm_repeats = 1
+        # marker for stim_message to note end of ripple (message sent or end of lockout)
+        self.ripple_end = 0
 
         #if self.config['datasource'] == 'trodes':
         #    self.networkclient = MainProcessClient("SpykshrkMainProc", config['trodes_network']['address'],config['trodes_network']['port'], self.config)
@@ -426,7 +428,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 # but this could interfere with detection of larger ripples
                 # i think we need no lockout here because it will mask large ripples
                 # so need to come up with a better way to trigger light - turn off for now
-                print('detection of ripple for content')
+                print('detection of ripple for content, lfp timestamp',self.lfp_timestamp)
                 #print('sent light message based on ripple thresh',time,timestamp)
                 #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(15);\n'])
                     
@@ -558,7 +560,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             # comfirm that posterior threshold has been updated and print that we are in posterio sum function
             if self.posterior_time_bin == 1:
                 print('in posterior sum function, threshold = ',self.posterior_arm_threshold,
-                      'starting bin timestamp',bin_timestamp)
+                      'starting bin timestamp',bin_timestamp,'starting LFP timestamp',self.lfp_timestamp)
 
             if self.postsum_timing_counter % 1000 == 0:
                 self.record_timing(timestamp=spike_timestamp, elec_grp_id=0,
@@ -571,10 +573,11 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             self.posterior_arm_sum = self.posterior_arm_sum + new_posterior_sum
 
             # MEC: 10-27-19: try turning off stim_message record to see if that helps record saving problem
+            self.ripple_end = 0
             self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
-                              bin_timestamp, spike_timestamp, time, self.shortcut_message_sent, 
+                              bin_timestamp, spike_timestamp, self.lfp_timestamp, time, self.shortcut_message_sent, 
                               self.ripple_number, self.posterior_time_bin, self.shortcut_message_arm,
-                              self.posterior_arm_threshold,self.max_arm_repeats,
+                              self.posterior_arm_threshold,self.ripple_end,self.max_arm_repeats,
                               new_posterior_sum[0],new_posterior_sum[1],new_posterior_sum[2],
                               new_posterior_sum[3],new_posterior_sum[4],new_posterior_sum[5],
                               new_posterior_sum[6],new_posterior_sum[7],new_posterior_sum[8])    
@@ -611,10 +614,11 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                     #      self.arm3_replay_counter,self.arm4_replay_counter)
                     self.shortcut_message_sent = True
 
+                    self.ripple_end = 1
                     self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
-                                      bin_timestamp, spike_timestamp, time, self.shortcut_message_sent, 
+                                      bin_timestamp, spike_timestamp, self.lfp_timestamp, time, self.shortcut_message_sent, 
                                       self.ripple_number, self.posterior_time_bin, self.shortcut_message_arm,
-                                      self.posterior_arm_threshold,self.max_arm_repeats,
+                                      self.posterior_arm_threshold,self.ripple_end,self.max_arm_repeats,
                                       self.norm_posterior_arm_sum[0],self.norm_posterior_arm_sum[1],self.norm_posterior_arm_sum[2],
                                       self.norm_posterior_arm_sum[3],self.norm_posterior_arm_sum[4],self.norm_posterior_arm_sum[5],
                                       self.norm_posterior_arm_sum[6],self.norm_posterior_arm_sum[7],self.norm_posterior_arm_sum[8])
@@ -638,10 +642,11 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                               self.arm3_replay_counter,self.arm4_replay_counter)
                         self.shortcut_message_sent = True
 
+                        self.ripple_end = 1
                         self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
-                                          bin_timestamp, spike_timestamp, time, self.shortcut_message_sent, 
+                                          bin_timestamp, spike_timestamp, self.lfp_timestamp, time, self.shortcut_message_sent, 
                                           self.ripple_number, self.posterior_time_bin, self.shortcut_message_arm,
-                                          self.posterior_arm_threshold,self.max_arm_repeats,
+                                          self.posterior_arm_threshold,self.ripple_end,self.max_arm_repeats,
                                           self.norm_posterior_arm_sum[0],self.norm_posterior_arm_sum[1],self.norm_posterior_arm_sum[2],
                                           self.norm_posterior_arm_sum[3],self.norm_posterior_arm_sum[4],self.norm_posterior_arm_sum[5],
                                           self.norm_posterior_arm_sum[6],self.norm_posterior_arm_sum[7],self.norm_posterior_arm_sum[8])
@@ -663,10 +668,11 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                               self.arm3_replay_counter,self.arm4_replay_counter)
                         self.shortcut_message_sent = True
 
+                        self.ripple_end = 1
                         self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
-                                          bin_timestamp, spike_timestamp, time, self.shortcut_message_sent, 
+                                          bin_timestamp, spike_timestamp, self.lfp_timestamp, time, self.shortcut_message_sent, 
                                           self.ripple_number, self.posterior_time_bin, self.shortcut_message_arm,
-                                          self.posterior_arm_threshold,self.max_arm_repeats,
+                                          self.posterior_arm_threshold,self.ripple_end,self.max_arm_repeats,
                                           self.norm_posterior_arm_sum[0],self.norm_posterior_arm_sum[1],self.norm_posterior_arm_sum[2],
                                           self.norm_posterior_arm_sum[3],self.norm_posterior_arm_sum[4],self.norm_posterior_arm_sum[5],
                                           self.norm_posterior_arm_sum[6],self.norm_posterior_arm_sum[7],self.norm_posterior_arm_sum[8])
@@ -688,10 +694,11 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                               self.arm3_replay_counter,self.arm4_replay_counter)
                         self.shortcut_message_sent = True
 
+                        self.ripple_end = 1
                         self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
-                                          bin_timestamp, spike_timestamp, time, self.shortcut_message_sent, 
+                                          bin_timestamp, spike_timestamp, self.lfp_timestamp, time, self.shortcut_message_sent, 
                                           self.ripple_number, self.posterior_time_bin, self.shortcut_message_arm,
-                                          self.posterior_arm_threshold,self.max_arm_repeats,
+                                          self.posterior_arm_threshold,self.ripple_end,self.max_arm_repeats,
                                           self.norm_posterior_arm_sum[0],self.norm_posterior_arm_sum[1],self.norm_posterior_arm_sum[2],
                                           self.norm_posterior_arm_sum[3],self.norm_posterior_arm_sum[4],self.norm_posterior_arm_sum[5],
                                           self.norm_posterior_arm_sum[6],self.norm_posterior_arm_sum[7],self.norm_posterior_arm_sum[8])
@@ -713,10 +720,11 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                               self.arm3_replay_counter,self.arm4_replay_counter)
                         self.shortcut_message_sent = True
 
+                        self.ripple_end = 1
                         self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
-                                          bin_timestamp, spike_timestamp, time, self.shortcut_message_sent, 
+                                          bin_timestamp, spike_timestamp, self.lfp_timestamp, time, self.shortcut_message_sent, 
                                           self.ripple_number, self.posterior_time_bin, self.shortcut_message_arm,
-                                          self.posterior_arm_threshold,self.max_arm_repeats,
+                                          self.posterior_arm_threshold,self.ripple_end,self.max_arm_repeats,
                                           self.norm_posterior_arm_sum[0],self.norm_posterior_arm_sum[1],self.norm_posterior_arm_sum[2],
                                           self.norm_posterior_arm_sum[3],self.norm_posterior_arm_sum[4],self.norm_posterior_arm_sum[5],
                                           self.norm_posterior_arm_sum[6],self.norm_posterior_arm_sum[7],self.norm_posterior_arm_sum[8])
@@ -771,13 +779,13 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         # say in printout whether ripple ended because of not enough bins or posterior sum below threhsold
         elif self.no_ripple_time_bin == 1 and self.shortcut_message_sent == False:
             if self.posterior_time_bin < 10:
-                print('ripple ended betore 10 time bins',' ',np.around(self.norm_posterior_arm_sum,decimals=2),
+                print('ripple ended before 10 time bins',' ',np.around(self.norm_posterior_arm_sum,decimals=2),
                       'ripple: ',self.ripple_number,'posterior sum: ',np.around(self.norm_posterior_arm_sum.sum(),decimals=2),
                       'position ',np.around(self.linearized_position,decimals=2),
                       'posterior bins in ripple ',self.posterior_time_bin,'ending bin timestamp',bin_timestamp,
                       'lfp timestamp',self.lfp_timestamp)
             else:
-                print('no arm posterior above ',self.posterior_arm_threshold,' ',np.around(self.norm_posterior_arm_sum,decimals=2),
+                print('repeated reward replay or no arm posterior above ',self.posterior_arm_threshold,' ',np.around(self.norm_posterior_arm_sum,decimals=2),
                       'ripple: ',self.ripple_number,'posterior sum: ',np.around(self.norm_posterior_arm_sum.sum(),decimals=2),
                       'position ',np.around(self.linearized_position,decimals=2),
                       'posterior bins in ripple ',self.posterior_time_bin,'ending bin timestamp',bin_timestamp,
@@ -787,10 +795,11 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             self.shortcut_message_sent = False
             self.no_ripple_time_bin += 1
 
+            self.ripple_end = 1
             self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
-                              bin_timestamp, spike_timestamp, time, self.shortcut_message_sent, 
+                              bin_timestamp, spike_timestamp, self.lfp_timestamp, time, self.shortcut_message_sent, 
                               self.ripple_number, self.posterior_time_bin, self.shortcut_message_arm,
-                              self.posterior_arm_threshold,self.max_arm_repeats,
+                              self.posterior_arm_threshold,self.ripple_end,self.max_arm_repeats,
                               self.norm_posterior_arm_sum[0],self.norm_posterior_arm_sum[1],self.norm_posterior_arm_sum[2],
                               self.norm_posterior_arm_sum[3],self.norm_posterior_arm_sum[4],self.norm_posterior_arm_sum[5],
                               self.norm_posterior_arm_sum[6],self.norm_posterior_arm_sum[7],self.norm_posterior_arm_sum[8])
