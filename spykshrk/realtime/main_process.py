@@ -609,7 +609,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                           'lfp timestamp',self.lfp_timestamp)
                     self.shortcut_message_arm = np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0]
                     # For testing: while bill is in sleep box, this seems to be triggered most frequently
-                    #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['replay_arm = 1;\ntrigger(15);\n'])
+                    #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['replay_arm = 2;\ntrigger(15);\n'])
                     #print('arm counters: ',self.arm1_replay_counter,self.arm2_replay_counter,
                     #      self.arm3_replay_counter,self.arm4_replay_counter)
                     self.shortcut_message_sent = True
