@@ -16,7 +16,7 @@
 
     "files": {
         "output_dir": "/home/lorenlab/20191222_bill_raw",
-        "prefix": "20191222_bill_03_test_westerlies_streaming",
+        "prefix": "20200102_bill_01_test_westerlies_streaming",
         "rec_postfix": "bin_rec",
         "profile_postfix": "pstats",
         "timing_postfix": "timing",
