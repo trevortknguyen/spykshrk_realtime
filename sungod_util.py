@@ -220,6 +220,106 @@ def run_linearization_routine(animal, day, epoch, linearization_path, raw_path, 
         
     # sio.savemat(lin_output3,export_this)
 
+def run_linearization_routine_4_arm(animal, day, epoch, linearization_path, raw_path, gap_size=20):
+    animalinfo  = {animal: Animal(directory=raw_path, short_name=animal)}
+    epoch_key = (animal, day, epoch)
+    position_info = lfdp.position._get_pos_dataframe(epoch_key, animalinfo)
+
+    nodes = np.array([
+        (169.1, 108), # home
+        (140, 110.2), # past center
+        (122, 95.8), # start arm 1
+        (119, 106.2), # start arm 2
+        (121, 115.4),  # start arm 3
+        (124.5, 125), # start arm 4 
+        (51.4, 88.2), # end arm 1
+        (49.5, 109.2),  # end arm 2 
+        (52.8, 130),  # end arm 3
+        (61.1, 152.5), # end arm 4
+    ])
+
+    edges = np.array([
+        (0, 1),
+        (1, 2),
+        (1, 3),
+        (1, 4),
+        (1, 5),
+        (2, 6),
+        (3, 7),
+        (4, 8),
+        (5, 9),
+    ])
+
+    track_segments = np.array([(nodes[e1], nodes[e2]) for e1, e2 in edges])
+    edge_distances = np.linalg.norm(
+        np.diff(track_segments, axis=-2).squeeze(), axis=1)
+
+    track_graph = nx.Graph()
+    for node_id, node_position in enumerate(nodes):
+        track_graph.add_node(node_id, pos=tuple(node_position))
+    #old:
+    #for edge, distance in zip(edges, edge_distances):
+    #    track_graph.add_edge(edge[0], edge[1], distance=distance)
+
+    # new
+    for edge, distance in zip(edges, edge_distances):
+        nx.add_path(track_graph, edge, distance=distance)
+
+    #lfdp.track_segment_classification.plot_track(track_graph)
+
+    position = position_info.loc[:, ['x_position', 'y_position']].values
+
+    track_segment_id = lfdp.track_segment_classification.classify_track_segments(
+            track_graph, position,
+            route_euclidean_distance_scaling=1,
+            sensor_std_dev=1)
+
+    center_well_id = 0
+    linear_distance = lfdp.track_segment_classification.calculate_linear_distance(
+                track_graph, track_segment_id, center_well_id, position)
+
+    # this section calculates the shift amounts for each arm
+    arm_distances = (edge_distances[5:9])
+
+    shift_linear_distance_by_arm_dictionary = dict()
+    # this order is used to shift the linear distances
+    hardcode_armorder = [0,1,2,3,4,5,6,7,8]
+    # add this gap to sum of previous shifts (was 20 for 1cm)
+    hardcode_shiftamount = 20
+
+    for arm in hardcode_armorder:
+        # home to wait
+        if arm == 0:
+            temporary_variable_shift = 0
+
+        # outer half of box - also no shift
+        elif arm > 0 and arm < 5:
+            temporary_variable_shift = 0
+
+        # first outer arm - 52 is max value in box area
+        elif arm == 5:
+            temporary_variable_shift = hardcode_shiftamount + 52
+                
+        # outer arms - add length of previous arm
+        else:
+            temporary_variable_shift = hardcode_shiftamount + arm_distances[arm-6] + shift_linear_distance_by_arm_dictionary[hardcode_armorder[arm - 1]]
+                
+        shift_linear_distance_by_arm_dictionary[arm] = temporary_variable_shift
+
+    # 2) Shift linear distance for each arm 
+    linear_distance_arm_shift = np.copy(linear_distance)
+    for seg in shift_linear_distance_by_arm_dictionary:
+        linear_distance_arm_shift[(track_segment_id==(seg))]+=shift_linear_distance_by_arm_dictionary[(seg)]
+
+    #save outputs
+    output_base = linearization_path + animal + '_' + str(day) + '_' +str(epoch) + '_'
+    lin_output1 = output_base + 'linearized_distance.npy'
+    lin_output2 = output_base + 'linearized_track_segments.npy'
+    #lin_output3 = output_base + 'linearization_variables.mat'
+    np.save(lin_output1, linear_distance_arm_shift)
+    np.save(lin_output2, track_segment_id)
+    os.chmod(lin_output1,0o774)
+    os.chmod(lin_output2,0o774)
 
 def define_segment_coordinates(pos_obj, track_segment_ids):
     
