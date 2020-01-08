@@ -503,7 +503,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
 
         # read arm_reward text file written by trodes to find last rewarded arm
         # use this to prevent repeated rewards to a specific arm (set arm1_replay_counter)
-        if self.vel_pos_counter % 1000 == 0:
+        if self.vel_pos_counter % 500 == 0:
             # reset counters each time you read the file - b/c file might not change
             self.arm1_replay_counter = 0
             self.arm2_replay_counter = 0
@@ -598,6 +598,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             # shortcut message fn_num is an interger for function number in statescript
             # alternative: only require that any outer arm is above 0.3 - then put reward in that arm
 
+            # should this be len(argwhere) > 0? does this mean this already?
             if len(np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold) == 1) and self.posterior_time_bin >= 10:
                 
                 # replay detection of box
@@ -776,7 +777,9 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             #                  self.posterior_arm_sum[6],self.posterior_arm_sum[7],self.posterior_arm_sum[8])
 
         # if end of ripple (time bin) and no arm posterior crossed threshold (message sent)
+        # these records are indicated by: ripple_end = 1 and shortcut_message_sent = 0
         # say in printout whether ripple ended because of not enough bins or posterior sum below threhsold
+        # variable shortcue_message_arm: 99 if <10 time bins or no arm above threshold, otherwise repeated arm
         elif self.no_ripple_time_bin == 1 and self.shortcut_message_sent == False:
             if self.posterior_time_bin < 10:
                 print('ripple ended before 10 time bins',' ',np.around(self.norm_posterior_arm_sum,decimals=2),
@@ -784,12 +787,19 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                       'position ',np.around(self.linearized_position,decimals=2),
                       'posterior bins in ripple ',self.posterior_time_bin,'ending bin timestamp',bin_timestamp,
                       'lfp timestamp',self.lfp_timestamp)
+                self.shortcut_message_arm = 99
+
             else:
                 print('repeated reward replay or no arm posterior above ',self.posterior_arm_threshold,' ',np.around(self.norm_posterior_arm_sum,decimals=2),
                       'ripple: ',self.ripple_number,'posterior sum: ',np.around(self.norm_posterior_arm_sum.sum(),decimals=2),
                       'position ',np.around(self.linearized_position,decimals=2),
                       'posterior bins in ripple ',self.posterior_time_bin,'ending bin timestamp',bin_timestamp,
                       'lfp timestamp',self.lfp_timestamp)
+                if len(np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold) == 1) == 0:
+                    self.shortcut_message_arm = 99
+                else:
+                    np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0]
+
             # can use this statescript message for testing
             # networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['replay_arm = 3;\ntrigger(15);\n'])
             self.shortcut_message_sent = False
