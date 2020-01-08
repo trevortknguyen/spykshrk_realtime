@@ -90,13 +90,13 @@ function 7
 		ripwait = 0
 		trialtype = 2	
 		proximity = 0
-		% this is format at add 50 msec delay
-		do in 50
+		% this is format at add 10 msec delay
+		do in 10
 			disp('BEEP 2')
 		end 	
 	end
 	portout[6]=1 % reward
-	do in 100 
+	do in 30 
 		portout[6]=0 % reset reward
 	end		
 end;
@@ -111,18 +111,18 @@ function 15
 		ripwait = 0
 		trialtype = 2	
 		proximity = 0
-		% this is format at add 50 msec delay
-		do in 50
+		% this is format at add 10 msec delay
+		do in 10
 			disp('BEEP 2')
 		end 	
 	end	
 end;
 
-% function to flip light in port 6 if large ripple detected
+% function to flip light in port 6
 function 16
 	disp('large ripple from spykshrk')
 	portout[6]=1 % reward
-	do in 100 
+	do in 30 
 		portout[6]=0 % reset reward
 	end	
 end;

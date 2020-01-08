@@ -164,6 +164,8 @@ def chooseGoal():
 		# now only choose from list of outerwells where valid_goals == 1
 		goalWell = np.random.choice(list(compress(outerWells,valid_goals)),1,replace=False)
 		print('cued goalWell is: ',goalWell)
+		print("SCQTMESSAGE: disp('CUED ARM VISITS "+str(outerarm_required_rewards)+"');\n") 
+
 		#goalWell = np.random.choice(outerWells[valid_goals],1,replace=False)
 
 
@@ -194,7 +196,7 @@ def endWait():
 		print("SCQTMESSAGE: trigger(4);\n")	
 
 		print("SCQTMESSAGE: trigger(5);\n")   # display stats
-		print("SCQTMESSAGE: disp('CURRENTGOAL IS "+str(goalWell[0])+"');\n") 
+		print("SCQTMESSAGE: disp('CURRENTGOAL IS "+str(goalWell[0])+" TASK_STATE IS "+str(taskState)+"');\n") 
 		
 		# use taskState to determine whether this is a cued trial or content trial
 		# only for which outer lights to turn on
@@ -214,6 +216,14 @@ def endWait():
 			for num in range(len(outerWells)):
 				print("SCQTMESSAGE: dio = "+str(outerWells[num])+";\n")
 				print("SCQTMESSAGE: trigger(3);\n")
+				print('current goal is ',str(goalWell[0]))
+
+		# save out current goal well to the text file
+		#with open("/home/lorenlab/spykshrk_realtime/config/rewarded_arm_trodes.txt","a") as reward_arm_file:
+		#		try:
+	#				reward_arm_file.write(str(currWell-9)+' '+str(taskState)+' '+str(goalWell[0]-9)+'\n')
+		#		finally: 
+		#			reward_arm_file.close()
 
 
 def doOuter(val):
@@ -260,7 +270,7 @@ def doOuter(val):
 			print('current well',currWell)
 			with open("/home/lorenlab/spykshrk_realtime/config/rewarded_arm_trodes.txt","a") as reward_arm_file:
 				try:
-					reward_arm_file.write(str(currWell-9) + '\n')
+					reward_arm_file.write(str(currWell-9)+' '+str(taskState)+' '+str(goalWell[0])+'\n')
 				finally: 
 					reward_arm_file.close()
 
@@ -432,7 +442,7 @@ arm1_Goal = 0
 arm2_Goal = 0
 arm3_Goal = 0
 arm4_Goal = 0
-outerarm_required_rewards = 4
+outerarm_required_rewards = 1
 
 # task state variable
 # 1 = cued reward well
