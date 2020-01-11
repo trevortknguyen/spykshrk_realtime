@@ -226,12 +226,12 @@ def run_linearization_routine_4_arm(animal, day, epoch, linearization_path, raw_
     position_info = lfdp.position._get_pos_dataframe(epoch_key, animalinfo)
 
     nodes = np.array([
-        (169.1, 108), # home
-        (140, 110.2), # past center
-        (122, 95.8), # start arm 1
-        (119, 106.2), # start arm 2
-        (121, 115.4),  # start arm 3
-        (124.5, 125), # start arm 4 
+        (169.1, 105), # home
+        (140, 106.8), # past center
+        (119.8, 95.8), # start arm 1
+        (118.6, 106.2), # start arm 2
+        (119.8, 115.4),  # start arm 3
+        (123, 125), # start arm 4 
         (51.4, 88.2), # end arm 1
         (49.5, 109.2),  # end arm 2 
         (52.8, 130),  # end arm 3
@@ -296,9 +296,9 @@ def run_linearization_routine_4_arm(animal, day, epoch, linearization_path, raw_
         elif arm > 0 and arm < 5:
             temporary_variable_shift = 0
 
-        # first outer arm - 52 is max value in box area
+        # first outer arm - only hardcode shift because arms dont start at 0
         elif arm == 5:
-            temporary_variable_shift = hardcode_shiftamount + 52
+            temporary_variable_shift = hardcode_shiftamount
                 
         # outer arms - add length of previous arm
         else:
