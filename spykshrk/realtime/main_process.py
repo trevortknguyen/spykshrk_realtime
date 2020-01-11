@@ -359,6 +359,18 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                                   num_above, self.big_rip_message_sent)
                 self._lockout_count += 1
 
+            # end lockout for posterior sum
+            # now we need to set up all these variables
+            # also need to pull in 3 different lockout times from config file
+            if self._posterior_in_lockout and (timestamp > self._posterior_last_lockout_timestamp + 
+                                               self._posterior_lockout_time):
+                # End lockout
+                self._posterior_in_lockout = False
+                self.write_record(realtime_base.RecordIDs.STIM_LOCKOUT,
+                                  timestamp, time, self._lockout_count, self._in_lockout,
+                                  num_above, self.big_rip_message_sent)
+                #self._lockout_count += 1
+
             # end lockout for large ripples
             # note: currently only one variable for counting both lockouts
             if self._conditioning_in_lockout and (timestamp > self._conditioning_last_lockout_timestamp + 
