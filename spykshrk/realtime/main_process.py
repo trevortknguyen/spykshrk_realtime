@@ -250,6 +250,10 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         self._conditioning_last_lockout_timestamp = 0
         self._conditioning_in_lockout = False
 
+        # separate lockout for posterior sum
+        self._posterior_in_lockout = False
+        self._posterior_last_lockout_timestamp = 0
+
         #self.ripple_time_bin = 0
         self.no_ripple_time_bin = 0
         self.replay_target_arm = self.config['pp_decoder']['replay_target_arm']
@@ -306,7 +310,15 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
 
     def update_lockout_time(self, lockout_time):
         self._lockout_time = lockout_time
-        self._conditioning_lockout_time = lockout_time
+        print('content ripple lockout time:',self._lockout_time)
+
+    def update_conditioning_lockout_time(self, conditioning_lockout_time):
+        self._conditioning_lockout_time = conditioning_lockout_time
+        print('big ripple lockout time:',self._conditioning_lockout_time)
+
+    def update_posterior_lockout_time(self, posterior_lockout_time):
+        self._posterior_lockout_time = posterior_lockout_time
+        print('posterior sum lockout time:',self._posterior_lockout_time)
 
     def update_ripple_threshold_state(self, timestamp, elec_grp_id, threshold_state, conditioning_thresh_state, networkclient):
         # Log timing
@@ -323,13 +335,13 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         if self._enabled:
             self.thresh_counter += 1
 
-            if self.thresh_counter % 1500 == 0 and self._in_lockout:
-                #print('in normal lockout for ripple detection - one line per tetrode')
-                pass
+            #if self.thresh_counter % 1500 == 0 and self._in_lockout:
+            #    #print('in normal lockout for ripple detection - one line per tetrode')
+            #    pass
             
-            if self.thresh_counter % 1500 == 0 and self._conditioning_in_lockout:
-                #print('in conditoning lockout for ripple detection - one line per tetrode')
-                pass
+            #if self.thresh_counter % 1500 == 0 and self._conditioning_in_lockout:
+            #    #print('in conditoning lockout for ripple detection - one line per tetrode')
+            #    pass
 
             self._ripple_thresh_states.setdefault(elec_grp_id, 0)
             self._conditioning_ripple_thresh_states.setdefault(elec_grp_id, 0)
@@ -359,15 +371,13 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                                   num_above, self.big_rip_message_sent)
                 self._lockout_count += 1
 
-            # end lockout for posterior sum
-            # now we need to set up all these variables
-            # also need to pull in 3 different lockout times from config file
+            # end lockout for posterior sum - moved this inside posterior sum function
             if self._posterior_in_lockout and (timestamp > self._posterior_last_lockout_timestamp + 
                                                self._posterior_lockout_time):
                 # End lockout
                 self._posterior_in_lockout = False
                 self.write_record(realtime_base.RecordIDs.STIM_LOCKOUT,
-                                  timestamp, time, self._lockout_count, self._in_lockout,
+                                  timestamp, time, self._lockout_count, self._posterior_in_lockout,
                                   num_above, self.big_rip_message_sent)
                 #self._lockout_count += 1
 
@@ -445,7 +455,9 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(15);\n'])
                     
                 # this starts the lockout for the content ripple threshold and tells us there is a ripple
+                # start posterior lockout here too, it is shorter, so it should have 25 msec delay between ripples
                 self._in_lockout = True
+                self._posterior_in_lockout = True
                 self._last_lockout_timestamp = timestamp
                 # this should allow us to tell difference between ripples that trigger conditioning
                 self.big_rip_message_sent = 0
@@ -475,8 +487,6 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             return num_above
 
     # MEC: this function brings in velocity and linearized position from decoder process
-    # it is working as expected - both velocity filter and position filter!
-    # to do: incorporate these two variables below in posterior sum
     def velocity_position(self, bin_timestamp, vel, pos):
         self.velocity = vel
         self.linearized_position = pos
@@ -489,8 +499,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             #print('position at rip/wait!')
             pass
 
-    # MEC: this function calculates the sum of the posterior over the course of each ripple, then sends shortcut message
-    # need to add location filter so it only sends message when rat is at rip/wait well
+    # MEC: this function sums the posterior during each ripple, then sends shortcut message
+    # need to add location filter so it only sends message when rat is at rip/wait well - no, that is in statescript
     def posterior_sum(self, bin_timestamp, spike_timestamp, box,arm1,arm2,arm3,arm4,arm5,arm6,arm7,arm8,networkclient):
         time = MPI.Wtime()
 
@@ -508,8 +518,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                     pass
                 new_posterior_threshold = post_thresh_file_line
             # this allows half SD increase in ripple threshold (looks for three digits, eg 065 = 6.5 SD)
-            # final 2 characters in line are new threshold (eg 08 > 0.8)
-            # this seesm to work, but in the sum function posterior_arm_threshold is seen as 0, why??
+            # final 2 characters in line are new arm posterior threshold (eg 08 > 0.8)
             self.posterior_arm_threshold = np.int(new_posterior_threshold[8:10])/10
             print('posterior arm threshold = ',self.posterior_arm_threshold)
 
@@ -556,10 +565,23 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 self.arm3_replay_counter = 0
                 self.arm4_replay_counter += 1
 
+        # end lockout for posterior sum - no its now ended above
+        #if self._posterior_in_lockout and (bin_timestamp > self._posterior_last_lockout_timestamp + 
+        #                                   self._posterior_lockout_time):
+        #    self._posterior_in_lockout = False
+        #    #self.write_record(realtime_base.RecordIDs.STIM_LOCKOUT,
+        #    #                  timestamp, time, self._lockout_count, self._posterior_in_lockout,
+        #    #                  num_above, self.big_rip_message_sent)
+        #    #self._lockout_count += 1
+
+        # check posterior lockout and normal lockout with print statement
+        if self._posterior_in_lockout == False and self._in_lockout == True:
+            print('inside posterior sum delay time')
+
         # running sum of posterior during a ripple
-        # marker for ripple detection is: self._in_lockout
+        # marker for ripple detection is: self._in_lockout NO it's self._posterior_in_lockout
         # marker for already reached sum above threshold: self.shortcut_message_sent
-        if self._in_lockout == True and self.velocity < self.config['encoder']['vel'] and self.shortcut_message_sent == False:
+        if self._posterior_in_lockout == True and self.velocity < self.config['encoder']['vel'] and self.shortcut_message_sent == False:
 
             #if self.ripple_time_bin == 0:
             #    self.ripple_number += 1
@@ -826,9 +848,19 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                               self.norm_posterior_arm_sum[3],self.norm_posterior_arm_sum[4],self.norm_posterior_arm_sum[5],
                               self.norm_posterior_arm_sum[6],self.norm_posterior_arm_sum[7],self.norm_posterior_arm_sum[8])
 
-        # end of lockout is end of ripple
-        elif self._in_lockout == False:
+        # no, not using this here
+        # start posterior lockout to prevent merging two ripples
+        # we can try using no_ripple_time_bin == 1 here, but that might not fix the problem
+        # before we used in_lockout == False, but this will just delay the posterior sum for every ripple
+        #elif self.no_ripple_time_bin == 1 and self._posterior_in_lockout == False:
+        #    self._posterior_in_lockout = True
+        #    self._posterior_last_lockout_timestamp = bin_timestamp
+        #    print('start posterior sum lockout')
+
+        # end of posterior lockout signals end of ripple
+        elif self._posterior_in_lockout == False:
             self.no_ripple_time_bin += 1
+
             if self.no_ripple_time_bin > 2:
                 self.posterior_time_bin = 0
                 self.posterior_arm_sum = np.asarray([0,0,0,0,0,0,0,0,0])
@@ -1095,6 +1127,9 @@ class MainSimulatorManager(rt_logging.LoggingClass):
         # Update stim decider's ripple parameters
         self.stim_decider.update_n_threshold(rip_param_message.n_above_thresh)
         self.stim_decider.update_lockout_time(rip_param_message.lockout_time)
+        self.stim_decider.update_conditioning_lockout_time(rip_param_message.ripple_conditioning_lockout_time)
+        self.stim_decider.update_posterior_lockout_time(rip_param_message.posterior_lockout_time)
+
         if rip_param_message.enabled:
             self.stim_decider.enable()
         else:

@@ -20,7 +20,8 @@ from spykshrk.realtime.realtime_base import ChannelSelection, TurnOnDataStream, 
 
 class RippleParameterMessage(rt_logging.PrintableMessage):
     def __init__(self, rip_coeff1=1.2, rip_coeff2=0.2, ripple_threshold=5, samp_divisor=10000, n_above_thresh=1,
-                 lockout_time=7500, detect_no_ripple_time=60000, dio_gate_port=None, detect_no_ripples=False,
+                 lockout_time=7500, ripple_conditioning_lockout_time = 7500, posterior_lockout_time = 7500,
+                 detect_no_ripple_time=60000, dio_gate_port=None, detect_no_ripples=False,
                  dio_gate=False, enabled=False, use_custom_baseline=False, update_custom_baseline=False):
         self.rip_coeff1 = rip_coeff1
         self.rip_coeff2 = rip_coeff2
@@ -28,6 +29,8 @@ class RippleParameterMessage(rt_logging.PrintableMessage):
         self.samp_divisor = samp_divisor
         self.n_above_thresh = n_above_thresh
         self.lockout_time = lockout_time
+        self.ripple_conditioning_lockout_time = ripple_conditioning_lockout_time
+        self.posterior_lockout_time = posterior_lockout_time
         self.detect_no_ripple_time = detect_no_ripple_time
         self.dio_gate_port = dio_gate_port
         self.detect_no_ripples = detect_no_ripples
