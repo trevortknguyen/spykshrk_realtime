@@ -420,7 +420,8 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                                               send_interface=send_interface,
                                               rec_ids=[realtime_base.RecordIDs.DECODER_OUTPUT,
                                                        realtime_base.RecordIDs.DECODER_MISSED_SPIKES],
-                                              rec_labels=[['bin_timestamp','wall_time', 'velocity', 'real_pos','spike_count',
+                                              rec_labels=[['bin_timestamp','wall_time', 'velocity', 'real_pos',
+                                                            'raw_x','raw_y','smooth_x','smooth_y','spike_count',
                                                             'ripple','ripple_number','ripple_length','shortcut_message',
                                                             'box','arm1','arm2','arm3','arm4','arm5','arm6','arm7','arm8'] +
                                                           ['x{:0{dig}d}'.
@@ -428,7 +429,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                                                                                  ['position']['bins'])))
                                                            for x in range(config['encoder']['position']['bins'])],
                                                           ['timestamp', 'elec_grp_id', 'real_bin', 'late_bin']],
-                                              rec_formats=['qdddqqqqqddddddddd'+'d'*config['encoder']['position']['bins'],
+                                              rec_formats=['qdddddddqqqqqddddddddd'+'d'*config['encoder']['position']['bins'],
                                                            'qiii'])
                                                 #i think if you change second q to d above, then you can replace real_pos_time
                                                 # with velocity
@@ -439,7 +440,12 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
         self.pos_interface = pos_interface
 
         #initialize velocity calc and linear position assignment functions
+        self.raw_x = 0
+        self.raw_y = 0
         self.current_vel = 0
+        self.smooth_x = 0
+        self.smooth_y = 0               
+        self.smooth_vel = 0
         self.velCalc = VelocityCalculator()
         self.linPosAssign = LinearPositionAssignment()
 
@@ -548,7 +554,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                 self.write_record(realtime_base.RecordIDs.DECODER_OUTPUT,
                                   self.current_time_bin * self.time_bin_size, time,
                                   self.current_vel,
-                                  self.pp_decoder.cur_pos,
+                                  self.pp_decoder.cur_pos,self.raw_x,self.raw_y,self.smooth_x,self.smooth_y,
                                   self.spike_count,
                                   self.ripple_thresh_decoder, self.ripple_number, self.ripple_time_bin,self.shortcut_message_sent,
                                   self.posterior_arm_sum[0][0],self.posterior_arm_sum[0][1],
@@ -572,7 +578,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                     self.write_record(realtime_base.RecordIDs.DECODER_OUTPUT,
                                       self.current_time_bin * self.time_bin_size, time,
                                       self.current_vel,
-                                      self.pp_decoder.cur_pos,
+                                      self.pp_decoder.cur_pos,self.raw_x,self.raw_y,self.smooth_x,self.smooth_y,
                                       0,
                                       self.ripple_thresh_decoder, self.ripple_number, self.ripple_time_bin,self.shortcut_message_sent,
                                       self.posterior_arm_sum[0][0],self.posterior_arm_sum[0][1],
@@ -636,7 +642,13 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
             else:
                 #self.pp_decoder.update_position(pos_timestamp=pos_data.timestamp, pos_data=pos_data.x)
                 # we want to use linearized position here
+                # try calculating velocity with smoothed position, see if it looks better
+                self.raw_x = pos_data.x
+                self.raw_y = pos_data.y
+                self.smooth_x = self.velCalc.smooth_x_position(pos_data.x)
+                self.smooth_y = self.velCalc.smooth_y_position(pos_data.y)                
                 self.current_vel = self.velCalc.calculator(pos_data.x, pos_data.y)
+                self.smooth_vel = self.velCalc.calculator(self.smooth_x, self.smooth_y)
                 current_pos = self.linPosAssign.assign_position(pos_data.segment, pos_data.position)
 
                 self.pp_decoder.update_position(pos_timestamp=pos_data.timestamp, pos_data=current_pos, vel_data=self.current_vel)
@@ -649,7 +661,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                 # this prints position and velocity every 5 sec
                 if self.pos_msg_counter % 150 == 0:
                     print('position = ',current_pos,' and velocity = ',np.around(self.current_vel,decimals=2),
-                          'segment = ',pos_data.segment)
+                          'smooth velocity = ',np.around(self.smooth_vel,decimals=2),'segment = ',pos_data.segment)
 
                 #print(pos_data.x, pos_data.segment)
                 #TODO implement trodes cameramodule update position function

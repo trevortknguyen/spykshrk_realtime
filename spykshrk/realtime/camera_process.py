@@ -12,7 +12,7 @@ from spykshrk.realtime.tetrode_models import kernel_encoder
 import spykshrk.realtime.rst.RSTPython as RST
 
 # for now this script just holds the two classes: LinearPositionAssignment and VelocityCalculator
-# the functions in these classed are called in encoder_process and main_process
+# the functions in these classed are called in encoder_process and decoder_process
 
 class LinearPositionAssignment:
     def __init__(self):
@@ -131,8 +131,6 @@ class LinearPositionAssignment:
         #    self.assigned_pos = math.ceil(segment_pos*12 + self.shift_linear_distance_by_arm_dictionary[segment])
 
         # 4 arms with single segment between home and wait
-        # re-assign segment numbers because there is a problem with linearization map in trodes
-        # this is hard-coded and will only work with broken linearization
         if segment == 0:
             self.assigned_pos = math.floor(segment_pos*6 + self.shift_linear_distance_by_arm_dictionary[segment])
             if self.assigned_pos == 6:
