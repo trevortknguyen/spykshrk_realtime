@@ -568,7 +568,7 @@ class RippleManager(realtime_base.BinaryRecordBaseWithTiming, rt_logging.Logging
             if isinstance(datapoint, LFPPoint):
                 #print("new lfp point: ",datapoint.timestamp,datapoint.data)
                 self.lfp_counter +=1
-                if self.lfp_counter % 1000 == 0:
+                if self.lfp_counter % 10 == 0:
                     self.record_timing(timestamp=datapoint.timestamp, elec_grp_id=datapoint.elec_grp_id,
                                        datatype=datatypes.Datatypes.LFP, label='rip_recv')
 
