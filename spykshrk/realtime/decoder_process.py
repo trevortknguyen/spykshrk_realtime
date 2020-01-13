@@ -206,9 +206,9 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         # based on looking at counts from position this should work, so each arm is 11 units
 
         # 8 arm version
-        #arm_coords = np.array([[0,8],[13,24],[29,40],[45,56],[61,72],[77,88],[93,104],[109,120],[125,136]])
+        arm_coords = np.array([[0,8],[13,24],[29,40],[45,56],[61,72],[77,88],[93,104],[109,120],[125,136]])
         # 4 arm version
-        arm_coords = np.array([[0,8],[13,24],[29,40],[45,56],[61,72]])
+        #arm_coords = np.array([[0,8],[13,24],[29,40],[45,56],[61,72]])
         max_pos = arm_coords[-1][-1] + 1
         pos_bins = np.arange(0,max_pos,1)
 
@@ -223,16 +223,16 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         box_end_bin = arm_coords[0,1]
 
         # 8 arm version
-        #for x in arm_coords[:,0]:
-        #    transition_mat[int(x),int(x)] = (5/9)
-        #    transition_mat[box_end_bin,int(x)] = (1/9)
-        #    transition_mat[int(x),box_end_bin] = (1/9)
+        for x in arm_coords[:,0]:
+            transition_mat[int(x),int(x)] = (5/9)
+            transition_mat[box_end_bin,int(x)] = (1/9)
+            transition_mat[int(x),box_end_bin] = (1/9)
 
         # 4 arm version
-        for x in arm_coords[:,0]:
-            transition_mat[int(x),int(x)] = (7/15)
-            transition_mat[box_end_bin,int(x)] = (1/5)
-            transition_mat[int(x),box_end_bin] = (1/5)
+        #for x in arm_coords[:,0]:
+        #    transition_mat[int(x),int(x)] = (7/15)
+        #    transition_mat[box_end_bin,int(x)] = (1/5)
+        #    transition_mat[int(x),box_end_bin] = (1/5)
 
         for y in arm_coords[:,1]:
             transition_mat[int(y),int(y)] = (2/3)
@@ -243,14 +243,14 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         transition_mat[0,0] = (2/3)
 
         # 8 arm version
-        #transition_mat[box_end_bin-1, box_end_bin-1] = (5/9)
-        #transition_mat[box_end_bin-1,box_end_bin] = (1/9)
-        #transition_mat[box_end_bin, box_end_bin-1] = (1/9)
+        transition_mat[box_end_bin-1, box_end_bin-1] = (5/9)
+        transition_mat[box_end_bin-1,box_end_bin] = (1/9)
+        transition_mat[box_end_bin, box_end_bin-1] = (1/9)
 
         # 4 arm version
-        transition_mat[box_end_bin-1, box_end_bin-1] = (7/15)
-        transition_mat[box_end_bin-1,box_end_bin] = (1/5)
-        transition_mat[box_end_bin, box_end_bin-1] = (1/5)
+        #transition_mat[box_end_bin-1, box_end_bin-1] = (7/15)
+        #transition_mat[box_end_bin-1,box_end_bin] = (1/5)
+        #transition_mat[box_end_bin, box_end_bin-1] = (1/5)
 
         # uniform offset (gain, currently 0.0001)
         # 9-1-19 this is now taken from config file
@@ -381,10 +381,10 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
     def calculate_posterior_arm_sum(self, posterior, ripple_time_bin):
 
         # 8 arm version - i think this should match the transition matrix (before was all values-1, not sure why)
-        #arm_coords_rt = [[0,8],[13,24],[29,40],[45,56],[61,72],[77,88],[93,104],[109,120],[125,136]]
+        arm_coords_rt = [[0,8],[13,24],[29,40],[45,56],[61,72],[77,88],[93,104],[109,120],[125,136]]
         
         # 4 arm version
-        arm_coords_rt = [[0,8],[13,24],[29,40],[45,56],[61,72]]
+        #arm_coords_rt = [[0,8],[13,24],[29,40],[45,56],[61,72]]
 
         #post_sum_bin_length = 20
         posterior = posterior

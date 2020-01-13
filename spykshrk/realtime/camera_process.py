@@ -23,6 +23,7 @@ class LinearPositionAssignment:
         self.arm_shift_dictionary()
 
     def arm_shift_dictionary(self):
+        # max_pos: 8 arm - 136 | 4 arm - 72
         # 0-6 = box, 7 = arm1 ... 14 = arm8
         # 6-9-19: seems to work as expected! matches offline linearization!
         # 8-15-19: updated for new track geometry
@@ -42,49 +43,49 @@ class LinearPositionAssignment:
 
         # with this setup max position is 136
         for arm in hardcode_armorder: # for each outer arm
-            ## if inner box, do nothing
-            #if arm == 0:
-            #    temporary_variable_shift = 0
+            # if inner box, do nothing
+            if arm == 0:
+               temporary_variable_shift = 0
 
-            ## if outer box segments add inner box
-            #elif arm < 9 and arm > 0:
-            #    temporary_variable_shift = 4
+            # if outer box segments add inner box
+            elif arm < 9 and arm > 0:
+               temporary_variable_shift = 4
 
             # replace inner and outer box with 8 parallel segments
             
             # toggle this for 8 vs 4 arms
-            #if arm < 8:
+            if arm < 8:
             #if arm < 4:
-            #    temporary_variable_shift = 0               
+               temporary_variable_shift = 0               
 
-            #for first arm replace linearization_arm_length with 7 for the box
+            # for first arm replace linearization_arm_length with 7 for the box
             # old segments for box, set this to 9, new parallel segments for box, set to 8
             
             # toggle this for 4 vs 8 arms
-            #elif arm == 8:
+            elif arm == 8:
             #elif arm == 4:
-            #    temporary_variable_shift = hardcode_shiftamount + 8
-            #    #temporary_variable_shift = hardcode_shiftamount + 8 + self.shift_linear_distance_by_arm_dictionary[hardcode_armorder[arm - 1]]
+               temporary_variable_shift = hardcode_shiftamount + 8
+               #temporary_variable_shift = hardcode_shiftamount + 8 + self.shift_linear_distance_by_arm_dictionary[hardcode_armorder[arm - 1]]
 
-            #else: # if arms 2-8, shift with gap
-            #    temporary_variable_shift = hardcode_shiftamount + 12 + self.shift_linear_distance_by_arm_dictionary[hardcode_armorder[arm - 1]]
+            else: # if arms 2-8, shift with gap
+               temporary_variable_shift = hardcode_shiftamount + 12 + self.shift_linear_distance_by_arm_dictionary[hardcode_armorder[arm - 1]]
         
-            # 4 arms with single segment between home and wait well
-            # home to wait
-            if arm == 0:
-                temporary_variable_shift = 0
+            # # 4 arms with single segment between home and wait well
+            # # home to wait
+            # if arm == 0:
+            #     temporary_variable_shift = 0
 
-            # outer half of box
-            elif arm > 0 and arm < 5:
-                temporary_variable_shift = 5
+            # # outer half of box
+            # elif arm > 0 and arm < 5:
+            #     temporary_variable_shift = 5
 
-            # first outer arm
-            elif arm == 5:
-                temporary_variable_shift = hardcode_shiftamount + 8
+            # # first outer arm
+            # elif arm == 5:
+            #     temporary_variable_shift = hardcode_shiftamount + 8
             
-            # outer arms
-            else:
-                temporary_variable_shift = hardcode_shiftamount + 12 + self.shift_linear_distance_by_arm_dictionary[hardcode_armorder[arm - 1]]
+            # # outer arms
+            # else:
+            #     temporary_variable_shift = hardcode_shiftamount + 12 + self.shift_linear_distance_by_arm_dictionary[hardcode_armorder[arm - 1]]
             
             self.shift_linear_distance_by_arm_dictionary[arm] = temporary_variable_shift
             #print(self.shift_linear_distance_by_arm_dictionary)
@@ -107,16 +108,16 @@ class LinearPositionAssignment:
         # fixed so that any values in box where segment_pos = 1, get set back to bin 8, need bin 9 to be empty
 
         # for 8 arms
-        #if segment < 8:
-        #    self.assigned_pos = math.floor(segment_pos*9 + self.shift_linear_distance_by_arm_dictionary[segment])
-        #    if self.assigned_pos == 9:
-        #        self.assigned_pos = 8
-        #        print('edge of box position binning correction')
-        #    if self.assigned_pos == -1:
-        #        self.assigned_pos = 0
-        #        print('position was -1')
-        #else:
-        #    self.assigned_pos = math.ceil(segment_pos*12 + self.shift_linear_distance_by_arm_dictionary[segment])
+        if segment < 8:
+           self.assigned_pos = math.floor(segment_pos*9 + self.shift_linear_distance_by_arm_dictionary[segment])
+           if self.assigned_pos == 9:
+               self.assigned_pos = 8
+               #print('edge of box position binning correction')
+           if self.assigned_pos == -1:
+               self.assigned_pos = 0
+               #print('position was -1')
+        else:
+           self.assigned_pos = math.ceil(segment_pos*12 + self.shift_linear_distance_by_arm_dictionary[segment])
 
         # for 4 arms with multiple paths from home
         #if segment < 4:
@@ -130,17 +131,17 @@ class LinearPositionAssignment:
         #else:
         #    self.assigned_pos = math.ceil(segment_pos*12 + self.shift_linear_distance_by_arm_dictionary[segment])
 
-        # 4 arms with single segment between home and wait
-        if segment == 0:
-            self.assigned_pos = math.floor(segment_pos*6 + self.shift_linear_distance_by_arm_dictionary[segment])
-            if self.assigned_pos == 6:
-                self.assigned_pos = 5
-        elif segment > 0 and segment < 5:
-            self.assigned_pos = math.floor(segment_pos*4 + self.shift_linear_distance_by_arm_dictionary[segment])
-            if self.assigned_pos == 9:
-                self.assigned_pos = 8
-        else:
-            self.assigned_pos = math.ceil(segment_pos*12 + self.shift_linear_distance_by_arm_dictionary[segment])
+        # # 4 arms with single segment between home and wait
+        # if segment == 0:
+        #     self.assigned_pos = math.floor(segment_pos*6 + self.shift_linear_distance_by_arm_dictionary[segment])
+        #     if self.assigned_pos == 6:
+        #         self.assigned_pos = 5
+        # elif segment > 0 and segment < 5:
+        #     self.assigned_pos = math.floor(segment_pos*4 + self.shift_linear_distance_by_arm_dictionary[segment])
+        #     if self.assigned_pos == 9:
+        #         self.assigned_pos = 8
+        # else:
+        #     self.assigned_pos = math.ceil(segment_pos*12 + self.shift_linear_distance_by_arm_dictionary[segment])
 
         return self.assigned_pos
 

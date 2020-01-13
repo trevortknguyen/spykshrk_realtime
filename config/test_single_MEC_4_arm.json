@@ -129,9 +129,9 @@
 
         "position": {
             "lower": 0,
-            "upper": 73,
-            "bins": 73,
-            "arm_pos": [[0, 72]]
+            "upper": 137,
+            "bins": 137,
+            "arm_pos": [[0, 136]]
         },
         "position_kernel": {
             "std": 5
