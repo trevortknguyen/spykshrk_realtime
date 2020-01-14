@@ -278,6 +278,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         self.arm3_replay_counter = 0
         self.arm4_replay_counter = 0
         self.posterior_time_bin = 0
+        self.posterior_spike_count = 0
         self.posterior_arm_threshold = self.config['ripple_conditioning']['posterior_sum_threshold']
         # set max repeats allowed at each arm during content trials
         self.max_arm_repeats = 1
@@ -504,7 +505,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
 
     # MEC: this function sums the posterior during each ripple, then sends shortcut message
     # need to add location filter so it only sends message when rat is at rip/wait well - no, that is in statescript
-    def posterior_sum(self, bin_timestamp, spike_timestamp, box,arm1,arm2,arm3,arm4,arm5,arm6,arm7,arm8,networkclient):
+    def posterior_sum(self, bin_timestamp, spike_timestamp, box,arm1,arm2,arm3,arm4,arm5,arm6,arm7,arm8,spike_count,networkclient):
         time = MPI.Wtime()
 
         # reset posterior arm threshold (e.g. 0.5) based on the new_ripple_threshold text file
@@ -609,6 +610,10 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             #print('new posterior, bin number:',self.posterior_time_bin,np.around(new_posterior_sum,decimals=2),
             #      'decoder timestamp',bin_timestamp,'lfp timestamp',self.lfp_timestamp)
             self.posterior_arm_sum = self.posterior_arm_sum + new_posterior_sum
+
+            # also add up spikes in the replay
+            self.posterior_spike_count = self.posterior_spike_count + spike_count
+            # now need to add spike count to the records
 
             # MEC: 10-27-19: try turning off stim_message record to see if that helps record saving problem
             self.ripple_end = 0
@@ -919,6 +924,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
 
             if self.no_ripple_time_bin > 2:
                 self.posterior_time_bin = 0
+                self.posterior_spike_count = 0
                 self.posterior_arm_sum = np.asarray([0,0,0,0,0,0,0,0,0])
                 self.norm_posterior_arm_sum = np.asarray([0,0,0,0,0,0,0,0,0])
                 self.shortcut_message_arm = 99
@@ -974,7 +980,8 @@ class PosteriorSumRecvInterface(realtime_base.RealtimeMPIClass):
         self.networkclient = networkclient
         #NOTE: if you dont know how large the buffer should be, set it to a large number
         # then you will get an error saying what it should be set to
-        self.msg_buffer = bytearray(80)
+        # bytearray was 80 before adding spike_count
+        self.msg_buffer = bytearray(84)
         self.req = self.comm.Irecv(buf=self.msg_buffer, tag=realtime_base.MPIMessageTag.POSTERIOR.value)
 
     def __next__(self):
@@ -993,9 +1000,22 @@ class PosteriorSumRecvInterface(realtime_base.RealtimeMPIClass):
             self.stim.posterior_sum(bin_timestamp=message.bin_timestamp,spike_timestamp=message.spike_timestamp,
                                     box=message.box,arm1=message.arm1,
                                     arm2=message.arm2,arm3=message.arm3,arm4=message.arm4,arm5=message.arm5,
-                                    arm6=message.arm6,arm7=message.arm7,arm8=message.arm8,networkclient=self.networkclient)             
+                                    arm6=message.arm6,arm7=message.arm7,arm8=message.arm8,
+                                    spike_count=spike_count,networkclient=self.networkclient)             
             #print('posterior sum message supervisor: ',message.timestamp,time*1000)
             #return posterior_sum
+
+        # can we put a condtional statement here to run posterior_sum every 8 LFP measurements (~5 msec)
+        # we bring in stim_decider to this class as stim so stim.thresh_counter should work
+        # will this work if there is no message??
+        # comment this out for now
+        #elif not rdy and self.stim.thresh_counter % 8 == 0:
+        #    self.stim.posterior_sum(bin_timestamp=message.bin_timestamp,spike_timestamp=message.spike_timestamp,
+        #                            box=message.box,arm1=message.arm1,
+        #                            arm2=message.arm2,arm3=message.arm3,arm4=message.arm4,arm5=message.arm5,
+        #                            arm6=message.arm6,arm7=message.arm7,arm8=message.arm8,
+        #                            spike_count=0,networkclient=self.networkclient)
+        #    # with this version of running posterior_sum we want spike_count = 0, so we can count spikes accurately          
 
         else:
             return None

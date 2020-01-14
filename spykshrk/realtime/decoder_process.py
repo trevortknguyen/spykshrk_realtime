@@ -16,9 +16,9 @@ class PosteriorSum(rt_logging.PrintableMessage):
 
     This message has helper serializer/deserializer functions to be used to speed transmission.
     """
-    _byte_format = 'IIddddddddd'
+    _byte_format = 'IIdddddddddi'
 
-    def __init__(self, bin_timestamp, spike_timestamp, box,arm1,arm2,arm3,arm4,arm5,arm6,arm7,arm8):
+    def __init__(self, bin_timestamp, spike_timestamp, box,arm1,arm2,arm3,arm4,arm5,arm6,arm7,arm8,spike_count):
         self.bin_timestamp = bin_timestamp
         self.spike_timestamp = spike_timestamp
         self.box = box
@@ -30,16 +30,18 @@ class PosteriorSum(rt_logging.PrintableMessage):
         self.arm6 = arm6
         self.arm7 = arm7
         self.arm8 = arm8
+        self.spike_count = spike_count
 
     def pack(self):
         return struct.pack(self._byte_format, self.bin_timestamp, self.spike_timestamp, self.box,
-                           self.arm1,self.arm2,self.arm3,self.arm4,self.arm5,self.arm6,self.arm7,self.arm8)
+                           self.arm1,self.arm2,self.arm3,self.arm4,self.arm5,self.arm6,self.arm7,
+                           self.arm8,self.spike_count)
 
     @classmethod
     def unpack(cls, message_bytes):
-        bin_timestamp, spike_timestamp, box,arm1,arm2,arm3,arm4,arm5,arm6,arm7,arm8 = struct.unpack(cls._byte_format, message_bytes)
+        bin_timestamp, spike_timestamp, box,arm1,arm2,arm3,arm4,arm5,arm6,arm7,arm8, spike_count = struct.unpack(cls._byte_format, message_bytes)
         return cls(bin_timestamp=bin_timestamp, spike_timestamp=spike_timestamp, box=box,arm1=arm1,arm2=arm2,
-                   arm3=arm3,arm4=arm4,arm5=arm5,arm6=arm6,arm7=arm7,arm8=arm8)
+                   arm3=arm3,arm4=arm4,arm5=arm5,arm6=arm6,arm7=arm7,arm8=arm8,spike_count=spike_count)
 
 class VelocityPosition(rt_logging.PrintableMessage):
     """"Message containing velocity and linearized position from decoder_process.
@@ -72,8 +74,8 @@ class DecoderMPISendInterface(realtime_base.RealtimeMPIClass):
                            tag=realtime_base.MPIMessageTag.COMMAND_MESSAGE.value)
 
     #def sending posterior message to supervisor with POSTERIOR tag
-    def send_posterior_message(self, bin_timestamp, spike_timestamp, box,arm1,arm2,arm3,arm4,arm5,arm6,arm7,arm8):
-        message = PosteriorSum(bin_timestamp, spike_timestamp, box,arm1,arm2,arm3,arm4,arm5,arm6,arm7,arm8)
+    def send_posterior_message(self, bin_timestamp, spike_timestamp, box,arm1,arm2,arm3,arm4,arm5,arm6,arm7,arm8,spike_count):
+        message = PosteriorSum(bin_timestamp, spike_timestamp, box,arm1,arm2,arm3,arm4,arm5,arm6,arm7,arm8,spike_count)
         #print('stim_message: ',message)
 
         self.comm.Send(buf=message.pack(),
@@ -549,7 +551,8 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                                                      self.posterior_arm_sum[0][1],self.posterior_arm_sum[0][2],
                                                      self.posterior_arm_sum[0][3],self.posterior_arm_sum[0][4],
                                                      self.posterior_arm_sum[0][5],self.posterior_arm_sum[0][6],
-                                                     self.posterior_arm_sum[0][7],self.posterior_arm_sum[0][8])
+                                                     self.posterior_arm_sum[0][7],self.posterior_arm_sum[0][8],
+                                                     self.spike_count)
 
                 self.write_record(realtime_base.RecordIDs.DECODER_OUTPUT,
                                   self.current_time_bin * self.time_bin_size, time,
@@ -594,7 +597,8 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                                                          self.posterior_arm_sum[0][1],self.posterior_arm_sum[0][2],
                                                          self.posterior_arm_sum[0][3],self.posterior_arm_sum[0][4],
                                                          self.posterior_arm_sum[0][5],self.posterior_arm_sum[0][6],
-                                                         self.posterior_arm_sum[0][7],self.posterior_arm_sum[0][8])
+                                                         self.posterior_arm_sum[0][7],self.posterior_arm_sum[0][8],
+                                                         self.spike_count)
                     self.current_time_bin += 1
                     self.shortcut_message_sent = False
 
