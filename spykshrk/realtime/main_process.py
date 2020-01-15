@@ -475,20 +475,46 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                                   timestamp, self.velocity, self._lockout_count, self._in_lockout,
                                   num_above, self.big_rip_message_sent)
 
-            # time outside of lockout when no ripple detected
-            # what should happen here? i don think we need this
-
-            # i think this should care about both lockouts - but im not sure
-            # no, we removed stim_thresh from the conditioning lockout, so this is just content lockout
-            # i dont think we need the lockout at all, if num_above below thresh, then stim_thresh is false
-            # see if this is preventing stim_thresh from being true - yes but then stim_thresh is never false
-            # this means num above can fall below the threshold during a lockout - is this okay?
-            # i think this means the ripple_time_bin will just count up during the lockout - YES
-            #elif num_above < self._ripple_n_above_thresh and not self._in_lockout:
-            #    self.stim_thresh = False
-            #    #self._send_interface.send_stim_decision(timestamp, self.stim_thresh)
+            # this is where sending the statescript message should be triggered if lockout is over
+            # this should force message to be sent on time, without a delay from several empty bins
+            # we may also need to incorperate a lower limit for spike_count
 
             return num_above
+
+    # this function handles sending statescript message at end of replay
+    def posterior_sum_statescript_message(self, arm):
+        arm = arm
+        print('max posterior in arm',arm,np.around(self.norm_posterior_arm_sum[arm],decimals=2),
+              'posterior sum: ',np.around(self.norm_posterior_arm_sum.sum(),decimals=2),
+              'position ',np.around(self.linearized_position,decimals=2),
+              'posterior bins in ripple ',self.posterior_time_bin,'ending bin timestamp',bin_timestamp,
+              'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-bin_timestamp)/30,
+              'spike count',self.posterior_spike_count)
+        self.shortcut_message_arm = np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0]
+        # only send message for arm 1 replay if it was not last rewarded arm
+        # how to write the variable arm1_replay_counter from the variable arm???
+        if self.arm1_replay_counter < self.max_arm_repeats:
+            # note: statescript can only execute one function at a time, so trigger function 15 and set replay_arm variable
+            # how to write string with variable arm: replay_arm = 1;\ntrigger(15);\n' ???
+            networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['replay_arm = 1;\ntrigger(15);\n'])
+            print('sent StateScript message for arm',arm,'replay in ripple ',self.ripple_number)
+            # arm replay counters, only active at wait well and adds to current counter and sets other arms to 0
+            # we moved arm replay counters up to take in a text file from trodes with last rewarded arm
+            print('arm counters: ',self.arm1_replay_counter,self.arm2_replay_counter,
+                  self.arm3_replay_counter,self.arm4_replay_counter)
+            self.shortcut_message_sent = True
+
+            self.ripple_end = 1
+            self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
+                              bin_timestamp, spike_timestamp, self.lfp_timestamp, time, self.shortcut_message_sent, 
+                              self.ripple_number, self.posterior_time_bin, self.shortcut_message_arm,
+                              self.posterior_arm_threshold,self.ripple_end,self.max_arm_repeats,
+                              self.norm_posterior_arm_sum[0],self.norm_posterior_arm_sum[1],self.norm_posterior_arm_sum[2],
+                              self.norm_posterior_arm_sum[3],self.norm_posterior_arm_sum[4],self.norm_posterior_arm_sum[5],
+                              self.norm_posterior_arm_sum[6],self.norm_posterior_arm_sum[7],self.norm_posterior_arm_sum[8])
+        else:
+            print('more than ',self.max_arm_repeats,' replays of arm', arm, 'in a row!')
+
 
     # MEC: this function brings in velocity and linearized position from decoder process
     def velocity_position(self, bin_timestamp, vel, pos):
@@ -643,6 +669,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             # alternative: only require that any outer arm is above 0.3 - then put reward in that arm
 
             # should this be len(argwhere) > 0? does this mean this already?
+            # NOTE: here add a trigger for sending the statescript if lfp_timestamp > posterior_lockout
+            # this will have to go somewhere else in this function because we are currently inside posterior_sum
             if len(np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold) == 1) and self.posterior_time_bin >= 10:
                 
                 # replay detection of box
@@ -671,6 +699,9 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
 
                 # replay detection of arm 1
                 elif np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 1:
+                    # want to functionalize all these commands with:
+                    # posterior_sum_statescript_message(1)
+                    
                     print('max posterior in arm 1',np.around(self.norm_posterior_arm_sum[1],decimals=2),
                           'posterior sum: ',np.around(self.norm_posterior_arm_sum.sum(),decimals=2),
                           'position ',np.around(self.linearized_position,decimals=2),
@@ -1019,15 +1050,15 @@ class PosteriorSumRecvInterface(realtime_base.RealtimeMPIClass):
         # can we put a condtional statement here to run posterior_sum every 8 LFP measurements (~5 msec)
         # we bring in stim_decider to this class as stim so stim.thresh_counter should work
         # will this work if there is no message??
-        # comment this out for now
-        elif not rdy and self.stim.thresh_counter % 16 == 0 and self.stim.postsum_timing_counter > 0 and self.stim._posterior_in_lockout:
+        # this doesnt seem to work because it gets triggered 10-20 times for each matching timestamp
+        #elif not rdy and self.stim.thresh_counter % 16 == 0 and self.stim.postsum_timing_counter > 0 and self.stim._posterior_in_lockout:
             #self.stim.posterior_sum(bin_timestamp=message.bin_timestamp,spike_timestamp=message.spike_timestamp,
             #                        box=message.box,arm1=message.arm1,
             #                        arm2=message.arm2,arm3=message.arm3,arm4=message.arm4,arm5=message.arm5,
             #                        arm6=message.arm6,arm7=message.arm7,arm8=message.arm8,
             #                        spike_count=0,networkclient=self.networkclient)
-            print('no spike posterior',self.stim.thresh_counter)
-        #    # with this version of running posterior_sum we want spike_count = 0, so we can count spikes accurately          
+            #print('no spike posterior',self.stim.thresh_counter)
+            # with this version of running posterior_sum we want spike_count = 0, so we can count spikes accurately          
 
         else:
             return None

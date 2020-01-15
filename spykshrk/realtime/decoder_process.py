@@ -337,6 +337,9 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         # Normalize
         self.posterior = self.posterior / self.posterior.sum()
 
+        # we can save the no spike likelihood here
+        # QUESTION: what happens to the likelihood and the posterior during long times of no spike??
+
         return self.posterior
 
     def increment_bin(self):
@@ -369,6 +372,8 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         self.posterior = self.likelihood * (self.transition_mat * self.prev_posterior).sum(axis=1)
         # Normalize
         self.posterior = self.posterior / self.posterior.sum()
+
+        # we can save the likelihood here
 
         # Save resulting posterior
         # self.record.write_record(realtime_base.RecordIDs.DECODER_OUTPUT,
