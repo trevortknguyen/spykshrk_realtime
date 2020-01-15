@@ -651,7 +651,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                           'posterior sum: ',np.around(self.norm_posterior_arm_sum.sum(),decimals=2),
                           'position ',np.around(self.linearized_position,decimals=2),'ripple ',self.ripple_number,
                           'posterior bins in ripple ',self.posterior_time_bin,'ending bin timestamp',bin_timestamp,
-                          'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-bin_timestamp)/30)
+                          'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-bin_timestamp)/30,
+                          'spike count',self.posterior_spike_count)
                     self.shortcut_message_arm = np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0]
                     # For testing: while bill is in sleep box, this seems to be triggered most frequently
                     #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['replay_arm = 2;\ntrigger(15);\n'])
@@ -674,7 +675,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                           'posterior sum: ',np.around(self.norm_posterior_arm_sum.sum(),decimals=2),
                           'position ',np.around(self.linearized_position,decimals=2),
                           'posterior bins in ripple ',self.posterior_time_bin,'ending bin timestamp',bin_timestamp,
-                          'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-bin_timestamp)/30)
+                          'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-bin_timestamp)/30,
+                          'spike count',self.posterior_spike_count)
                     self.shortcut_message_arm = np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0]
                     # only send message for arm 1 replay if less than replays 3 in a row
                     if self.arm1_replay_counter < self.max_arm_repeats:
@@ -704,7 +706,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                           'posterior sum: ',np.around(self.norm_posterior_arm_sum.sum(),decimals=2),
                           'position ',np.around(self.linearized_position,decimals=2),
                           'posterior bins in ripple ',self.posterior_time_bin,'ending bin timestamp',bin_timestamp,
-                          'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-bin_timestamp)/30)
+                          'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-bin_timestamp)/30,
+                          'spike count',self.posterior_spike_count)
                     self.shortcut_message_arm = np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0]
                     if self.arm2_replay_counter < self.max_arm_repeats:
                         networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['replay_arm = 2;\ntrigger(15);\n'])
@@ -730,7 +733,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                           'posterior sum: ',np.around(self.norm_posterior_arm_sum.sum(),decimals=2),
                           'position ',np.around(self.linearized_position,decimals=2),
                           'posterior bins in ripple ',self.posterior_time_bin,'ending bin timestamp',bin_timestamp,
-                          'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-bin_timestamp)/30)
+                          'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-bin_timestamp)/30,
+                          'spike count',self.posterior_spike_count)
                     self.shortcut_message_arm = np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0]
                     if self.arm3_replay_counter < self.max_arm_repeats:
                         networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['replay_arm = 3;\ntrigger(15);\n'])
@@ -756,7 +760,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                           'posterior sum: ',np.around(self.norm_posterior_arm_sum.sum(),decimals=2),
                           'position ',np.around(self.linearized_position,decimals=2),
                           'posterior bins in ripple ',self.posterior_time_bin,'ending bin timestamp',bin_timestamp,
-                          'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-bin_timestamp)/30)
+                          'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-bin_timestamp)/30,
+                          'spike count',self.posterior_spike_count)
                     self.shortcut_message_arm = np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0]
                     if self.arm4_replay_counter < self.max_arm_repeats:
                         networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['replay_arm = 4;\ntrigger(15);\n'])
@@ -782,7 +787,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                           'posterior sum: ',np.around(self.norm_posterior_arm_sum.sum(),decimals=2),
                           'position ',np.around(self.linearized_position,decimals=2),
                           'posterior bins in ripple ',self.posterior_time_bin,'ending bin timestamp',bin_timestamp,
-                          'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-bin_timestamp)/30)
+                          'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-bin_timestamp)/30,
+                          'spike count',self.posterior_spike_count)
                     self.shortcut_message_arm = np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0]
                     if self.arm4_replay_counter < self.max_arm_repeats:
                         #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['replay_arm = 4;\ntrigger(15);\n'])
@@ -808,7 +814,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                           'posterior sum: ',np.around(self.norm_posterior_arm_sum.sum(),decimals=2),
                           'position ',np.around(self.linearized_position,decimals=2),
                           'posterior bins in ripple ',self.posterior_time_bin,'ending bin timestamp',bin_timestamp,
-                          'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-bin_timestamp)/30)
+                          'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-bin_timestamp)/30,
+                          'spike count',self.posterior_spike_count)
                     self.shortcut_message_arm = np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0]
                     if self.arm4_replay_counter < self.max_arm_repeats:
                         #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['replay_arm = 4;\ntrigger(15);\n'])
@@ -834,7 +841,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                           'posterior sum: ',np.around(self.norm_posterior_arm_sum.sum(),decimals=2),
                           'position ',np.around(self.linearized_position,decimals=2),
                           'posterior bins in ripple ',self.posterior_time_bin,'ending bin timestamp',bin_timestamp,
-                          'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-bin_timestamp)/30)
+                          'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-bin_timestamp)/30,
+                          'spike count',self.posterior_spike_count)
                     self.shortcut_message_arm = np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0]
                     if self.arm4_replay_counter < self.max_arm_repeats:
                         #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['replay_arm = 4;\ntrigger(15);\n'])
@@ -860,7 +868,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                           'posterior sum: ',np.around(self.norm_posterior_arm_sum.sum(),decimals=2),
                           'position ',np.around(self.linearized_position,decimals=2),
                           'posterior bins in ripple ',self.posterior_time_bin,'ending bin timestamp',bin_timestamp,
-                          'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-bin_timestamp)/30)
+                          'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-bin_timestamp)/30,
+                          'spike count',self.posterior_spike_count)
                     self.shortcut_message_arm = np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0]
                     if self.arm4_replay_counter < self.max_arm_repeats:
                         #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['replay_arm = 4;\ntrigger(15);\n'])
@@ -890,7 +899,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                       'ripple: ',self.ripple_number,'posterior sum: ',np.around(self.norm_posterior_arm_sum.sum(),decimals=2),
                       'position ',np.around(self.linearized_position,decimals=2),
                       'posterior bins in ripple ',self.posterior_time_bin,'ending bin timestamp',bin_timestamp,
-                      'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-bin_timestamp)/30)
+                      'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-bin_timestamp)/30,
+                      'spike count',self.posterior_spike_count)
                 self.shortcut_message_arm = 99
 
             else:
@@ -898,7 +908,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                       'ripple: ',self.ripple_number,'posterior sum: ',np.around(self.norm_posterior_arm_sum.sum(),decimals=2),
                       'position ',np.around(self.linearized_position,decimals=2),
                       'posterior bins in ripple ',self.posterior_time_bin,'ending bin timestamp',bin_timestamp,
-                      'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-bin_timestamp)/30)
+                      'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-bin_timestamp)/30,
+                      'spike count',self.posterior_spike_count)
                 if len(np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold) == 1) == 0:
                     self.shortcut_message_arm = 99
                 else:
@@ -1001,20 +1012,21 @@ class PosteriorSumRecvInterface(realtime_base.RealtimeMPIClass):
                                     box=message.box,arm1=message.arm1,
                                     arm2=message.arm2,arm3=message.arm3,arm4=message.arm4,arm5=message.arm5,
                                     arm6=message.arm6,arm7=message.arm7,arm8=message.arm8,
-                                    spike_count=spike_count,networkclient=self.networkclient)             
-            #print('posterior sum message supervisor: ',message.timestamp,time*1000)
+                                    spike_count=message.spike_count,networkclient=self.networkclient)             
+            #print('posterior sum message supervisor: ',message.spike_timestamp,time*1000)
             #return posterior_sum
 
         # can we put a condtional statement here to run posterior_sum every 8 LFP measurements (~5 msec)
         # we bring in stim_decider to this class as stim so stim.thresh_counter should work
         # will this work if there is no message??
         # comment this out for now
-        #elif not rdy and self.stim.thresh_counter % 8 == 0:
-        #    self.stim.posterior_sum(bin_timestamp=message.bin_timestamp,spike_timestamp=message.spike_timestamp,
-        #                            box=message.box,arm1=message.arm1,
-        #                            arm2=message.arm2,arm3=message.arm3,arm4=message.arm4,arm5=message.arm5,
-        #                            arm6=message.arm6,arm7=message.arm7,arm8=message.arm8,
-        #                            spike_count=0,networkclient=self.networkclient)
+        elif not rdy and self.stim.thresh_counter % 16 == 0 and self.stim.postsum_timing_counter > 0 and self.stim._posterior_in_lockout:
+            #self.stim.posterior_sum(bin_timestamp=message.bin_timestamp,spike_timestamp=message.spike_timestamp,
+            #                        box=message.box,arm1=message.arm1,
+            #                        arm2=message.arm2,arm3=message.arm3,arm4=message.arm4,arm5=message.arm5,
+            #                        arm6=message.arm6,arm7=message.arm7,arm8=message.arm8,
+            #                        spike_count=0,networkclient=self.networkclient)
+            print('no spike posterior',self.stim.thresh_counter)
         #    # with this version of running posterior_sum we want spike_count = 0, so we can count spikes accurately          
 
         else:
