@@ -261,6 +261,15 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         self.posterior_arm_sum = np.asarray([0,0,0,0,0,0,0,0,0])
         # initialize with single 1 so that first pass throught posterior_sum works
         self.norm_posterior_arm_sum = np.asarray([0,1,0,0,0,0,0,0,0])
+        self.box_post = 0
+        self.arm1_post = 0
+        self.arm2_post = 0
+        self.arm3_post = 0
+        self.arm4_post = 0
+        self.arm5_post = 0
+        self.arm6_post = 0
+        self.arm7_post = 0
+        self.arm8_post = 0
         self.num_above = 0
         self.ripple_number = 0
         self.shortcut_message_sent = False
@@ -276,10 +285,6 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         self.postsum_timing_counter = 0
         #self.stim_message_sent = 0
         self.big_rip_message_sent = 0
-        self.arm1_replay_counter = 0
-        self.arm2_replay_counter = 0
-        self.arm3_replay_counter = 0
-        self.arm4_replay_counter = 0
         self.arm_replay_counter = [0,0,0,0,0,0,0,0]
         self.posterior_time_bin = 0
         self.posterior_spike_count = 0
@@ -377,7 +382,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 self._lockout_count += 1
                 print('ripple lockout ended. time:',timestamp/30)
 
-            # end lockout for posterior sum - moved this inside posterior sum function
+            # end lockout for posterior sum
             if self._posterior_in_lockout and (timestamp > self._posterior_last_lockout_timestamp + 
                                                self._posterior_lockout_time):
                 # End lockout
@@ -448,7 +453,6 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 #self._send_interface.start_stimulation()
 
             # detection of content ripples: 2 tets above rip thresh, velocity below vel thresh, not in lockout (500 msec after previous rip)
-            # i think its easier to use self._in_lockout for ripple detection rather than stim_thresh
             elif (num_above >= self._ripple_n_above_thresh) and self.velocity < self.config['encoder']['vel'] and not self._in_lockout:
                 # add to the ripple count
                 self.ripple_number += 1
@@ -480,8 +484,19 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                                   num_above, self.big_rip_message_sent)
 
             # this is where sending the statescript message should be triggered if lockout is over
-            # this should force message to be sent on time, without a delay from several empty bins
+            # this should force message to be sent on time, without a delay from empty decoder bins
             # we may also need to incorperate a lower limit for spike_count
+            # set trigger for when lfp timestamp is close to end of posterior lockout time
+            # may need another lockout period of 10 msec here to prevent this line for triggering many times
+            if abs((self._posterior_last_lockout_timestamp+self._posterior_lockout_time) - timestamp) < 150:
+                # force sending of posterior sum statescript message
+                # run posterior_sum with current values
+                print('each time you see this posterior sum will run...')
+                #posterior_sum(bin_timestamp=self.bin_timestamp,spike_timestamp=self.spike_timestamp,
+                #              box=self.box_post,arm1=self.arm1_post,
+                #              arm2=self.arm2_post,arm3=self.arm3_post,arm4=self.arm4_post,
+                #              arm5=self.arm5_post,arm6=self.arm6_post,arm7=self.arm7_post,arm8=self.arm8_post,
+                #              spike_count=self.spike_count,networkclient=self.networkclient)
 
             return num_above
 
@@ -500,13 +515,11 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
               'spike count',self.posterior_spike_count)
         self.shortcut_message_arm = np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0]
         # only send message for arm 1 replay if it was not last rewarded arm
-        # how to write the variable arm1_replay_counter from the variable arm???
         if self.arm_replay_counter[arm-1] < self.max_arm_repeats:
             # NOTE: we can now replace this with the actual shortcut message!
             # for shortcut, each arm is assigned a different message
 
             # note: statescript can only execute one function at a time, so trigger function 15 and set replay_arm variable
-            # how to write string with variable arm: replay_arm = 1;\ntrigger(15);\n' ???
             statescript_command = f'replay_arm = {arm};\ntrigger(15);\n'
             #print('string for statescript:',statescript_command)
             networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', [statescript_command])
@@ -514,9 +527,6 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             print('sent StateScript message for arm',arm,'replay in ripple ',self.ripple_number)
             
             # arm replay counters, only active at wait well and adds to current counter and sets other arms to 0
-            # we moved arm replay counters up to take in a text file from trodes with last rewarded arm
-            #print('arm counters: ',self.arm1_replay_counter,self.arm2_replay_counter,
-            #      self.arm3_replay_counter,self.arm4_replay_counter)
             print('arm replay count: ',self.arm_replay_counter)
             self.shortcut_message_sent = True
 
@@ -551,6 +561,16 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         time = MPI.Wtime()
         self.bin_timestamp = bin_timestamp
         self.spike_timestamp = spike_timestamp
+        self.box_post = box
+        self.arm1_post = arm1
+        self.arm2_post = arm2
+        self.arm3_post = arm3
+        self.arm4_post = arm4
+        self.arm5_post = arm5
+        self.arm6_post = arm6
+        self.arm7_post = arm7
+        self.arm8_post = arm8
+        self.spike_count = spike_count
 
         # reset posterior arm threshold (e.g. 0.5) based on the new_ripple_threshold text file
         # this should run every 10 sec, using thresh_counter which refers to each message from ripple node
@@ -574,14 +594,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         # use this to prevent repeated rewards to a specific arm (set arm1_replay_counter)
         if self.vel_pos_counter % 500 == 0:
             # reset counters each time you read the file - b/c file might not change
-            self.arm1_replay_counter = 0
-            self.arm2_replay_counter = 0
-            self.arm3_replay_counter = 0
-            self.arm4_replay_counter = 0
-
-            # new arm counter: all 8 arms in one array
             self.arm_replay_counter = [0,0,0,0,0,0,0,0]
-            #print('thresh_counter: ',self.thresh_counter)
+            
             with open('config/rewarded_arm_trodes.txt') as rewarded_arm_file:
                 fd = rewarded_arm_file.fileno()
                 fcntl.fcntl(fd, fcntl.F_SETFL, os.O_NONBLOCK)
@@ -593,35 +607,15 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             print('last rewarded arm = ',rewarded_arm)
             if rewarded_arm == 1:
                 print('last reward in arm 1')
-                self.arm1_replay_counter += 1
-                self.arm2_replay_counter = 0
-                self.arm3_replay_counter = 0
-                self.arm4_replay_counter = 0
-                # new combined counter
                 self.arm_replay_counter = [1,0,0,0,0,0,0,0]
             elif rewarded_arm == 2:
                 print('last reward in arm 2')
-                self.arm1_replay_counter = 0
-                self.arm2_replay_counter += 1
-                self.arm3_replay_counter = 0
-                self.arm4_replay_counter = 0
-                # new combined counter
                 self.arm_replay_counter = [0,1,0,0,0,0,0,0]
             elif rewarded_arm == 3:
                 print('last reward in arm 3')
-                self.arm1_replay_counter = 0
-                self.arm2_replay_counter = 0
-                self.arm3_replay_counter += 1
-                self.arm4_replay_counter = 0
-                # new counter
                 self.arm_replay_counter = [0,0,1,0,0,0,0,0]
             elif rewarded_arm == 4:
                 print('last reward in arm 4')
-                self.arm1_replay_counter = 0
-                self.arm2_replay_counter = 0
-                self.arm3_replay_counter = 0
-                self.arm4_replay_counter += 1
-                # new counter
                 self.arm_replay_counter = [0,0,0,1,0,0,0,0]
             elif rewarded_arm == 5:
                 print('last reward in arm 5')
@@ -672,7 +666,13 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                                    datatype=datatypes.Datatypes.LFP, label='postsum_in')
             
             # while the ripple is progressing we need to add the current posterior sum to the sum of all earlier ones
-            new_posterior_sum = np.asarray([box,arm1,arm2,arm3,arm4,arm5,arm6,arm7,arm8])
+            #new_posterior_sum = np.asarray([box,arm1,arm2,arm3,arm4,arm5,arm6,arm7,arm8])
+
+            # new variables for each arm posterior - for function to send statescript message at end of ripple lockout
+            new_posterior_sum = np.asarray([self.box_post, self.arm1_post, self.arm2_post, self.arm3_post, 
+                                            self.arm4_post, self.arm5_post, self.arm6_post, self.arm7_post, 
+                                            self.arm8_post])
+
             # print statement to check sum is working
             #print('new posterior, bin number:',self.posterior_time_bin,np.around(new_posterior_sum,decimals=2),
             #      'decoder timestamp',bin_timestamp,'lfp timestamp',self.lfp_timestamp)
@@ -696,8 +696,6 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             # 12-15-19 normalized posterior often doesnt add to 1 - fixed typo in message from decoder
             # self.posterior_time_bin should increase each time a new posterior message comes in during a ripple
             self.norm_posterior_arm_sum = self.posterior_arm_sum/self.posterior_time_bin
-            # print statement to check normalization is working
-            #print('normed posterior ',np.around(self.norm_posterior_arm_sum,decimals=2),'timestamp',bin_timestamp)
 
             # send a statescript message if posterior is above threshold in one arm and it has been about 50 msec
             # for delay use 10 posterior_time_bins, about 50 msec
@@ -717,7 +715,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 # replay detection of box
                 if np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 0:
                     # test functionalized posterior sum
-                    self.posterior_sum_statescript_message(2,networkclient)
+                    #self.posterior_sum_statescript_message(2,networkclient)
                     print('max posterior in box',np.around(self.norm_posterior_arm_sum[0],decimals=2),
                           'posterior sum: ',np.around(self.norm_posterior_arm_sum.sum(),decimals=2),
                           'position ',np.around(self.linearized_position,decimals=2),'ripple ',self.ripple_number,
@@ -742,226 +740,29 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
 
                 # replay detection of arm 1
                 elif np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 1:
-                    # want to functionalize all these commands with:
-                    # posterior_sum_statescript_message(1)
-                    
-                    print('max posterior in arm 1',np.around(self.norm_posterior_arm_sum[1],decimals=2),
-                          'posterior sum: ',np.around(self.norm_posterior_arm_sum.sum(),decimals=2),
-                          'position ',np.around(self.linearized_position,decimals=2),
-                          'posterior bins in ripple ',self.posterior_time_bin,'ending bin timestamp',bin_timestamp,
-                          'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-bin_timestamp)/30,
-                          'spike count',self.posterior_spike_count)
-                    self.shortcut_message_arm = np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0]
-                    # only send message for arm 1 replay if less than replays 3 in a row
-                    if self.arm1_replay_counter < self.max_arm_repeats:
-                        # note: statescript can only execute one function at a time, so trigger function 15 and set replay_arm variable
-                        networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['replay_arm = 1;\ntrigger(15);\n'])
-                        print('sent StateScript message for arm 1 replay in ripple ',self.ripple_number)
-                        # arm replay counters, only active at wait well and adds to current counter and sets other arms to 0
-                        # we moved arm replay counters up to take in a text file from trodes with last rewarded arm
-                        print('arm counters: ',self.arm1_replay_counter,self.arm2_replay_counter,
-                              self.arm3_replay_counter,self.arm4_replay_counter)
-                        self.shortcut_message_sent = True
-
-                        self.ripple_end = 1
-                        self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
-                                          bin_timestamp, spike_timestamp, self.lfp_timestamp, time, self.shortcut_message_sent, 
-                                          self.ripple_number, self.posterior_time_bin, self.shortcut_message_arm,
-                                          self.posterior_arm_threshold,self.ripple_end,self.max_arm_repeats,
-                                          self.norm_posterior_arm_sum[0],self.norm_posterior_arm_sum[1],self.norm_posterior_arm_sum[2],
-                                          self.norm_posterior_arm_sum[3],self.norm_posterior_arm_sum[4],self.norm_posterior_arm_sum[5],
-                                          self.norm_posterior_arm_sum[6],self.norm_posterior_arm_sum[7],self.norm_posterior_arm_sum[8])
-                    else:
-                        print('more than ',self.max_arm_repeats,' replays of arm 1 in a row!')
-
+                    # function to send statescript message and save STIM_MESSAGE record
+                    self.posterior_sum_statescript_message(1,networkclient)
                 # replay detection of arm 2
                 elif np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 2:
-                    print('max posterior in arm 2',np.around(self.norm_posterior_arm_sum[2],decimals=2),
-                          'posterior sum: ',np.around(self.norm_posterior_arm_sum.sum(),decimals=2),
-                          'position ',np.around(self.linearized_position,decimals=2),
-                          'posterior bins in ripple ',self.posterior_time_bin,'ending bin timestamp',bin_timestamp,
-                          'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-bin_timestamp)/30,
-                          'spike count',self.posterior_spike_count)
-                    self.shortcut_message_arm = np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0]
-                    if self.arm2_replay_counter < self.max_arm_repeats:
-                        networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['replay_arm = 2;\ntrigger(15);\n'])
-                        print('sent StateScript message for arm 2 replay in ripple ',self.ripple_number)
-                        print('arm counters: ',self.arm1_replay_counter,self.arm2_replay_counter,
-                              self.arm3_replay_counter,self.arm4_replay_counter)
-                        self.shortcut_message_sent = True
-
-                        self.ripple_end = 1
-                        self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
-                                          bin_timestamp, spike_timestamp, self.lfp_timestamp, time, self.shortcut_message_sent, 
-                                          self.ripple_number, self.posterior_time_bin, self.shortcut_message_arm,
-                                          self.posterior_arm_threshold,self.ripple_end,self.max_arm_repeats,
-                                          self.norm_posterior_arm_sum[0],self.norm_posterior_arm_sum[1],self.norm_posterior_arm_sum[2],
-                                          self.norm_posterior_arm_sum[3],self.norm_posterior_arm_sum[4],self.norm_posterior_arm_sum[5],
-                                          self.norm_posterior_arm_sum[6],self.norm_posterior_arm_sum[7],self.norm_posterior_arm_sum[8])
-                    else:
-                        print('more than ',self.max_arm_repeats,' replays of arm 2 in a row!')
-
+                    self.posterior_sum_statescript_message(2,networkclient)
                 # replay detection of arm 3
                 elif np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 3:
-                    print('max posterior in arm 3',np.around(self.norm_posterior_arm_sum[3],decimals=2),
-                          'posterior sum: ',np.around(self.norm_posterior_arm_sum.sum(),decimals=2),
-                          'position ',np.around(self.linearized_position,decimals=2),
-                          'posterior bins in ripple ',self.posterior_time_bin,'ending bin timestamp',bin_timestamp,
-                          'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-bin_timestamp)/30,
-                          'spike count',self.posterior_spike_count)
-                    self.shortcut_message_arm = np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0]
-                    if self.arm3_replay_counter < self.max_arm_repeats:
-                        networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['replay_arm = 3;\ntrigger(15);\n'])
-                        print('sent StateScript message for arm 3 replay in ripple ',self.ripple_number)
-                        print('arm counters: ',self.arm1_replay_counter,self.arm2_replay_counter,
-                              self.arm3_replay_counter,self.arm4_replay_counter)
-                        self.shortcut_message_sent = True
-
-                        self.ripple_end = 1
-                        self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
-                                          bin_timestamp, spike_timestamp, self.lfp_timestamp, time, self.shortcut_message_sent, 
-                                          self.ripple_number, self.posterior_time_bin, self.shortcut_message_arm,
-                                          self.posterior_arm_threshold,self.ripple_end,self.max_arm_repeats,
-                                          self.norm_posterior_arm_sum[0],self.norm_posterior_arm_sum[1],self.norm_posterior_arm_sum[2],
-                                          self.norm_posterior_arm_sum[3],self.norm_posterior_arm_sum[4],self.norm_posterior_arm_sum[5],
-                                          self.norm_posterior_arm_sum[6],self.norm_posterior_arm_sum[7],self.norm_posterior_arm_sum[8])
-                    else:
-                        print('more than ',self.max_arm_repeats,' replays of arm 3 in a row!')
-
+                    self.posterior_sum_statescript_message(3,networkclient)
                 # replay detection of arm 4
                 elif np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 4:
-                    print('max posterior in arm 4',np.around(self.norm_posterior_arm_sum[4],decimals=2),
-                          'posterior sum: ',np.around(self.norm_posterior_arm_sum.sum(),decimals=2),
-                          'position ',np.around(self.linearized_position,decimals=2),
-                          'posterior bins in ripple ',self.posterior_time_bin,'ending bin timestamp',bin_timestamp,
-                          'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-bin_timestamp)/30,
-                          'spike count',self.posterior_spike_count)
-                    self.shortcut_message_arm = np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0]
-                    if self.arm4_replay_counter < self.max_arm_repeats:
-                        networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['replay_arm = 4;\ntrigger(15);\n'])
-                        print('sent StateScript message for arm 4 replay in ripple ',self.ripple_number)
-                        print('arm counters: ',self.arm1_replay_counter,self.arm2_replay_counter,
-                              self.arm3_replay_counter,self.arm4_replay_counter)
-                        self.shortcut_message_sent = True
-
-                        self.ripple_end = 1
-                        self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
-                                          bin_timestamp, spike_timestamp, self.lfp_timestamp, time, self.shortcut_message_sent, 
-                                          self.ripple_number, self.posterior_time_bin, self.shortcut_message_arm,
-                                          self.posterior_arm_threshold,self.ripple_end,self.max_arm_repeats,
-                                          self.norm_posterior_arm_sum[0],self.norm_posterior_arm_sum[1],self.norm_posterior_arm_sum[2],
-                                          self.norm_posterior_arm_sum[3],self.norm_posterior_arm_sum[4],self.norm_posterior_arm_sum[5],
-                                          self.norm_posterior_arm_sum[6],self.norm_posterior_arm_sum[7],self.norm_posterior_arm_sum[8])
-                    else:
-                        print('more than ',self.max_arm_repeats,' replays of arm 4 in a row!')
-
+                    self.posterior_sum_statescript_message(4,networkclient)
                 # replay detection of arm 5
                 elif np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 5:
-                    print('max posterior in arm 5',np.around(self.norm_posterior_arm_sum[5],decimals=2),
-                          'posterior sum: ',np.around(self.norm_posterior_arm_sum.sum(),decimals=2),
-                          'position ',np.around(self.linearized_position,decimals=2),
-                          'posterior bins in ripple ',self.posterior_time_bin,'ending bin timestamp',bin_timestamp,
-                          'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-bin_timestamp)/30,
-                          'spike count',self.posterior_spike_count)
-                    self.shortcut_message_arm = np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0]
-                    if self.arm4_replay_counter < self.max_arm_repeats:
-                        #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['replay_arm = 4;\ntrigger(15);\n'])
-                        #print('sent StateScript message for arm 4 replay in ripple ',self.ripple_number)
-                        #print('arm counters: ',self.arm1_replay_counter,self.arm2_replay_counter,
-                        #      self.arm3_replay_counter,self.arm4_replay_counter)
-                        self.shortcut_message_sent = True
-
-                        self.ripple_end = 1
-                        self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
-                                          bin_timestamp, spike_timestamp, self.lfp_timestamp, time, self.shortcut_message_sent, 
-                                          self.ripple_number, self.posterior_time_bin, self.shortcut_message_arm,
-                                          self.posterior_arm_threshold,self.ripple_end,self.max_arm_repeats,
-                                          self.norm_posterior_arm_sum[0],self.norm_posterior_arm_sum[1],self.norm_posterior_arm_sum[2],
-                                          self.norm_posterior_arm_sum[3],self.norm_posterior_arm_sum[4],self.norm_posterior_arm_sum[5],
-                                          self.norm_posterior_arm_sum[6],self.norm_posterior_arm_sum[7],self.norm_posterior_arm_sum[8])
-                    else:
-                        print('more than ',self.max_arm_repeats,' replays of arm 5 in a row!')
-
+                    self.posterior_sum_statescript_message(5,networkclient)
                 # replay detection of arm 6
                 elif np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 6:
-                    print('max posterior in arm 6',np.around(self.norm_posterior_arm_sum[6],decimals=2),
-                          'posterior sum: ',np.around(self.norm_posterior_arm_sum.sum(),decimals=2),
-                          'position ',np.around(self.linearized_position,decimals=2),
-                          'posterior bins in ripple ',self.posterior_time_bin,'ending bin timestamp',bin_timestamp,
-                          'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-bin_timestamp)/30,
-                          'spike count',self.posterior_spike_count)
-                    self.shortcut_message_arm = np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0]
-                    if self.arm4_replay_counter < self.max_arm_repeats:
-                        #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['replay_arm = 4;\ntrigger(15);\n'])
-                        #print('sent StateScript message for arm 4 replay in ripple ',self.ripple_number)
-                        #print('arm counters: ',self.arm1_replay_counter,self.arm2_replay_counter,
-                        #      self.arm3_replay_counter,self.arm4_replay_counter)
-                        self.shortcut_message_sent = True
-
-                        self.ripple_end = 1
-                        self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
-                                          bin_timestamp, spike_timestamp, self.lfp_timestamp, time, self.shortcut_message_sent, 
-                                          self.ripple_number, self.posterior_time_bin, self.shortcut_message_arm,
-                                          self.posterior_arm_threshold,self.ripple_end,self.max_arm_repeats,
-                                          self.norm_posterior_arm_sum[0],self.norm_posterior_arm_sum[1],self.norm_posterior_arm_sum[2],
-                                          self.norm_posterior_arm_sum[3],self.norm_posterior_arm_sum[4],self.norm_posterior_arm_sum[5],
-                                          self.norm_posterior_arm_sum[6],self.norm_posterior_arm_sum[7],self.norm_posterior_arm_sum[8])
-                    else:
-                        print('more than ',self.max_arm_repeats,' replays of arm 6 in a row!')
-
+                    self.posterior_sum_statescript_message(6,networkclient)
                 # replay detection of arm 7
                 elif np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 7:
-                    print('max posterior in arm 7',np.around(self.norm_posterior_arm_sum[7],decimals=2),
-                          'posterior sum: ',np.around(self.norm_posterior_arm_sum.sum(),decimals=2),
-                          'position ',np.around(self.linearized_position,decimals=2),
-                          'posterior bins in ripple ',self.posterior_time_bin,'ending bin timestamp',bin_timestamp,
-                          'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-bin_timestamp)/30,
-                          'spike count',self.posterior_spike_count)
-                    self.shortcut_message_arm = np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0]
-                    if self.arm4_replay_counter < self.max_arm_repeats:
-                        #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['replay_arm = 4;\ntrigger(15);\n'])
-                        #print('sent StateScript message for arm 4 replay in ripple ',self.ripple_number)
-                        #print('arm counters: ',self.arm1_replay_counter,self.arm2_replay_counter,
-                        #      self.arm3_replay_counter,self.arm4_replay_counter)
-                        self.shortcut_message_sent = True
-
-                        self.ripple_end = 1
-                        self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
-                                          bin_timestamp, spike_timestamp, self.lfp_timestamp, time, self.shortcut_message_sent, 
-                                          self.ripple_number, self.posterior_time_bin, self.shortcut_message_arm,
-                                          self.posterior_arm_threshold,self.ripple_end,self.max_arm_repeats,
-                                          self.norm_posterior_arm_sum[0],self.norm_posterior_arm_sum[1],self.norm_posterior_arm_sum[2],
-                                          self.norm_posterior_arm_sum[3],self.norm_posterior_arm_sum[4],self.norm_posterior_arm_sum[5],
-                                          self.norm_posterior_arm_sum[6],self.norm_posterior_arm_sum[7],self.norm_posterior_arm_sum[8])
-                    else:
-                        print('more than ',self.max_arm_repeats,' replays of arm 7 in a row!')
-
+                    self.posterior_sum_statescript_message(7,networkclient)
                 # replay detection of arm 8
                 elif np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 8:
-                    print('max posterior in arm 8',np.around(self.norm_posterior_arm_sum[8],decimals=2),
-                          'posterior sum: ',np.around(self.norm_posterior_arm_sum.sum(),decimals=2),
-                          'position ',np.around(self.linearized_position,decimals=2),
-                          'posterior bins in ripple ',self.posterior_time_bin,'ending bin timestamp',bin_timestamp,
-                          'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-bin_timestamp)/30,
-                          'spike count',self.posterior_spike_count)
-                    self.shortcut_message_arm = np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0]
-                    if self.arm4_replay_counter < self.max_arm_repeats:
-                        #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['replay_arm = 4;\ntrigger(15);\n'])
-                        #print('sent StateScript message for arm 4 replay in ripple ',self.ripple_number)
-                        #print('arm counters: ',self.arm1_replay_counter,self.arm2_replay_counter,
-                        #      self.arm3_replay_counter,self.arm4_replay_counter)
-                        self.shortcut_message_sent = True
-
-                        self.ripple_end = 1
-                        self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
-                                          bin_timestamp, spike_timestamp, self.lfp_timestamp, time, self.shortcut_message_sent, 
-                                          self.ripple_number, self.posterior_time_bin, self.shortcut_message_arm,
-                                          self.posterior_arm_threshold,self.ripple_end,self.max_arm_repeats,
-                                          self.norm_posterior_arm_sum[0],self.norm_posterior_arm_sum[1],self.norm_posterior_arm_sum[2],
-                                          self.norm_posterior_arm_sum[3],self.norm_posterior_arm_sum[4],self.norm_posterior_arm_sum[5],
-                                          self.norm_posterior_arm_sum[6],self.norm_posterior_arm_sum[7],self.norm_posterior_arm_sum[8])
-                    else:
-                        print('more than ',self.max_arm_repeats,' replays of arm 8 in a row!')
+                    self.posterior_sum_statescript_message(8,networkclient)
 
         # if end of ripple (time bin) and no arm posterior crossed threshold (message sent)
         # these records are indicated by: ripple_end = 1 and shortcut_message_sent = 0
@@ -969,8 +770,6 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         # variable shortcue_message_arm: 99 if <10 time bins or no arm above threshold, otherwise repeated arm
         elif self.no_ripple_time_bin == 1 and self.shortcut_message_sent == False:
             if self.posterior_time_bin < 10:
-                # test functionalized posterior sum
-                self.posterior_sum_statescript_message(2,networkclient)
                 print('ripple ended before 10 time bins',' ',np.around(self.norm_posterior_arm_sum,decimals=2),
                       'ripple: ',self.ripple_number,'posterior sum: ',np.around(self.norm_posterior_arm_sum.sum(),decimals=2),
                       'position ',np.around(self.linearized_position,decimals=2),
@@ -980,8 +779,6 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 self.shortcut_message_arm = 99
 
             else:
-                # test functionalized posterior sum
-                self.posterior_sum_statescript_message(2,networkclient)
                 print('repeated reward replay or no arm posterior above ',self.posterior_arm_threshold,' ',np.around(self.norm_posterior_arm_sum,decimals=2),
                       'ripple: ',self.ripple_number,'posterior sum: ',np.around(self.norm_posterior_arm_sum.sum(),decimals=2),
                       'position ',np.around(self.linearized_position,decimals=2),
