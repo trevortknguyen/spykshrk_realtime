@@ -259,12 +259,15 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         self.replay_target_arm = self.config['pp_decoder']['replay_target_arm']
         #self.posterior_arm_sum = np.zeros((1,9))
         self.posterior_arm_sum = np.asarray([0,0,0,0,0,0,0,0,0])
-        self.norm_posterior_arm_sum = np.asarray([0,0,0,0,0,0,0,0,0])
+        # initialize with single 1 so that first pass throught posterior_sum works
+        self.norm_posterior_arm_sum = np.asarray([0,1,0,0,0,0,0,0,0])
         self.num_above = 0
         self.ripple_number = 0
         self.shortcut_message_sent = False
         self.shortcut_message_arm = 99
         self.lfp_timestamp = 0
+        self.bin_timestamp = 0
+        self.spike_timestamp = 0
 
         self.velocity = 0
         self.linearized_position = 0
@@ -277,6 +280,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         self.arm2_replay_counter = 0
         self.arm3_replay_counter = 0
         self.arm4_replay_counter = 0
+        self.arm_replay_counter = [0,0,0,0,0,0,0,0]
         self.posterior_time_bin = 0
         self.posterior_spike_count = 0
         self.posterior_arm_threshold = self.config['ripple_conditioning']['posterior_sum_threshold']
@@ -482,31 +486,43 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             return num_above
 
     # this function handles sending statescript message at end of replay
-    def posterior_sum_statescript_message(self, arm):
+    def posterior_sum_statescript_message(self, arm, networkclient):
+        print('***** TESTING *******')
         arm = arm
+        networkclient = networkclient
+        time = MPI.Wtime()
+
         print('max posterior in arm',arm,np.around(self.norm_posterior_arm_sum[arm],decimals=2),
               'posterior sum: ',np.around(self.norm_posterior_arm_sum.sum(),decimals=2),
               'position ',np.around(self.linearized_position,decimals=2),
-              'posterior bins in ripple ',self.posterior_time_bin,'ending bin timestamp',bin_timestamp,
-              'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-bin_timestamp)/30,
+              'posterior bins in ripple ',self.posterior_time_bin,'ending bin timestamp',self.bin_timestamp,
+              'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-self.bin_timestamp)/30,
               'spike count',self.posterior_spike_count)
         self.shortcut_message_arm = np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0]
         # only send message for arm 1 replay if it was not last rewarded arm
         # how to write the variable arm1_replay_counter from the variable arm???
-        if self.arm1_replay_counter < self.max_arm_repeats:
+        if self.arm_replay_counter[arm-1] < self.max_arm_repeats:
+            # NOTE: we can now replace this with the actual shortcut message!
+            # for shortcut, each arm is assigned a different message
+
             # note: statescript can only execute one function at a time, so trigger function 15 and set replay_arm variable
             # how to write string with variable arm: replay_arm = 1;\ntrigger(15);\n' ???
-            networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['replay_arm = 1;\ntrigger(15);\n'])
+            statescript_command = f'replay_arm = {arm};\ntrigger(15);\n'
+            #print('string for statescript:',statescript_command)
+            networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', [statescript_command])
+            #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['replay_arm = 1;\ntrigger(15);\n'])
             print('sent StateScript message for arm',arm,'replay in ripple ',self.ripple_number)
+            
             # arm replay counters, only active at wait well and adds to current counter and sets other arms to 0
             # we moved arm replay counters up to take in a text file from trodes with last rewarded arm
-            print('arm counters: ',self.arm1_replay_counter,self.arm2_replay_counter,
-                  self.arm3_replay_counter,self.arm4_replay_counter)
+            #print('arm counters: ',self.arm1_replay_counter,self.arm2_replay_counter,
+            #      self.arm3_replay_counter,self.arm4_replay_counter)
+            print('arm replay count: ',self.arm_replay_counter)
             self.shortcut_message_sent = True
 
             self.ripple_end = 1
             self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
-                              bin_timestamp, spike_timestamp, self.lfp_timestamp, time, self.shortcut_message_sent, 
+                              self.bin_timestamp, self.spike_timestamp, self.lfp_timestamp, time, self.shortcut_message_sent, 
                               self.ripple_number, self.posterior_time_bin, self.shortcut_message_arm,
                               self.posterior_arm_threshold,self.ripple_end,self.max_arm_repeats,
                               self.norm_posterior_arm_sum[0],self.norm_posterior_arm_sum[1],self.norm_posterior_arm_sum[2],
@@ -533,6 +549,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
     # need to add location filter so it only sends message when rat is at rip/wait well - no, that is in statescript
     def posterior_sum(self, bin_timestamp, spike_timestamp, box,arm1,arm2,arm3,arm4,arm5,arm6,arm7,arm8,spike_count,networkclient):
         time = MPI.Wtime()
+        self.bin_timestamp = bin_timestamp
+        self.spike_timestamp = spike_timestamp
 
         # reset posterior arm threshold (e.g. 0.5) based on the new_ripple_threshold text file
         # this should run every 10 sec, using thresh_counter which refers to each message from ripple node
@@ -560,6 +578,9 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             self.arm2_replay_counter = 0
             self.arm3_replay_counter = 0
             self.arm4_replay_counter = 0
+
+            # new arm counter: all 8 arms in one array
+            self.arm_replay_counter = [0,0,0,0,0,0,0,0]
             #print('thresh_counter: ',self.thresh_counter)
             with open('config/rewarded_arm_trodes.txt') as rewarded_arm_file:
                 fd = rewarded_arm_file.fileno()
@@ -576,24 +597,44 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 self.arm2_replay_counter = 0
                 self.arm3_replay_counter = 0
                 self.arm4_replay_counter = 0
+                # new combined counter
+                self.arm_replay_counter = [1,0,0,0,0,0,0,0]
             elif rewarded_arm == 2:
                 print('last reward in arm 2')
                 self.arm1_replay_counter = 0
                 self.arm2_replay_counter += 1
                 self.arm3_replay_counter = 0
                 self.arm4_replay_counter = 0
+                # new combined counter
+                self.arm_replay_counter = [0,1,0,0,0,0,0,0]
             elif rewarded_arm == 3:
                 print('last reward in arm 3')
                 self.arm1_replay_counter = 0
                 self.arm2_replay_counter = 0
                 self.arm3_replay_counter += 1
                 self.arm4_replay_counter = 0
+                # new counter
+                self.arm_replay_counter = [0,0,1,0,0,0,0,0]
             elif rewarded_arm == 4:
                 print('last reward in arm 4')
                 self.arm1_replay_counter = 0
                 self.arm2_replay_counter = 0
                 self.arm3_replay_counter = 0
                 self.arm4_replay_counter += 1
+                # new counter
+                self.arm_replay_counter = [0,0,0,1,0,0,0,0]
+            elif rewarded_arm == 5:
+                print('last reward in arm 5')
+                self.arm_replay_counter = [0,0,0,0,1,0,0,0]
+            elif rewarded_arm == 6:
+                print('last reward in arm 6')
+                self.arm_replay_counter = [0,0,0,0,0,1,0,0]
+            elif rewarded_arm == 7:
+                print('last reward in arm 7')
+                self.arm_replay_counter = [0,0,0,0,0,0,1,0]
+            elif rewarded_arm == 8:
+                print('last reward in arm 8')
+                self.arm_replay_counter = [0,0,0,0,0,0,0,1]            
 
         # end lockout for posterior sum - no its now ended above
         #if self._posterior_in_lockout and (bin_timestamp > self._posterior_last_lockout_timestamp + 
@@ -675,6 +716,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 
                 # replay detection of box
                 if np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 0:
+                    # test functionalized posterior sum
+                    self.posterior_sum_statescript_message(2,networkclient)
                     print('max posterior in box',np.around(self.norm_posterior_arm_sum[0],decimals=2),
                           'posterior sum: ',np.around(self.norm_posterior_arm_sum.sum(),decimals=2),
                           'position ',np.around(self.linearized_position,decimals=2),'ripple ',self.ripple_number,
@@ -926,6 +969,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         # variable shortcue_message_arm: 99 if <10 time bins or no arm above threshold, otherwise repeated arm
         elif self.no_ripple_time_bin == 1 and self.shortcut_message_sent == False:
             if self.posterior_time_bin < 10:
+                # test functionalized posterior sum
+                self.posterior_sum_statescript_message(2,networkclient)
                 print('ripple ended before 10 time bins',' ',np.around(self.norm_posterior_arm_sum,decimals=2),
                       'ripple: ',self.ripple_number,'posterior sum: ',np.around(self.norm_posterior_arm_sum.sum(),decimals=2),
                       'position ',np.around(self.linearized_position,decimals=2),
@@ -935,6 +980,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 self.shortcut_message_arm = 99
 
             else:
+                # test functionalized posterior sum
+                self.posterior_sum_statescript_message(2,networkclient)
                 print('repeated reward replay or no arm posterior above ',self.posterior_arm_threshold,' ',np.around(self.norm_posterior_arm_sum,decimals=2),
                       'ripple: ',self.ripple_number,'posterior sum: ',np.around(self.norm_posterior_arm_sum.sum(),decimals=2),
                       'position ',np.around(self.linearized_position,decimals=2),
