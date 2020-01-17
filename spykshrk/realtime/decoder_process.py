@@ -340,7 +340,8 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         # we can save the no spike likelihood here
         # QUESTION: what happens to the likelihood and the posterior during long times of no spike??
 
-        return self.posterior
+
+        return self.posterior, self.likelihood
 
     def increment_bin(self):
 
@@ -383,7 +384,7 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         self.current_spike_count = 0
         self.observation = np.ones(self.pos_bins)
 
-        return self.posterior
+        return self.posterior, self.likelihood
 
     def calculate_posterior_arm_sum(self, posterior, ripple_time_bin):
 
@@ -426,6 +427,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                                               local_rec_manager=local_rec_manager,
                                               send_interface=send_interface,
                                               rec_ids=[realtime_base.RecordIDs.DECODER_OUTPUT,
+                                                       realtime_base.RecordIDs.LIKELIHOOD_OUTPUT,
                                                        realtime_base.RecordIDs.DECODER_MISSED_SPIKES],
                                               rec_labels=[['bin_timestamp','wall_time', 'velocity', 'real_pos',
                                                             'raw_x','raw_y','smooth_x','smooth_y','spike_count',
@@ -435,11 +437,18 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                                                            format(x, dig=len(str(config['encoder']
                                                                                  ['position']['bins'])))
                                                            for x in range(config['encoder']['position']['bins'])],
+                                                          ['bin_timestamp','wall_time','real_pos','spike_count'] +
+                                                          ['x{:0{dig}d}'.
+                                                           format(x, dig=len(str(config['encoder']
+                                                                                 ['position']['bins'])))
+                                                           for x in range(config['encoder']['position']['bins'])], 
                                                           ['timestamp', 'elec_grp_id', 'real_bin', 'late_bin']],
                                               rec_formats=['qdddddddqqqqqddddddddd'+'d'*config['encoder']['position']['bins'],
+                                                           'qddq'+'d'*config['encoder']['position']['bins'],
                                                            'qiii'])
                                                 #i think if you change second q to d above, then you can replace real_pos_time
                                                 # with velocity
+                                                # NOTE: q is symbol for integer, d is symbol for decimal
 
         self.config = config
         self.mpi_send = send_interface
@@ -537,7 +546,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
 
                 # increment last bin with spikes
                 # to turn off posterior calculation comment out next line and replace with list of ones
-                posterior = self.pp_decoder.increment_bin()
+                posterior, likelihood = self.pp_decoder.increment_bin()
                 #posterior = np.ones(136)
                 
                 #print(posterior)
@@ -559,6 +568,11 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                                                      self.posterior_arm_sum[0][7],self.posterior_arm_sum[0][8],
                                                      self.spike_count)
 
+                self.write_record(realtime_base.RecordIDs.LIKELIHOOD_OUTPUT,
+                                  self.current_time_bin * self.time_bin_size, time,
+                                  self.pp_decoder.cur_pos,self.spike_count,
+                                  *likelihood)
+
                 self.write_record(realtime_base.RecordIDs.DECODER_OUTPUT,
                                   self.current_time_bin * self.time_bin_size, time,
                                   self.current_vel,
@@ -578,10 +592,23 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                     #spike_count is set to 0 for no_spike_bins
 
                     # to turn off posterior calculation comment out next line and replace with list of ones
-                    posterior = self.pp_decoder.increment_no_spike_bin()
+                    posterior, likelihood = self.pp_decoder.increment_no_spike_bin()
                     #posterior = np.ones(136)
 
                     self.posterior_arm_sum = self.pp_decoder.calculate_posterior_arm_sum(posterior, self.ripple_time_bin)
+
+                    self.mpi_send.send_posterior_message(self.current_time_bin * self.time_bin_size,spike_dec_msg.timestamp,
+                                                         self.posterior_arm_sum[0][0],
+                                                         self.posterior_arm_sum[0][1],self.posterior_arm_sum[0][2],
+                                                         self.posterior_arm_sum[0][3],self.posterior_arm_sum[0][4],
+                                                         self.posterior_arm_sum[0][5],self.posterior_arm_sum[0][6],
+                                                         self.posterior_arm_sum[0][7],self.posterior_arm_sum[0][8],
+                                                         self.spike_count)
+
+                    self.write_record(realtime_base.RecordIDs.LIKELIHOOD_OUTPUT,
+                                  self.current_time_bin * self.time_bin_size, time,
+                                  self.pp_decoder.cur_pos,self.spike_count,
+                                  *likelihood)
 
                     self.write_record(realtime_base.RecordIDs.DECODER_OUTPUT,
                                       self.current_time_bin * self.time_bin_size, time,
@@ -597,13 +624,6 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
 
                     #print('wall time at decoder',self.current_time_bin * self.time_bin_size,time*1000)
 
-                    self.mpi_send.send_posterior_message(self.current_time_bin * self.time_bin_size,spike_dec_msg.timestamp,
-                                                         self.posterior_arm_sum[0][0],
-                                                         self.posterior_arm_sum[0][1],self.posterior_arm_sum[0][2],
-                                                         self.posterior_arm_sum[0][3],self.posterior_arm_sum[0][4],
-                                                         self.posterior_arm_sum[0][5],self.posterior_arm_sum[0][6],
-                                                         self.posterior_arm_sum[0][7],self.posterior_arm_sum[0][8],
-                                                         self.spike_count)
                     self.current_time_bin += 1
                     self.shortcut_message_sent = False
 
