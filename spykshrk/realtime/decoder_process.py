@@ -120,6 +120,43 @@ class SpikeDecodeRecvInterface(realtime_base.RealtimeMPIClass):
         else:
             return None
 
+# make receiver to take in threshold message from ripple node - use same setup as in main_process
+# to use this LFP timekeeper compare the timestamp of the lfp message to the timestamp of the last spike
+# if greter than 5 msec then trigger calcuating the posterior
+class LFPTimekeeperRecvInterface(realtime_base.RealtimeMPIClass):
+    def __init__(self, comm: MPI.Comm, rank, config):
+        super(LFPTimekeeperRecvInterface, self).__init__(comm=comm, rank=rank, config=config)
+
+        self.mpi_status = MPI.Status()
+
+        self.feedback_bytes = bytearray(16)
+        self.timing_bytes = bytearray(100)
+
+        self.mpi_reqs = []
+        self.mpi_statuses = []
+
+        req_feedback = self.comm.Irecv(buf=self.feedback_bytes,
+                                       tag=realtime_base.MPIMessageTag.FEEDBACK_DATA.value)
+        self.mpi_statuses.append(MPI.Status())
+        self.mpi_reqs.append(req_feedback)
+
+    #def __iter__(self):
+    #    return self
+
+    def __next__(self):
+        rdy = MPI.Request.Testall(requests=self.mpi_reqs, statuses=self.mpi_statuses)
+
+        if rdy:
+            if self.mpi_statuses[0].source in self.config['rank']['ripples']:
+                message = ripple_process.RippleThresholdState.unpack(message_bytes=self.feedback_bytes)
+                self.mpi_reqs[0] = self.comm.Irecv(buf=self.feedback_bytes,
+                                                   tag=realtime_base.MPIMessageTag.FEEDBACK_DATA.value)
+                print('lfp message in decoder',message)
+                return message
+
+            else:
+                return None
+
 
 class PointProcessDecoder(realtime_logging.LoggingClass):
 
@@ -421,8 +458,8 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
 
 class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
     def __init__(self, rank, config, local_rec_manager, send_interface: DecoderMPISendInterface,
-                 spike_decode_interface: SpikeDecodeRecvInterface,
-                 pos_interface: realtime_base.DataSourceReceiver):
+                 spike_decode_interface: SpikeDecodeRecvInterface,pos_interface: realtime_base.DataSourceReceiver,
+                 lfp_interface: LFPTimekeeperRecvInterface):
         super(PPDecodeManager, self).__init__(rank=rank,
                                               local_rec_manager=local_rec_manager,
                                               send_interface=send_interface,
@@ -454,6 +491,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
         self.mpi_send = send_interface
         self.spike_dec_interface = spike_decode_interface
         self.pos_interface = pos_interface
+        self.lfp_interface = lfp_interface
 
         #initialize velocity calc and linear position assignment functions
         self.raw_x = 0
@@ -512,7 +550,11 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
 
     def process_next_data(self):
         spike_dec_msg = self.spike_dec_interface.__next__()
+        lfp_timekeeper = self.lfp_interface.__next__()
         time = MPI.Wtime()
+
+        # also want to run this if too much time has passed based on lfp_timekeeper
+        # need to save timestamp of previous spike
 
         if spike_dec_msg is not None:
             # okay so the problem is that it is missing lots of lfp data because spike_dec_msg skips a lot - empty bins?

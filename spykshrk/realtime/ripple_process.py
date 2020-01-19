@@ -431,13 +431,14 @@ class RippleMPISendInterface(realtime_base.RealtimeMPIClass):
                        dest=self.config['rank']['supervisor'],
                        tag=realtime_base.MPIMessageTag.FEEDBACK_DATA.value)
 
-    #not currently used
-    #def send_ripple_thresh_state_decoder(self, timestamp, elec_grp_id, thresh_state):
-    #    message = RippleThresholdState(timestamp, elec_grp_id, thresh_state)
+    # NOTE: reactivate this to send LFP time keeper to decoder
+    # we only want to call this for one ripple node - somehow use the value, rank == 2
+    def send_ripple_thresh_state_decoder(self, timestamp, elec_grp_id, thresh_state):
+        message = RippleThresholdState(timestamp, elec_grp_id, thresh_state)
 
-    #    self.comm.Send(buf=message.pack(),
-    #                   dest=self.config['rank']['decoder'],
-    #                   tag=realtime_base.MPIMessageTag.FEEDBACK_DATA.value)
+        self.comm.Send(buf=message.pack(),
+                       dest=self.config['rank']['decoder'],
+                       tag=realtime_base.MPIMessageTag.FEEDBACK_DATA.value)
 
     def forward_timing_message(self, timing_msg: timing_system.TimingMessage):
         self.comm.Send(buf=timing_msg.pack(),
@@ -587,9 +588,10 @@ class RippleManager(realtime_base.BinaryRecordBaseWithTiming, rt_logging.Logging
                                                        thresh_state=filter_state, 
                                                        conditioning_thresh_state=conditioning_filter_state)
                 #also send thresh cross to decoder
-                #self.mpi_send.send_ripple_thresh_state_decoder(timestamp=datapoint.timestamp,
-                #                                       elec_grp_id=datapoint.elec_grp_id,
-                #                                       thresh_state=filter_state)
+                self.mpi_send.send_ripple_thresh_state_decoder(timestamp=datapoint.timestamp,
+                                                       elec_grp_id=datapoint.elec_grp_id,
+                                                       thresh_state=filter_state,
+                                                       conditioning_thresh_state=conditioning_filter_state)
 
                 self.data_packet_counter += 1
                 if (self.data_packet_counter % 100000) == 0:
