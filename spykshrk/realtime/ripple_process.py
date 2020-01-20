@@ -433,8 +433,8 @@ class RippleMPISendInterface(realtime_base.RealtimeMPIClass):
 
     # NOTE: reactivate this to send LFP time keeper to decoder
     # we only want to call this for one ripple node - somehow use the value, rank == 2
-    def send_ripple_thresh_state_decoder(self, timestamp, elec_grp_id, thresh_state):
-        message = RippleThresholdState(timestamp, elec_grp_id, thresh_state)
+    def send_ripple_thresh_state_decoder(self, timestamp, elec_grp_id, thresh_state, conditioning_thresh_state):
+        message = RippleThresholdState(timestamp, elec_grp_id, thresh_state, conditioning_thresh_state)
 
         self.comm.Send(buf=message.pack(),
                        dest=self.config['rank']['decoder'],
@@ -587,11 +587,12 @@ class RippleManager(realtime_base.BinaryRecordBaseWithTiming, rt_logging.Logging
                                                        elec_grp_id=datapoint.elec_grp_id,
                                                        thresh_state=filter_state, 
                                                        conditioning_thresh_state=conditioning_filter_state)
-                #also send thresh cross to decoder
-                self.mpi_send.send_ripple_thresh_state_decoder(timestamp=datapoint.timestamp,
-                                                       elec_grp_id=datapoint.elec_grp_id,
-                                                       thresh_state=filter_state,
-                                                       conditioning_thresh_state=conditioning_filter_state)
+                #also send thresh cross to decoder - only for rank == 2 aka first ripple_node
+                if self.rank == 2:
+                    self.mpi_send.send_ripple_thresh_state_decoder(timestamp=datapoint.timestamp,
+                                                           elec_grp_id=datapoint.elec_grp_id,
+                                                           thresh_state=filter_state,
+                                                           conditioning_thresh_state=conditioning_filter_state)
 
                 self.data_packet_counter += 1
                 if (self.data_packet_counter % 100000) == 0:
