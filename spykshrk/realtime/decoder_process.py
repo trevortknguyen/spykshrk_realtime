@@ -419,7 +419,8 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         #                          *self.posterior)
 
         self.current_spike_count = 0
-        # why is the observation set to ones here????
+        # np.ones is resetting the observation array for the next time bin
+        # observation is filled with deocoded spikes above in add_observation
         self.observation = np.ones(self.pos_bins)
 
         return self.posterior, self.likelihood
@@ -563,7 +564,9 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                 self.class_log.debug('Received {} decoded messages.'.format(self.msg_counter))
 
         # this is just a check of the lfp_timekeeper and it seems to work as expected, counts up in between spikes
-        #if lfp_timekeeper is not None and lfp_timekeeper.timestamp > self.previous_spike_timestamp+(self.config['pp_decoder']['bin_size']*self.lfp_timekeeper_counter):
+        #if spike_dec_msg is not None or (self.msg_counter > 0 and lfp_timekeeper is not None and 
+        #                                 lfp_timekeeper.timestamp > self.previous_spike_timestamp+
+        #                                 (self.config['pp_decoder']['bin_size']*2*self.lfp_timekeeper_counter)):        
         #    print('5 msec space between decoded spikes. number of empty bins:',self.lfp_timekeeper_counter,
         #          lfp_timekeeper.timestamp,self.previous_spike_timestamp)
         #    self.lfp_timekeeper_counter +=1
@@ -620,11 +623,17 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
 
             elif spike_time_bin > self.current_time_bin:
                 # Spike is in next time bin, compute posterior based on observations, advance to tracking next time bin
+                
+                # problem for lfp_timekeeper: this function runs on empty bins - so observation always = 1
+                # need to run increment_no_spike when no spike_dec_msg - see next if statement below
 
                 # increment last bin with spikes
                 # to turn off posterior calculation comment out next line and replace with list of ones
-                posterior, likelihood = self.pp_decoder.increment_bin()
-                #posterior = np.ones(136)
+                if spike_dec_msg is not None:
+                    posterior, likelihood = self.pp_decoder.increment_bin()
+                    #posterior = np.ones(136)
+                else:
+                    posterior, likelihood = self.pp_decoder.increment_no_spike_bin()
                 
                 #print(posterior)
                 #print(posterior.shape)
