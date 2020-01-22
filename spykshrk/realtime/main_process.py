@@ -650,7 +650,10 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             elif rewarded_arm == 7:
                 self.arm_replay_counter = [0,0,0,0,0,0,1,0]
             elif rewarded_arm == 8:
-                self.arm_replay_counter = [0,0,0,0,0,0,0,1]            
+                self.arm_replay_counter = [0,0,0,0,0,0,0,1]
+            elif rewarded_arm == 0:
+                self.arm_replay_counter = [0,0,0,0,0,0,0,0]
+
 
         # end lockout for posterior sum - no its now ended above
         #if self._posterior_in_lockout and (bin_timestamp > self._posterior_last_lockout_timestamp + 
@@ -738,7 +741,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 
                 # replay detection of box - dont use this now, only send message for arm replays 
                 if np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 0:
-                    print('replay in box - no StateScript message.')
+                    pass
+                    #print('replay in box - no StateScript message.')
                     # test functionalized posterior sum
                     #self.posterior_sum_statescript_message(2,networkclient)
                     # print('max posterior in box',np.around(self.norm_posterior_arm_sum[0],decimals=2),

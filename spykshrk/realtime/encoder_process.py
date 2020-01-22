@@ -284,6 +284,8 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
 
                     # this adds the current spike to the R Star Tree
                     # to turn off adding spike, comment out "new_mark" below
+                    # can also add a secondary spike amplitude filter here
+                    #if abs(self.current_vel) >= self.config['encoder']['vel'] and max(amp_marks)>self.config['encoder']['spk_amp']+50:
                     if abs(self.current_vel) >= self.config['encoder']['vel']:
 
                         self.encoders[datapoint.elec_grp_id].new_mark(amp_marks)

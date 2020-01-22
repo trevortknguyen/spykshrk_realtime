@@ -285,14 +285,16 @@ class BinaryRecordBaseWithTiming(BinaryRecordBase):
         self.write_record(RecordIDs.TIMING, timestamp, elec_grp_id, self.rank, label.encode('utf-8'), datatype,
                           time, time + self.offset_time)
 
+    # MEC silence message to terminal
     def sync_time(self):
-        self.class_log.debug("Begin time sync barrier ({}).".format(self.rank))
+        #self.class_log.debug("Begin time sync barrier ({}).".format(self.rank))
         self.send_interface.all_barrier()
         self.send_interface.send_time_sync_report(MPI.Wtime())
-        self.class_log.debug("Report post barrier time ({}).".format(self.rank))
+        #self.class_log.debug("Report post barrier time ({}).".format(self.rank))
 
+    # MEC turn this off so i can look at terminal more easily
     def update_offset(self, offset_time):
-        self.class_log.debug("Updating time offset to {}".format(offset_time))
+        #self.class_log.debug("Updating time offset to {}".format(offset_time))
         self.offset_time = offset_time
 
 

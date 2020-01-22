@@ -16,7 +16,7 @@
 
     "files": {
         "output_dir": "/mnt/stelmo/mcoulter/spykshrk_output/greenflash",
-        "prefix": "remy_posterior_sum_1_19_1",
+        "prefix": "remy_posterior_sum_1_20_3",
         "rec_postfix": "bin_rec",
         "profile_postfix": "pstats",
         "timing_postfix": "timing",
