@@ -115,10 +115,48 @@ class SpikeDecodeRecvInterface(realtime_base.RealtimeMPIClass):
 
             msg = encoder_process.SpikeDecodeResultsMessage.unpack(self.msg_buffer)
             self.req = self.comm.Irecv(buf=self.msg_buffer, tag=realtime_base.MPIMessageTag.SPIKE_DECODE_DATA)
+            #print('decoded spike message',msg.pos_hist)
             return msg
 
         else:
             return None
+
+# make receiver to take in threshold message from ripple node - use same setup as in main_process
+# to use this LFP timekeeper compare the timestamp of the lfp message to the timestamp of the last spike
+# if greter than 5 msec then trigger calcuating the posterior
+class LFPTimekeeperRecvInterface(realtime_base.RealtimeMPIClass):
+    def __init__(self, comm: MPI.Comm, rank, config):
+        super(LFPTimekeeperRecvInterface, self).__init__(comm=comm, rank=rank, config=config)
+
+        self.mpi_status = MPI.Status()
+
+        self.feedback_bytes = bytearray(16)
+        self.timing_bytes = bytearray(100)
+
+        self.mpi_reqs = []
+        self.mpi_statuses = []
+
+        req_feedback = self.comm.Irecv(buf=self.feedback_bytes,
+                                       tag=realtime_base.MPIMessageTag.FEEDBACK_DATA.value)
+        self.mpi_statuses.append(MPI.Status())
+        self.mpi_reqs.append(req_feedback)
+
+    #def __iter__(self):
+    #    return self
+
+    def __next__(self):
+        rdy = MPI.Request.Testall(requests=self.mpi_reqs, statuses=self.mpi_statuses)
+
+        if rdy:
+            if self.mpi_statuses[0].source in self.config['rank']['ripples']:
+                message = ripple_process.RippleThresholdState.unpack(message_bytes=self.feedback_bytes)
+                self.mpi_reqs[0] = self.comm.Irecv(buf=self.feedback_bytes,
+                                                   tag=realtime_base.MPIMessageTag.FEEDBACK_DATA.value)
+                #print('lfp message in decoder',message)
+                return message
+
+            else:
+                return None
 
 
 class PointProcessDecoder(realtime_logging.LoggingClass):
@@ -284,6 +322,7 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         self.firing_rate[spk_elec_grp_id][self.cur_pos_ind] += 1
 
         self.observation *= spk_pos_hist
+        #print('decoded spike',spk_pos_hist)
         self.observation = self.observation / np.max(self.observation)
         self.current_spike_count += 1
 
@@ -337,7 +376,11 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         # Normalize
         self.posterior = self.posterior / self.posterior.sum()
 
-        return self.posterior
+        # we can save the no spike likelihood here
+        # QUESTION: what happens to the likelihood and the posterior during long times of no spike??
+
+
+        return self.posterior, self.likelihood
 
     def increment_bin(self):
 
@@ -370,15 +413,19 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         # Normalize
         self.posterior = self.posterior / self.posterior.sum()
 
+        # we can save the likelihood here
+
         # Save resulting posterior
         # self.record.write_record(realtime_base.RecordIDs.DECODER_OUTPUT,
         #                          self.current_time_bin * self.time_bin_size,
         #                          *self.posterior)
 
         self.current_spike_count = 0
+        # np.ones is resetting the observation array for the next time bin
+        # observation is filled with deocoded spikes above in add_observation
         self.observation = np.ones(self.pos_bins)
 
-        return self.posterior
+        return self.posterior, self.likelihood
 
     def calculate_posterior_arm_sum(self, posterior, ripple_time_bin):
 
@@ -415,12 +462,13 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
 
 class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
     def __init__(self, rank, config, local_rec_manager, send_interface: DecoderMPISendInterface,
-                 spike_decode_interface: SpikeDecodeRecvInterface,
-                 pos_interface: realtime_base.DataSourceReceiver):
+                 spike_decode_interface: SpikeDecodeRecvInterface,pos_interface: realtime_base.DataSourceReceiver,
+                 lfp_interface: LFPTimekeeperRecvInterface):
         super(PPDecodeManager, self).__init__(rank=rank,
                                               local_rec_manager=local_rec_manager,
                                               send_interface=send_interface,
                                               rec_ids=[realtime_base.RecordIDs.DECODER_OUTPUT,
+                                                       realtime_base.RecordIDs.LIKELIHOOD_OUTPUT,
                                                        realtime_base.RecordIDs.DECODER_MISSED_SPIKES],
                                               rec_labels=[['bin_timestamp','wall_time', 'velocity', 'real_pos',
                                                             'raw_x','raw_y','smooth_x','smooth_y','spike_count',
@@ -430,16 +478,24 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                                                            format(x, dig=len(str(config['encoder']
                                                                                  ['position']['bins'])))
                                                            for x in range(config['encoder']['position']['bins'])],
+                                                          ['bin_timestamp','wall_time','real_pos','spike_count'] +
+                                                          ['x{:0{dig}d}'.
+                                                           format(x, dig=len(str(config['encoder']
+                                                                                 ['position']['bins'])))
+                                                           for x in range(config['encoder']['position']['bins'])], 
                                                           ['timestamp', 'elec_grp_id', 'real_bin', 'late_bin']],
                                               rec_formats=['qdddddddqqqqqddddddddd'+'d'*config['encoder']['position']['bins'],
+                                                           'qddq'+'d'*config['encoder']['position']['bins'],
                                                            'qiii'])
                                                 #i think if you change second q to d above, then you can replace real_pos_time
                                                 # with velocity
+                                                # NOTE: q is symbol for integer, d is symbol for decimal
 
         self.config = config
         self.mpi_send = send_interface
         self.spike_dec_interface = spike_decode_interface
         self.pos_interface = pos_interface
+        self.lfp_interface = lfp_interface
 
         #initialize velocity calc and linear position assignment functions
         self.raw_x = 0
@@ -478,6 +534,10 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
         self.ripple_number = 0
         self.shortcut_message_sent = False
         self.dropped_spikes = 0
+        self.previous_spike_timestamp = 0
+        self.lfp_timekeeper_counter = 1
+        self.lfp_msg_counter = 0
+        self.decode_loop_counter = 1
 
     def register_pos_interface(self):
         # Register position, right now only one position channel is supported
@@ -498,61 +558,136 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
 
     def process_next_data(self):
         spike_dec_msg = self.spike_dec_interface.__next__()
+        lfp_timekeeper = self.lfp_interface.__next__()
         time = MPI.Wtime()
 
         if spike_dec_msg is not None:
-            # okay so the problem is that it is missing lots of lfp data because spike_dec_msg skips a lot - empty bins?
-            # correct - only run when a spike comes in - so if we have few empty bins that will be okay
+            self.lfp_timekeeper_counter = 1
+            self.msg_counter += 1
+            if self.msg_counter % 1000 == 0:
+                self.class_log.debug('Received {} decoded messages.'.format(self.msg_counter))
 
-            if self.msg_counter % 100 == 0:
+        # this is just a check of the lfp_timekeeper and it seems to work as expected, counts up in between spikes
+        #if spike_dec_msg is not None or (self.msg_counter > 0 and lfp_timekeeper is not None and 
+        #                                 lfp_timekeeper.timestamp > self.previous_spike_timestamp+
+        #                                 (self.config['pp_decoder']['bin_size']*2*self.lfp_timekeeper_counter)):        
+        #    print('5 msec space between decoded spikes. number of empty bins:',self.lfp_timekeeper_counter,
+        #          lfp_timekeeper.timestamp,self.previous_spike_timestamp)
+        #    self.lfp_timekeeper_counter +=1
+
+        # also want to run this if too much time has passed based on lfp_timekeeper
+        # this seems to run now based on the lfp timekeeper, but there are many more dropped spikes
+
+        # this is old version of decoder
+        #if spike_dec_msg is not None:
+        # this is new version, that uses lfp timekeeper
+        if spike_dec_msg is not None or (self.msg_counter > 0 and lfp_timekeeper is not None and 
+                                         lfp_timekeeper.timestamp > self.previous_spike_timestamp+
+                                         (self.config['pp_decoder']['bin_size']*2*self.lfp_timekeeper_counter)):
+
+            self.lfp_timekeeper_counter +=1
+            self.decode_loop_counter += 1
+            #if self.decode_loop_counter % 100 == 0:
+            #    print('runs through decoder calcuation',self.decode_loop_counter)
+
+            # turn off timing message for now becuase it depends on spike message
+            #if lfp_timekeeper is not None:
+            #if self.msg_counter % 100 == 0:
+            #    self.record_timing(timestamp=lfp_timekeeper.timestamp, elec_grp_id=1,
+            #                       datatype=datatypes.Datatypes.SPIKES, label='dec_recv')            
+                #self.record_timing(timestamp=spike_dec_msg.timestamp, elec_grp_id=spike_dec_msg.elec_grp_id,
+                #                   datatype=datatypes.Datatypes.SPIKES, label='dec_recv')
+            #print('message recieved by decoder:',spike_dec_msg.timestamp,spike_dec_msg.elec_grp_id)
+            
+            if lfp_timekeeper is not None and self.lfp_msg_counter % 10 == 0:
+                self.lfp_msg_counter += 1
+                self.record_timing(timestamp=lfp_timekeeper.timestamp, elec_grp_id=1,
+                                   datatype=datatypes.Datatypes.SPIKES, label='dec_recv')
+            if spike_dec_msg is not None and self.msg_counter % 10 == 0:
                 self.record_timing(timestamp=spike_dec_msg.timestamp, elec_grp_id=spike_dec_msg.elec_grp_id,
                                    datatype=datatypes.Datatypes.SPIKES, label='dec_recv')
-            #print('message recieved by decoder:',spike_dec_msg.timestamp,spike_dec_msg.elec_grp_id)
-
 
             # Update firing rate
 
             # Calculate which time bin spike belongs to
-            if self.current_time_bin == 0:
-                self.current_time_bin = int(math.floor(spike_dec_msg.timestamp/self.config['pp_decoder']['bin_size']))
-                spike_time_bin = self.current_time_bin
+            # if there is a spike use spike timestamp, if not use lfp timestamp
+            if spike_dec_msg is not None:
+                # set previous spike timestamp
+                self.previous_spike_timestamp = spike_dec_msg.timestamp
+
+                if self.current_time_bin == 0:
+                    self.current_time_bin = int(math.floor(spike_dec_msg.timestamp/self.config['pp_decoder']['bin_size']))
+                    spike_time_bin = self.current_time_bin
+                else:
+                    spike_time_bin = int(math.floor(spike_dec_msg.timestamp/self.config['pp_decoder']['bin_size']))
             else:
-                spike_time_bin = int(math.floor(spike_dec_msg.timestamp/self.config['pp_decoder']['bin_size']))
+                #print('lfp_timekeeper')
+                if self.current_time_bin == 0:
+                    self.current_time_bin = int(math.floor(lfp_timekeeper.timestamp/self.config['pp_decoder']['bin_size']))
+                    spike_time_bin = self.current_time_bin
+                else:
+                    spike_time_bin = int(math.floor(lfp_timekeeper.timestamp/self.config['pp_decoder']['bin_size']))
 
             
-            if spike_time_bin == self.current_time_bin:
+            if spike_time_bin == self.current_time_bin and spike_dec_msg is not None:
                 # Spike is in current time bin
                 self.pp_decoder.add_observation(spk_elec_grp_id=spike_dec_msg.elec_grp_id,
                                                 spk_pos_hist=spike_dec_msg.pos_hist)
+                #print('decoded spike message',spike_dec_msg.pos_hist)
                 self.spike_count += 1
                 pass
 
             elif spike_time_bin > self.current_time_bin:
                 # Spike is in next time bin, compute posterior based on observations, advance to tracking next time bin
+                
+                # problem for lfp_timekeeper: this function runs on empty bins - so observation always = 1
+                # need to run increment_no_spike when no spike_dec_msg - see next if statement below
 
                 # increment last bin with spikes
                 # to turn off posterior calculation comment out next line and replace with list of ones
-                posterior = self.pp_decoder.increment_bin()
-                #posterior = np.ones(136)
+                if spike_dec_msg is not None:
+                    posterior, likelihood = self.pp_decoder.increment_bin()
+                    #posterior = np.ones(137)
+                    #likelihood = np.ones(137)
+
+                else:
+                    #print('lfp_timekeeper')
+                    posterior, likelihood = self.pp_decoder.increment_no_spike_bin()
+                    #posterior = np.ones(137)
+                    #likelihood = np.ones(137)
                 
-                #print(posterior)
-                #print(posterior.shape)
                 self.posterior_arm_sum = self.pp_decoder.calculate_posterior_arm_sum(posterior, self.ripple_time_bin)
+                #self.posterior_arm_sum = np.zeros((1,9))
+
+                #if spike_dec_msg is not None:
+                #    print('posterior arm sum, spike loop',np.around(self.posterior_arm_sum,decimals=2),self.spike_count)
 
                 # add 1 to spike_count because it isnt added when starting a new bin, so 1st spike is missed
-                self.spike_count += 1
+                if spike_dec_msg is not None:
+                    self.spike_count += 1
 
-                # try replacing self.pp_decoder.cur_pos_time with self.cur_vel to get both position and velocity in the dataframe
-                # and once more in the next paragraph
+                # replaced self.pp_decoder.cur_pos_time with self.cur_vel to get real position and velocity
+
                 # send posterior message to main_process
                 #print('wall time at decoder',self.current_time_bin * self.time_bin_size,time*1000)
-                self.mpi_send.send_posterior_message(self.current_time_bin * self.time_bin_size,spike_dec_msg.timestamp,
-                                                     self.posterior_arm_sum[0][0],
+                
+                if spike_dec_msg is not None:
+                    self.posterior_sum_timestamp = spike_dec_msg.timestamp
+                else:
+                    self.posterior_sum_timestamp = lfp_timekeeper.timestamp
+
+                self.mpi_send.send_posterior_message(self.current_time_bin * self.time_bin_size,
+                                                     self.posterior_sum_timestamp,self.posterior_arm_sum[0][0],
                                                      self.posterior_arm_sum[0][1],self.posterior_arm_sum[0][2],
                                                      self.posterior_arm_sum[0][3],self.posterior_arm_sum[0][4],
                                                      self.posterior_arm_sum[0][5],self.posterior_arm_sum[0][6],
                                                      self.posterior_arm_sum[0][7],self.posterior_arm_sum[0][8],
                                                      self.spike_count)
+
+                self.write_record(realtime_base.RecordIDs.LIKELIHOOD_OUTPUT,
+                                  self.current_time_bin * self.time_bin_size, time,
+                                  self.pp_decoder.cur_pos,self.spike_count,
+                                  *likelihood)
 
                 self.write_record(realtime_base.RecordIDs.DECODER_OUTPUT,
                                   self.current_time_bin * self.time_bin_size, time,
@@ -571,12 +706,35 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
 
                 for no_spk_ii in range(spike_time_bin - self.current_time_bin - 1):
                     #spike_count is set to 0 for no_spike_bins
+                    # need to make sure this loop actually runs with lfp_timekeeper - seems okay
+                    #print('inside no_spk_ii loop',spike_time_bin,no_spk_ii)
 
                     # to turn off posterior calculation comment out next line and replace with list of ones
-                    posterior = self.pp_decoder.increment_no_spike_bin()
-                    #posterior = np.ones(136)
+                    posterior, likelihood = self.pp_decoder.increment_no_spike_bin()
+                    #posterior = np.ones(137)
+                    #likelihood = np.ones(137)
 
                     self.posterior_arm_sum = self.pp_decoder.calculate_posterior_arm_sum(posterior, self.ripple_time_bin)
+                    #self.posterior_arm_sum = np.zeros((1,9))
+                    #print('posterior arm sum, no spike loop',np.around(self.posterior_arm_sum,decimals=2))
+
+                    if spike_dec_msg is not None:
+                        self.posterior_sum_timestamp = spike_dec_msg.timestamp
+                    else:
+                        self.posterior_sum_timestamp = lfp_timekeeper.timestamp
+
+                    self.mpi_send.send_posterior_message(self.current_time_bin * self.time_bin_size,
+                                                         self.posterior_sum_timestamp,self.posterior_arm_sum[0][0],
+                                                         self.posterior_arm_sum[0][1],self.posterior_arm_sum[0][2],
+                                                         self.posterior_arm_sum[0][3],self.posterior_arm_sum[0][4],
+                                                         self.posterior_arm_sum[0][5],self.posterior_arm_sum[0][6],
+                                                         self.posterior_arm_sum[0][7],self.posterior_arm_sum[0][8],
+                                                         self.spike_count)
+
+                    self.write_record(realtime_base.RecordIDs.LIKELIHOOD_OUTPUT,
+                                  self.current_time_bin * self.time_bin_size, time,
+                                  self.pp_decoder.cur_pos,self.spike_count,
+                                  *likelihood)
 
                     self.write_record(realtime_base.RecordIDs.DECODER_OUTPUT,
                                       self.current_time_bin * self.time_bin_size, time,
@@ -592,18 +750,13 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
 
                     #print('wall time at decoder',self.current_time_bin * self.time_bin_size,time*1000)
 
-                    self.mpi_send.send_posterior_message(self.current_time_bin * self.time_bin_size,spike_dec_msg.timestamp,
-                                                         self.posterior_arm_sum[0][0],
-                                                         self.posterior_arm_sum[0][1],self.posterior_arm_sum[0][2],
-                                                         self.posterior_arm_sum[0][3],self.posterior_arm_sum[0][4],
-                                                         self.posterior_arm_sum[0][5],self.posterior_arm_sum[0][6],
-                                                         self.posterior_arm_sum[0][7],self.posterior_arm_sum[0][8],
-                                                         self.spike_count)
                     self.current_time_bin += 1
                     self.shortcut_message_sent = False
 
-                self.pp_decoder.add_observation(spk_elec_grp_id=spike_dec_msg.elec_grp_id,
-                                                spk_pos_hist=spike_dec_msg.pos_hist)
+                # this will not happen with lfp timestamp trigger - is that a problem?
+                if spike_dec_msg is not None:
+                    self.pp_decoder.add_observation(spk_elec_grp_id=spike_dec_msg.elec_grp_id,
+                                                    spk_pos_hist=spike_dec_msg.pos_hist)
 
                 # Increment current time bin to latest spike
                 self.current_time_bin = spike_time_bin
@@ -612,7 +765,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                 self.spike_count = 0
                 pass
 
-            elif spike_time_bin < self.current_time_bin:
+            elif spike_time_bin < self.current_time_bin and spike_dec_msg is not None:
                 self.dropped_spikes += 1
                 self.write_record(realtime_base.RecordIDs.DECODER_MISSED_SPIKES,
                                   spike_dec_msg.timestamp, spike_dec_msg.elec_grp_id,
@@ -624,14 +777,21 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                     print('number of dropped spikes: ',self.dropped_spikes)
                 pass
 
-            self.msg_counter += 1
-            if self.msg_counter % 1000 == 0:
-                self.class_log.debug('Received {} decoded messages.'.format(self.msg_counter))
+            #moved this above so it only count decoded spikes
+            #self.msg_counter += 1
+            #if self.msg_counter % 1000 == 0:
+            #    self.class_log.debug('Received {} decoded messages.'.format(self.msg_counter))
 
 
-            if self.msg_counter % 100 == 0:
+            #if self.msg_counter % 100 == 0:
+            #    self.record_timing(timestamp=spike_dec_msg.timestamp, elec_grp_id=spike_dec_msg.elec_grp_id,
+            #                       datatype=datatypes.Datatypes.SPIKES, label='dec_proc')
+            if lfp_timekeeper is not None and self.lfp_msg_counter % 10 == 0:
+                self.record_timing(timestamp=lfp_timekeeper.timestamp, elec_grp_id=1,
+                                   datatype=datatypes.Datatypes.SPIKES, label='dec_finish')
+            if spike_dec_msg is not None and self.msg_counter % 10 == 0:
                 self.record_timing(timestamp=spike_dec_msg.timestamp, elec_grp_id=spike_dec_msg.elec_grp_id,
-                                   datatype=datatypes.Datatypes.SPIKES, label='dec_proc')
+                                   datatype=datatypes.Datatypes.SPIKES, label='dec_finish')
 
             pass
 
@@ -654,6 +814,13 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                 self.current_vel = self.velCalc.calculator(pos_data.x, pos_data.y)
                 self.smooth_vel = self.velCalc.calculator(self.smooth_x, self.smooth_y)
                 current_pos = self.linPosAssign.assign_position(pos_data.segment, pos_data.position)
+
+                # try turning off all of these calculations
+                #self.smooth_x = pos_data.x
+                #self.smooth_y = pos_data.y
+                #self.current_vel = 0
+                #self.smooth_vel = 0
+                #current_pos = 0
 
                 self.pp_decoder.update_position(pos_timestamp=pos_data.timestamp, pos_data=current_pos, vel_data=self.current_vel)
 
@@ -811,6 +978,7 @@ class DecoderProcess(realtime_base.RealtimeProcess):
 
         self.mpi_send = DecoderMPISendInterface(comm=comm, rank=rank, config=config)
         self.spike_decode_interface = SpikeDecodeRecvInterface(comm=comm, rank=rank, config=config)
+        self.lfp_interface = LFPTimekeeperRecvInterface(comm=comm, rank=rank, config=config)
 
 
         if config['datasource'] == 'simulator':
@@ -834,7 +1002,8 @@ class DecoderProcess(realtime_base.RealtimeProcess):
                                            local_rec_manager=self.local_rec_manager,
                                            send_interface=self.mpi_send,
                                            spike_decode_interface=self.spike_decode_interface,
-                                           pos_interface=self.pos_interface)
+                                           pos_interface=self.pos_interface,
+                                           lfp_interface=self.lfp_interface)
 
         self.mpi_recv = DecoderRecvInterface(comm=comm, rank=rank, config=config, decode_manager=self.dec_man)
 
