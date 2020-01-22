@@ -15,12 +15,12 @@
     },
 
     "files": {
-        "output_dir": "/home/lorenlab/20191222_bill_raw",
-        "prefix": "20200107_bill_02_test_westerlies_streaming",
+        "output_dir": "/media/lorenlab/34e4605c-c436-46d4-b43a-80da18b12d97/spykshrk_output",
+        "prefix": "20200114_shortcut_test_westerlies_streaming",
         "rec_postfix": "bin_rec",
         "profile_postfix": "pstats",
         "timing_postfix": "timing",
-        "backup_dir": "/home/lorenlab/20191222_bill_raw/databackup"
+        "backup_dir": "/media/lorenlab/34e4605c-c436-46d4-b43a-80da18b12d97/spykshrk_output"
     },
 
     "trodes": {
@@ -39,7 +39,9 @@
             "ripple_threshold": 4,
             "samp_divisor": 10000,
             "n_above_thresh": 2,
-            "lockout_time": 3750,
+            "lockout_time": 4500,
+            "posterior_lockout_time": 3750,
+            "ripple_conditioning_lockout_time": 3750,
             "detect_no_ripples": false,
             "detect_no_ripple_time": 60000,
             "dio_gate": false,
@@ -127,9 +129,9 @@
 
         "position": {
             "lower": 0,
-            "upper": 73,
-            "bins": 73,
-            "arm_pos": [[0, 72]]
+            "upper": 137,
+            "bins": 137,
+            "arm_pos": [[0, 136]]
         },
         "position_kernel": {
             "std": 5
