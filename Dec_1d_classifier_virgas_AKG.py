@@ -23,7 +23,7 @@ from spykshrk.franklab.data_containers import RippleTimes, pos_col_format, Poste
 
 from spykshrk.franklab.pp_decoder.pp_clusterless import OfflinePPEncoder, OfflinePPDecoder
 
-def main(path_base, rat_name, day, epoch, shift_amt, path_out):
+def main(path_base, rat_name, day, epoch, shift_amt, velthresh=4, use_enc_as_dec_flag=0, path_out):
     print(datetime.now())
     today = str(date.today())
 
@@ -59,12 +59,14 @@ def main(path_base, rat_name, day, epoch, shift_amt, path_out):
     print('Tetrodes: ',tetrodes)
 
     pos_bin_size = 5
-    velocity_thresh_for_enc_dec = 4
+    velocity_thresh_for_enc_dec = velthresh
     velocity_buffer = 0
+
+    print('Velocity thresh: ',velocity_thresh_for_enc_dec)
 
     shift_amt_for_shuffle = shift_amt
 
-    use_enc_as_dec = 0
+    use_enc_as_dec = use_enc_as_dec_flag
 
     discrete_tm_val=.99   # for classifier
 
