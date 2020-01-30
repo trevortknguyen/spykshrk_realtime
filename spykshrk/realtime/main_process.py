@@ -425,6 +425,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 print('end ripple lockout ended. time:',timestamp/30)
 
             # detection of large ripples: 2 tets above rip thresh, velocity below vel thresh, not in lockout (125 msec after previous rip)
+            # ideally this would also take in some output from statescript that says whether this time is ripple or content conditioning
+            # because this statement is before posterior sum, posterior sum will not run if the two ripple thresholds are the same
             if (conditioning_num_above >= self._ripple_n_above_thresh) and self.velocity < self.config['encoder']['vel'] and not self._conditioning_in_lockout:            
                 self.big_rip_message_sent = 0
                 print('tets above cond ripple thresh: ',conditioning_num_above,timestamp,
