@@ -446,8 +446,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 # need to re-introduce lockout so that only one message is sent per ripple (7500 = 5 sec)
                 # lockout is in timestamps - so 1 seconds = 30000
                 # for a dynamic filter, we need to get ripple size from the threshold message and send to statescript
-                print('sent behavior message based on ripple thresh',time,timestamp)
-                networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(7);\n'])
+                #print('sent behavior message based on ripple thresh',time,timestamp)
+                #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['trigger(7);\n'])
                 
                 # for trodes okay to send variable and function in one command, cant send two functions in one
                 # command and cant send two function in two back-to-back commands - gives compile error
@@ -455,7 +455,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
 
                 # for trodes, this is the syntax for a shortcut message - but does not work currently
                 # number is function number
-                #networkclient.sendStateScriptShortcutMessage(1)
+                #networkclient.sendStateScriptShortcutMessage(16)
+                #print('sent shortcut message')
 
                 # this starts the lockout for large ripple threshold
                 self._conditioning_in_lockout = True

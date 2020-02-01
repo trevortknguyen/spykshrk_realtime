@@ -16,7 +16,7 @@
 
     "files": {
         "output_dir": "/media/lorenlab/34e4605c-c436-46d4-b43a-80da18b12d97/spykshrk_output",
-        "prefix": "20200114_shortcut_test_westerlies_streaming",
+        "prefix": "20200124_remy_5tet_westerlies",
         "rec_postfix": "bin_rec",
         "profile_postfix": "pstats",
         "timing_postfix": "timing",
@@ -136,8 +136,8 @@
         "position_kernel": {
             "std": 5
         },
-        "vel": 15,
-        "spk_amp": 100
+        "vel": 8,
+        "spk_amp": 150
     },
 
     "decoder": "pp_decoder",
@@ -156,7 +156,7 @@
     "trodes_network": {
         "address" : "tcp://127.0.0.1",
         "port": 49152,
-        "decoding_tetrodes": [1,4,5,6,9],
-        "ripple_tetrodes": [12,15,17,18,28]
+        "decoding_tetrodes": [26,6,9,11,14],
+        "ripple_tetrodes": [10,13,17,19,29]
     }
 }
