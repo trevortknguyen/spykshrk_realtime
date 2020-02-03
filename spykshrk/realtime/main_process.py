@@ -228,12 +228,12 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                                      ['timestamp', 'time', 'lockout_num', 'lockout_state','tets_above_thresh',
                                       'big_rip_message_sent'],
                                      ['bin_timestamp', 'spike_timestamp','lfp_timestamp','time',
-                                      'shortcut_message_sent', 'ripple_number','ripple_time_bin',
+                                      'shortcut_message_sent', 'ripple_number','ripple_time_bin','delay',
                                       'spike_count','posterior_max_arm','content_threshold','ripple_end',
                                       'max_arm_repeats','box','arm1','arm2','arm3','arm4','arm5','arm6','arm7','arm8']],
                          rec_formats=['Iii',
                                       'Idiiqi',
-                                      'IIidiiiiidiiddddddddd'])
+                                      'IIidiiidiidiiddddddddd'])
                         #NOTE: for binary files: I,i means integer, d means decimal
 
         self.rank = rank
@@ -479,8 +479,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
 
             # detection of content ripples: 2 tets above rip thresh, velocity below vel thresh, not in lockout (500 msec after previous rip)
             elif (num_above >= self._ripple_n_above_thresh) and self.velocity < self.config['encoder']['vel'] and not self._in_lockout:
-                # add to the ripple count
-                self.ripple_number += 1
+                # add to the ripple count- no should use lockout_count
+                #self.ripple_number += 1
                 # this needs to just turn on light
                 # i think this needs to use lockout too, otherwise too many messages
                 # but this could interfere with detection of larger ripples
@@ -560,7 +560,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             #print('string for statescript:',statescript_command)
             networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', [statescript_command])
             #networkclient.sendMsgToModule('StateScript', 'StatescriptCommand', 's', ['replay_arm = 1;\ntrigger(15);\n'])
-            print('sent StateScript message for arm',arm,'replay in ripple ',self.ripple_number)
+            print('sent StateScript message for arm',arm,'replay in ripple ',self._lockout_count)
             
             # arm replay counters, only active at wait well and adds to current counter and sets other arms to 0
             print('arm replay count: ',self.arm_replay_counter)
@@ -569,7 +569,9 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             self.ripple_end = 1
             self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
                               self.bin_timestamp, self.spike_timestamp, self.lfp_timestamp, time, self.shortcut_message_sent, 
-                              self.ripple_number, self.posterior_time_bin, self.posterior_spike_count,
+                              self._lockout_count, self.posterior_time_bin, 
+                              (self.lfp_timestamp-self.bin_timestamp)/30,
+                              self.posterior_spike_count,
                               self.shortcut_message_arm,self.posterior_arm_threshold,self.ripple_end,self.max_arm_repeats,
                               self.norm_posterior_arm_sum[0],self.norm_posterior_arm_sum[1],self.norm_posterior_arm_sum[2],
                               self.norm_posterior_arm_sum[3],self.norm_posterior_arm_sum[4],self.norm_posterior_arm_sum[5],
@@ -717,11 +719,13 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 # replay detection of box - only send message for arm replays 
                 if np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 0:
                     if self.posterior_time_bin == 1:
-                        print('replay in box - no StateScript message.')
+                        print('replay in box - no StateScript message. ripple',self._lockout_count)
                         self.shortcut_message_arm = 0
                         self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
                                           bin_timestamp, spike_timestamp, self.lfp_timestamp, time, self.shortcut_message_sent, 
-                                          self.ripple_number, self.posterior_time_bin,  self.posterior_spike_count,
+                                          self._lockout_count, self.posterior_time_bin, 
+                                          (self.lfp_timestamp-self.bin_timestamp)/30,
+                                          self.posterior_spike_count,
                                           self.shortcut_message_arm,self.posterior_arm_threshold,self.ripple_end,self.max_arm_repeats,
                                           self.norm_posterior_arm_sum[0],self.norm_posterior_arm_sum[1],self.norm_posterior_arm_sum[2],
                                           self.norm_posterior_arm_sum[3],self.norm_posterior_arm_sum[4],self.norm_posterior_arm_sum[5],
@@ -757,10 +761,12 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 # use the model from below
             else:
                 if self.posterior_time_bin == 1:
-                    print('no segment above 0.5 - no StateScript message.')
+                    print('no segment above 0.5 - no StateScript message. ripple',self._lockout_count)
                     self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
                                       bin_timestamp, spike_timestamp, self.lfp_timestamp, time, self.shortcut_message_sent, 
-                                      self.ripple_number, self.posterior_time_bin,  self.posterior_spike_count,
+                                      self._lockout_count, self.posterior_time_bin, 
+                                      (self.lfp_timestamp-self.bin_timestamp)/30,
+                                      self.posterior_spike_count,
                                       self.shortcut_message_arm,self.posterior_arm_threshold,self.ripple_end,self.max_arm_repeats,
                                       self.norm_posterior_arm_sum[0],self.norm_posterior_arm_sum[1],self.norm_posterior_arm_sum[2],
                                       self.norm_posterior_arm_sum[3],self.norm_posterior_arm_sum[4],self.norm_posterior_arm_sum[5],
