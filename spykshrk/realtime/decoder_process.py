@@ -644,6 +644,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
         self.lfp_msg_counter = 0
         self.decode_loop_counter = 1
         self.used_next_bin = False
+        self.decoded_spike = 0
 
     def register_pos_interface(self):
         # Register position, right now only one position channel is supported
@@ -695,6 +696,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
             self.decode_loop_counter += 1
             #if self.decode_loop_counter % 100 == 0:
             #    print('runs through decoder calcuation',self.decode_loop_counter)
+            #    print('decoded spikes',self.decoded_spike)            
 
             # turn off timing message for now becuase it depends on spike message
             #if lfp_timekeeper is not None:
@@ -736,6 +738,8 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
 
             
             if spike_time_bin == self.current_time_bin and spike_dec_msg is not None:
+                # added for spike tracking
+                self.decoded_spike += 1
                 # Spike is in current time bin
                 self.pp_decoder.add_observation(spk_elec_grp_id=spike_dec_msg.elec_grp_id,
                                                 spk_pos_hist=spike_dec_msg.pos_hist)
@@ -750,6 +754,8 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
             # i think this is backwards - want to collect spikes of next bin, then with +2 bins and posterior
             # is calculated, transfer these spikes back to observation
             elif spike_time_bin == self.current_time_bin + 1 and spike_dec_msg is not None:
+                # added for spike tracking
+                self.decoded_spike += 1
                 #print('spike 1 bin ahead')
                 self.used_next_bin = True
                 # call a new function - increment_bin_1 is wrong, now next_observation
@@ -759,6 +765,8 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
 
             # calculate posterior when spike is 2+ bins ahead
             elif spike_time_bin > self.current_time_bin + 1:
+                # added for spike tracking
+                self.decoded_spike += 1
             # original
             #elif spike_time_bin > self.current_time_bin:
                 # Spike is in next time bin, compute posterior based on observations, advance to tracking next time bin
@@ -906,8 +914,10 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
 
                 else:
                     #MEC edited this line to try and get back missing bins in decoder_data record - seems to work!
-                    for no_spk_ii in range(spike_time_bin - self.current_time_bin):
-                    #for no_spk_ii in range(spike_time_bin - self.current_time_bin - 1):
+                    # for 1 bin delay version, this will advance current bin 1 more than lines above
+                    # i think that will increase number of dropped spikes - try switching to -1
+                    #for no_spk_ii in range(spike_time_bin - self.current_time_bin):
+                    for no_spk_ii in range(spike_time_bin - self.current_time_bin - 1):
                         #spike_count is set to 0 for no_spike_bins
                         # need to make sure this loop actually runs with lfp_timekeeper - seems okay
                         #print('inside no_spk_ii loop',spike_time_bin,no_spk_ii)
@@ -968,9 +978,10 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                     # delay decoder
                     self.pp_decoder.next_observation(spk_elec_grp_id=spike_dec_msg.elec_grp_id,
                                                      spk_pos_hist=spike_dec_msg.pos_hist)
+
                 # Increment current time bin to latest spike
                 # i think this is a problem - will reverse all the advantage of having a delay
-                # try commenting out this line
+                # try commenting out this line - works to restore all decoder bins with delay 
                 #self.current_time_bin = spike_time_bin
 
                 # reset spike count to 0
