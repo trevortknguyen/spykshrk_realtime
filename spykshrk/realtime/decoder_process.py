@@ -179,7 +179,7 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
 
         # Initialize major PP variables
         self.observation = np.ones(self.pos_bins)
-        self.observation_next = np.zeros(self.pos_bins)
+        self.observation_next = np.ones(self.pos_bins)
         self.occ = np.ones(self.pos_bins)
         self.likelihood = np.ones(self.pos_bins)
         self.posterior = np.ones(self.pos_bins)
@@ -328,6 +328,14 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         self.observation = self.observation / np.max(self.observation)
         self.current_spike_count += 1
 
+    def next_observation(self, spk_elec_grp_id, spk_pos_hist):
+        self.firing_rate[spk_elec_grp_id][self.cur_pos_ind] += 1
+
+        self.observation_next *= spk_pos_hist
+        #print('decoded spike',spk_pos_hist)
+        self.observation_next = self.observation_next / np.max(self.observation_next)
+        self.spike_count_next += 1
+
     def update_position(self, pos_timestamp, pos_data, vel_data):
         # Convert position to bin index in histogram count
         self.cur_pos_time = pos_timestamp
@@ -431,6 +439,7 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
     # new decoder: for n+1 bin
     # transfer observations to new list and clear self.observation
     # add spike to new observation
+    # NOT USING: this is backwards, replaced with next_observation above
     def increment_bin_1(self, spk_elec_grp_id, spk_pos_hist):
 
         # Compute conditional intensity function (probability of no spike)
@@ -506,16 +515,20 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         self.prev_posterior = self.posterior
 
         # Compute likelihood for previous bin with spikes
-        self.likelihood = self.observation_next * global_prob_no
+        self.likelihood = self.observation * global_prob_no
 
         # Compute posterior
         self.posterior = self.likelihood * (self.transition_mat * self.prev_posterior).sum(axis=1)
         # Normalize
         self.posterior = self.posterior / self.posterior.sum()
 
-        # reset spike count and observation_next
+        # transfer observation_next and next spike to observation
+        self.current_spike_count = np.copy(self.spike_count_next)
+        self.observation = np.copy(self.observation_next)
+
+        # reset next spike count and observation_next
         self.spike_count_next = 0
-        self.observation_next = np.zeros(self.pos_bins)
+        self.observation_next = np.ones(self.pos_bins)
 
         return self.posterior, self.likelihood
 
@@ -734,12 +747,14 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
             # collect decoded spikes for next bin
             # transfer observations to new list and set current observation list to 0
             # if no spikes in this bin, do nothing - this should never happen, i think
+            # i think this is backwards - want to collect spikes of next bin, then with +2 bins and posterior
+            # is calculated, transfer these spikes back to observation
             elif spike_time_bin == self.current_time_bin + 1 and spike_dec_msg is not None:
                 #print('spike 1 bin ahead')
                 self.used_next_bin = True
-                # call a new function
-                self.pp_decoder.increment_bin_1(spk_elec_grp_id=spike_dec_msg.elec_grp_id,
-                                                spk_pos_hist=spike_dec_msg.pos_hist)
+                # call a new function - increment_bin_1 is wrong, now next_observation
+                self.pp_decoder.next_observation(spk_elec_grp_id=spike_dec_msg.elec_grp_id,
+                                                 spk_pos_hist=spike_dec_msg.pos_hist)
                 self.spike_count += 1
 
             # calculate posterior when spike is 2+ bins ahead
@@ -752,7 +767,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                 # need to run increment_no_spike when no spike_dec_msg - see next if statement below
 
                 # if just ran observation_next, use increment_bin_2
-                #if np.sum(self.observation_next) > 0:
+                # do we still need this conditional? or should we always run increment_bin_2???
                 if self.used_next_bin:
                     #print('next bin decoder ON')
                     #self.used_next_bin = False
@@ -764,7 +779,6 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                         posterior, likelihood = self.pp_decoder.increment_no_spike_bin()               
                 
                 # otherwise use regular increment_bin
-                #elif np.sum(self.observation_next) == 0:
                 else:
                     #print('using regular increment_bin')
                     if spike_dec_msg is not None:
@@ -950,7 +964,9 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                                                     spk_pos_hist=spike_dec_msg.pos_hist)
 
                 # Increment current time bin to latest spike
-                self.current_time_bin = spike_time_bin
+                # i think this is a problem - will reverse all the advantage of having a delay
+                # try commenting out this line
+                #self.current_time_bin = spike_time_bin
 
                 # reset spike count to 0
                 self.spike_count = 0
