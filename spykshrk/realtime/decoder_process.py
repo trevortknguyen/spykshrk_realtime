@@ -459,8 +459,8 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         #self.posterior = self.posterior / self.posterior.sum()
 
         # transfer current observation to a new variable
-        self.observation_next = self.observation
-        self.spike_count_next = self.current_spike_count
+        self.observation_next = np.copy(self.observation)
+        self.spike_count_next = np.copy(self.current_spike_count)
         
         # do we want to update firing_rate here??
         self.firing_rate[spk_elec_grp_id][self.cur_pos_ind] += 1
@@ -471,6 +471,7 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         self.observation_next = self.observation_next / np.max(self.observation_next)
         self.spike_count_next += 1
 
+        #print(self.observation_next)
         # i think we should leave this
         self.current_spike_count = 0
         # np.ones is resetting the observation array for the next time bin
@@ -500,6 +501,7 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         #if self.pos_counter % 10000 == 0:
         #    print('global prob no spike: ',global_prob_no)
 
+        #print(self.observation_next)
         # Update last posterior
         self.prev_posterior = self.posterior
 
@@ -728,22 +730,22 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                 self.spike_count += 1
                 pass
 
-            # for next_bin decoding
+            # for next_bin decoding - can just toggle this paragraph and first line in next paragraph
             # collect decoded spikes for next bin
             # transfer observations to new list and set current observation list to 0
             # if no spikes in this bin, do nothing - this should never happen, i think
-            # elif spike_time_bin == self.current_time_bin + 1 and spike_dec_msg is not None:
-            #     #print('spike 1 bin ahead')
-            #     self.used_next_bin = True
-            #     # call a new function
-            #     self.pp_decoder.increment_bin_1(spk_elec_grp_id=spike_dec_msg.elec_grp_id,
-            #                                     spk_pos_hist=spike_dec_msg.pos_hist)
-            #     self.spike_count += 1
+            elif spike_time_bin == self.current_time_bin + 1 and spike_dec_msg is not None:
+                #print('spike 1 bin ahead')
+                self.used_next_bin = True
+                # call a new function
+                self.pp_decoder.increment_bin_1(spk_elec_grp_id=spike_dec_msg.elec_grp_id,
+                                                spk_pos_hist=spike_dec_msg.pos_hist)
+                self.spike_count += 1
 
             # calculate posterior when spike is 2+ bins ahead
-            #elif spike_time_bin > self.current_time_bin + 1:
+            elif spike_time_bin > self.current_time_bin + 1:
             # original
-            elif spike_time_bin > self.current_time_bin:
+            #elif spike_time_bin > self.current_time_bin:
                 # Spike is in next time bin, compute posterior based on observations, advance to tracking next time bin
                 
                 # problem for lfp_timekeeper: this function runs on empty bins - so observation always = 1
@@ -752,10 +754,12 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                 # if just ran observation_next, use increment_bin_2
                 #if np.sum(self.observation_next) > 0:
                 if self.used_next_bin:
-                    print('next bin decoder ON')
+                    #print('next bin decoder ON')
                     #self.used_next_bin = False
+
                     if spike_dec_msg is not None:
                         posterior, likelihood = self.pp_decoder.increment_bin_2()
+                        #print(posterior)
                     else:
                         posterior, likelihood = self.pp_decoder.increment_no_spike_bin()               
                 
@@ -835,9 +839,10 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                 # new decoder with 2 bins: change 1 > 2, only use if 3 or more bins ahead
                 # i think this means when spike is 2+ bins ahead and increment_bin_1 does NOT run
                 # one decoded time bin will be missing
+                # split this step up between used_next_bin and not and change -2 to -1, and -1 to 0 below
                 if self.used_next_bin: 
-                    print('next bin decoder ON')
-                    for no_spk_ii in range(spike_time_bin - self.current_time_bin - 2):
+                    #print('next bin decoder ON')
+                    for no_spk_ii in range(spike_time_bin - self.current_time_bin - 1):
                     #for no_spk_ii in range(spike_time_bin - self.current_time_bin - 1):
                         #spike_count is set to 0 for no_spike_bins
                         # need to make sure this loop actually runs with lfp_timekeeper - seems okay
@@ -884,8 +889,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
 
                         #print('wall time at decoder',self.current_time_bin * self.time_bin_size,time*1000)
                         self.current_time_bin += 1
-                        self.shortcut_message_sent = False
-                        self.used_next_bin = False
+
                 else:
                     #MEC edited this line to try and get back missing bins in decoder_data record - seems to work!
                     for no_spk_ii in range(spike_time_bin - self.current_time_bin):
@@ -935,10 +939,10 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
 
                         #print('wall time at decoder',self.current_time_bin * self.time_bin_size,time*1000)
                         self.current_time_bin += 1
-                        self.shortcut_message_sent = False
-                        self.used_next_bin = False                    
 
-
+                # yes, we need it here because if spike is 1 bin ahead the for loop inside else is empty
+                self.used_next_bin = False
+                self.shortcut_message_sent = False
 
                 # this will not happen with lfp timestamp trigger - is that a problem?
                 if spike_dec_msg is not None:
