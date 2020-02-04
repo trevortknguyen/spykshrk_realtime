@@ -958,11 +958,16 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                 self.used_next_bin = False
                 self.shortcut_message_sent = False
 
-                # this will not happen with lfp timestamp trigger - is that a problem?
+                # this will not happen with lfp timestamp trigger - is that a problem? No.
+                # this adds the current spike to the next observation
+                # for bin delay decoder this should be added to observation_next as the n+1 bin
                 if spike_dec_msg is not None:
-                    self.pp_decoder.add_observation(spk_elec_grp_id=spike_dec_msg.elec_grp_id,
-                                                    spk_pos_hist=spike_dec_msg.pos_hist)
-
+                    # original
+                    #self.pp_decoder.add_observation(spk_elec_grp_id=spike_dec_msg.elec_grp_id,
+                    #                                spk_pos_hist=spike_dec_msg.pos_hist)
+                    # delay decoder
+                    self.pp_decoder.next_observation(spk_elec_grp_id=spike_dec_msg.elec_grp_id,
+                                                     spk_pos_hist=spike_dec_msg.pos_hist)
                 # Increment current time bin to latest spike
                 # i think this is a problem - will reverse all the advantage of having a delay
                 # try commenting out this line
