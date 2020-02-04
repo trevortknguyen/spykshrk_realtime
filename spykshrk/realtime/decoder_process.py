@@ -728,20 +728,22 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                 self.spike_count += 1
                 pass
 
+            # for next_bin decoding
             # collect decoded spikes for next bin
             # transfer observations to new list and set current observation list to 0
             # if no spikes in this bin, do nothing - this should never happen, i think
-            elif spike_time_bin == self.current_time_bin + 1 and spike_dec_msg is not None:
-                #print('spike 1 bin ahead')
-                self.used_next_bin = True
-                # call a new function
-                self.pp_decoder.increment_bin_1(spk_elec_grp_id=spike_dec_msg.elec_grp_id,
-                                                spk_pos_hist=spike_dec_msg.pos_hist)
-                self.spike_count += 1
+            # elif spike_time_bin == self.current_time_bin + 1 and spike_dec_msg is not None:
+            #     #print('spike 1 bin ahead')
+            #     self.used_next_bin = True
+            #     # call a new function
+            #     self.pp_decoder.increment_bin_1(spk_elec_grp_id=spike_dec_msg.elec_grp_id,
+            #                                     spk_pos_hist=spike_dec_msg.pos_hist)
+            #     self.spike_count += 1
 
             # calculate posterior when spike is 2+ bins ahead
-            elif spike_time_bin > self.current_time_bin + 1:
-            #elif spike_time_bin > self.current_time_bin:
+            #elif spike_time_bin > self.current_time_bin + 1:
+            # original
+            elif spike_time_bin > self.current_time_bin:
                 # Spike is in next time bin, compute posterior based on observations, advance to tracking next time bin
                 
                 # problem for lfp_timekeeper: this function runs on empty bins - so observation always = 1
@@ -750,7 +752,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                 # if just ran observation_next, use increment_bin_2
                 #if np.sum(self.observation_next) > 0:
                 if self.used_next_bin:
-                    #print('using increment_bin_2')
+                    print('next bin decoder ON')
                     #self.used_next_bin = False
                     if spike_dec_msg is not None:
                         posterior, likelihood = self.pp_decoder.increment_bin_2()
@@ -826,62 +828,117 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
 
                 self.current_time_bin += 1
                 self.shortcut_message_sent = False
-                self.used_next_bin = False
+                #self.used_next_bin = False
 
                 # original: only use no_spike if 2 or more bins ahead
                 # because 1 bin ahead has the actual posterior
                 # new decoder with 2 bins: change 1 > 2, only use if 3 or more bins ahead
                 # i think this means when spike is 2+ bins ahead and increment_bin_1 does NOT run
                 # one decoded time bin will be missing
-                for no_spk_ii in range(spike_time_bin - self.current_time_bin - 2):
-                #for no_spk_ii in range(spike_time_bin - self.current_time_bin - 1):
-                    #spike_count is set to 0 for no_spike_bins
-                    # need to make sure this loop actually runs with lfp_timekeeper - seems okay
-                    #print('inside no_spk_ii loop',spike_time_bin,no_spk_ii)
+                if self.used_next_bin: 
+                    print('next bin decoder ON')
+                    for no_spk_ii in range(spike_time_bin - self.current_time_bin - 2):
+                    #for no_spk_ii in range(spike_time_bin - self.current_time_bin - 1):
+                        #spike_count is set to 0 for no_spike_bins
+                        # need to make sure this loop actually runs with lfp_timekeeper - seems okay
+                        #print('inside no_spk_ii loop',spike_time_bin,no_spk_ii)
 
-                    # to turn off posterior calculation comment out next line and replace with list of ones
-                    posterior, likelihood = self.pp_decoder.increment_no_spike_bin()
-                    #posterior = np.ones(137)
-                    #likelihood = np.ones(137)
+                        # to turn off posterior calculation comment out next line and replace with list of ones
+                        posterior, likelihood = self.pp_decoder.increment_no_spike_bin()
+                        #posterior = np.ones(137)
+                        #likelihood = np.ones(137)
 
-                    self.posterior_arm_sum = self.pp_decoder.calculate_posterior_arm_sum(posterior, self.ripple_time_bin)
-                    #self.posterior_arm_sum = np.zeros((1,9))
-                    #print('posterior arm sum, no spike loop',np.around(self.posterior_arm_sum,decimals=2))
+                        self.posterior_arm_sum = self.pp_decoder.calculate_posterior_arm_sum(posterior, self.ripple_time_bin)
+                        #self.posterior_arm_sum = np.zeros((1,9))
+                        #print('posterior arm sum, no spike loop',np.around(self.posterior_arm_sum,decimals=2))
 
-                    if spike_dec_msg is not None:
-                        self.posterior_sum_timestamp = spike_dec_msg.timestamp
-                    else:
-                        self.posterior_sum_timestamp = lfp_timekeeper.timestamp
+                        if spike_dec_msg is not None:
+                            self.posterior_sum_timestamp = spike_dec_msg.timestamp
+                        else:
+                            self.posterior_sum_timestamp = lfp_timekeeper.timestamp
 
-                    self.mpi_send.send_posterior_message(self.current_time_bin * self.time_bin_size,
-                                                         self.posterior_sum_timestamp,self.posterior_arm_sum[0][0],
-                                                         self.posterior_arm_sum[0][1],self.posterior_arm_sum[0][2],
-                                                         self.posterior_arm_sum[0][3],self.posterior_arm_sum[0][4],
-                                                         self.posterior_arm_sum[0][5],self.posterior_arm_sum[0][6],
-                                                         self.posterior_arm_sum[0][7],self.posterior_arm_sum[0][8],
-                                                         self.spike_count)
+                        self.mpi_send.send_posterior_message(self.current_time_bin * self.time_bin_size,
+                                                             self.posterior_sum_timestamp,self.posterior_arm_sum[0][0],
+                                                             self.posterior_arm_sum[0][1],self.posterior_arm_sum[0][2],
+                                                             self.posterior_arm_sum[0][3],self.posterior_arm_sum[0][4],
+                                                             self.posterior_arm_sum[0][5],self.posterior_arm_sum[0][6],
+                                                             self.posterior_arm_sum[0][7],self.posterior_arm_sum[0][8],
+                                                             self.spike_count)
 
-                    self.write_record(realtime_base.RecordIDs.LIKELIHOOD_OUTPUT,
-                                  self.current_time_bin * self.time_bin_size, time,
-                                  self.pp_decoder.cur_pos,self.spike_count,
-                                  *likelihood)
-
-                    self.write_record(realtime_base.RecordIDs.DECODER_OUTPUT,
+                        self.write_record(realtime_base.RecordIDs.LIKELIHOOD_OUTPUT,
                                       self.current_time_bin * self.time_bin_size, time,
-                                      self.current_vel,
-                                      self.pp_decoder.cur_pos,self.raw_x,self.raw_y,self.smooth_x,self.smooth_y,
-                                      0,self.used_next_bin,
-                                      self.ripple_thresh_decoder, self.ripple_number, self.ripple_time_bin,self.shortcut_message_sent,
-                                      self.posterior_arm_sum[0][0],self.posterior_arm_sum[0][1],
-                                      self.posterior_arm_sum[0][2],self.posterior_arm_sum[0][3],self.posterior_arm_sum[0][4],
-                                      self.posterior_arm_sum[0][5],self.posterior_arm_sum[0][6],self.posterior_arm_sum[0][7],
-                                      self.posterior_arm_sum[0][8],
-                                      *posterior)
+                                      self.pp_decoder.cur_pos,self.spike_count,
+                                      *likelihood)
 
-                    #print('wall time at decoder',self.current_time_bin * self.time_bin_size,time*1000)
+                        self.write_record(realtime_base.RecordIDs.DECODER_OUTPUT,
+                                          self.current_time_bin * self.time_bin_size, time,
+                                          self.current_vel,
+                                          self.pp_decoder.cur_pos,self.raw_x,self.raw_y,self.smooth_x,self.smooth_y,
+                                          0,self.used_next_bin,
+                                          self.ripple_thresh_decoder, self.ripple_number, self.ripple_time_bin,self.shortcut_message_sent,
+                                          self.posterior_arm_sum[0][0],self.posterior_arm_sum[0][1],
+                                          self.posterior_arm_sum[0][2],self.posterior_arm_sum[0][3],self.posterior_arm_sum[0][4],
+                                          self.posterior_arm_sum[0][5],self.posterior_arm_sum[0][6],self.posterior_arm_sum[0][7],
+                                          self.posterior_arm_sum[0][8],
+                                          *posterior)
 
-                    self.current_time_bin += 1
-                    self.shortcut_message_sent = False
+                        #print('wall time at decoder',self.current_time_bin * self.time_bin_size,time*1000)
+                        self.current_time_bin += 1
+                        self.shortcut_message_sent = False
+                        self.used_next_bin = False
+                else:
+                    #MEC edited this line to try and get back missing bins in decoder_data record - seems to work!
+                    for no_spk_ii in range(spike_time_bin - self.current_time_bin):
+                    #for no_spk_ii in range(spike_time_bin - self.current_time_bin - 1):
+                        #spike_count is set to 0 for no_spike_bins
+                        # need to make sure this loop actually runs with lfp_timekeeper - seems okay
+                        #print('inside no_spk_ii loop',spike_time_bin,no_spk_ii)
+
+                        # to turn off posterior calculation comment out next line and replace with list of ones
+                        posterior, likelihood = self.pp_decoder.increment_no_spike_bin()
+                        #posterior = np.ones(137)
+                        #likelihood = np.ones(137)
+
+                        self.posterior_arm_sum = self.pp_decoder.calculate_posterior_arm_sum(posterior, self.ripple_time_bin)
+                        #self.posterior_arm_sum = np.zeros((1,9))
+                        #print('posterior arm sum, no spike loop',np.around(self.posterior_arm_sum,decimals=2))
+
+                        if spike_dec_msg is not None:
+                            self.posterior_sum_timestamp = spike_dec_msg.timestamp
+                        else:
+                            self.posterior_sum_timestamp = lfp_timekeeper.timestamp
+
+                        self.mpi_send.send_posterior_message(self.current_time_bin * self.time_bin_size,
+                                                             self.posterior_sum_timestamp,self.posterior_arm_sum[0][0],
+                                                             self.posterior_arm_sum[0][1],self.posterior_arm_sum[0][2],
+                                                             self.posterior_arm_sum[0][3],self.posterior_arm_sum[0][4],
+                                                             self.posterior_arm_sum[0][5],self.posterior_arm_sum[0][6],
+                                                             self.posterior_arm_sum[0][7],self.posterior_arm_sum[0][8],
+                                                             self.spike_count)
+
+                        self.write_record(realtime_base.RecordIDs.LIKELIHOOD_OUTPUT,
+                                      self.current_time_bin * self.time_bin_size, time,
+                                      self.pp_decoder.cur_pos,self.spike_count,
+                                      *likelihood)
+
+                        self.write_record(realtime_base.RecordIDs.DECODER_OUTPUT,
+                                          self.current_time_bin * self.time_bin_size, time,
+                                          self.current_vel,
+                                          self.pp_decoder.cur_pos,self.raw_x,self.raw_y,self.smooth_x,self.smooth_y,
+                                          0,self.used_next_bin,
+                                          self.ripple_thresh_decoder, self.ripple_number, self.ripple_time_bin,self.shortcut_message_sent,
+                                          self.posterior_arm_sum[0][0],self.posterior_arm_sum[0][1],
+                                          self.posterior_arm_sum[0][2],self.posterior_arm_sum[0][3],self.posterior_arm_sum[0][4],
+                                          self.posterior_arm_sum[0][5],self.posterior_arm_sum[0][6],self.posterior_arm_sum[0][7],
+                                          self.posterior_arm_sum[0][8],
+                                          *posterior)
+
+                        #print('wall time at decoder',self.current_time_bin * self.time_bin_size,time*1000)
+                        self.current_time_bin += 1
+                        self.shortcut_message_sent = False
+                        self.used_next_bin = False                    
+
+
 
                 # this will not happen with lfp timestamp trigger - is that a problem?
                 if spike_dec_msg is not None:
