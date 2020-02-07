@@ -353,6 +353,8 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
                 #print('prob_no_spike_occupancy: ',self.occ)
                 print('number of position entries decode: ',self.pos_counter)
 
+        return self.occ
+
     def increment_no_spike_bin(self):
 
         prob_no_spike = {}
@@ -574,7 +576,8 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                                               send_interface=send_interface,
                                               rec_ids=[realtime_base.RecordIDs.DECODER_OUTPUT,
                                                        realtime_base.RecordIDs.LIKELIHOOD_OUTPUT,
-                                                       realtime_base.RecordIDs.DECODER_MISSED_SPIKES],
+                                                       realtime_base.RecordIDs.DECODER_MISSED_SPIKES,
+                                                       realtime_base.RecordIDs.OCCUPANCY],
                                               rec_labels=[['bin_timestamp','wall_time', 'velocity', 'real_pos',
                                                             'raw_x','raw_y','smooth_x','smooth_y','spike_count','next_bin',
                                                             'ripple','ripple_number','ripple_length','shortcut_message',
@@ -588,10 +591,15 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                                                            format(x, dig=len(str(config['encoder']
                                                                                  ['position']['bins'])))
                                                            for x in range(config['encoder']['position']['bins'])], 
-                                                          ['timestamp', 'elec_grp_id', 'real_bin', 'late_bin']],
+                                                          ['timestamp', 'elec_grp_id', 'real_bin', 'late_bin'],
+                                                          ['bin_timestamp','bin']+['x{:0{dig}d}'.
+                                                           format(x, dig=len(str(config['encoder']
+                                                                                 ['position']['bins'])))
+                                                           for x in range(config['encoder']['position']['bins'])]],
                                               rec_formats=['qdddddddqqqqqqddddddddd'+'d'*config['encoder']['position']['bins'],
                                                            'qddq'+'d'*config['encoder']['position']['bins'],
-                                                           'qiii'])
+                                                           'qiii',
+                                                           'qq'+'d'*config['encoder']['position']['bins']])
                                                 #i think if you change second q to d above, then you can replace real_pos_time
                                                 # with velocity
                                                 # NOTE: q is symbol for integer, d is symbol for decimal
@@ -1033,10 +1041,10 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                 # try calculating velocity with smoothed position, see if it looks better
                 self.raw_x = pos_data.x
                 self.raw_y = pos_data.y
-                self.smooth_x = self.velCalc.smooth_x_position(pos_data.x)
-                self.smooth_y = self.velCalc.smooth_y_position(pos_data.y)                
+                #self.smooth_x = self.velCalc.smooth_x_position(pos_data.x)
+                #self.smooth_y = self.velCalc.smooth_y_position(pos_data.y)                
                 self.current_vel = self.velCalc.calculator(pos_data.x, pos_data.y)
-                self.smooth_vel = self.velCalc.calculator(self.smooth_x, self.smooth_y)
+                #self.smooth_vel = self.velCalc.calculator(self.smooth_x, self.smooth_y)
                 current_pos = self.linPosAssign.assign_position(pos_data.segment, pos_data.position)
 
                 # try turning off all of these calculations
@@ -1046,14 +1054,20 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                 #self.smooth_vel = 0
                 #current_pos = 0
 
-                self.pp_decoder.update_position(pos_timestamp=pos_data.timestamp, pos_data=current_pos, vel_data=self.current_vel)
+                # MEC added: return occupancy
+                occupancy = self.pp_decoder.update_position(pos_timestamp=pos_data.timestamp, 
+                                                            pos_data=current_pos, vel_data=self.current_vel)
+
+                # save record with occupancy
+                self.write_record(realtime_base.RecordIDs.OCCUPANCY,
+                                  pos_data.timestamp, self.current_time_bin, *occupancy)
 
                 #send message VEL_POS to main_process so that shortcut message can by filtered by velocity and position
                 self.mpi_send.send_vel_pos_message(self.current_time_bin * self.time_bin_size,
                                                    current_pos, self.current_vel)                
 
                 self.pos_msg_counter += 1
-                # this prints position and velocity every 5 sec
+                # this prints position and velocity every 5 sec (150)
                 if self.pos_msg_counter % 150 == 0:
                     print('position = ',current_pos,' and velocity = ',np.around(self.current_vel,decimals=2),
                           'smooth velocity = ',np.around(self.smooth_vel,decimals=2),'segment = ',pos_data.segment)

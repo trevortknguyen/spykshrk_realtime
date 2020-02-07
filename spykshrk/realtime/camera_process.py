@@ -94,6 +94,7 @@ class LinearPositionAssignment:
 
     def assign_position(self, segment, segment_pos):
         self.assigned_pos = 0
+        #print('segment',segment,'location',np.around(segment_pos,decimals=2))        
 
         # now we can use the good linearization, so box is 8 bins with 4 inner (segment 0) and 4 outer (segments 1-8)
         # bin position here - use math.ceil to round UP for arms and math.floor to round down for box
@@ -222,6 +223,7 @@ class VelocityCalculator:
 
     # this is the velocity calculator
     def calculator(self, x, y):
+        #print(x,y)
         self.smoothSpeed = 0
         i = 0
         tmpind = 0
@@ -229,7 +231,7 @@ class VelocityCalculator:
         #cmperpx = 1/network.pxpercm
         cmperpx = 0.2
 
-        # note: for remy cmperpx should be <0.2 
+        # note: for remy cmperpx should be 0.2 
         # it seems like the speed is still pretty high with jittering of headstage...
         # maybe this is because positon isnt smoothed??
 
@@ -241,6 +243,8 @@ class VelocityCalculator:
         # this is distance / time - because 1/0.03 = 30
         if self.speed[self.ind] != 0:
             self.speed[self.ind] = np.sqrt(self.speed[self.ind])*30
+            #print('raw speed',np.around(self.speed[self.ind],decimals=2),'x',np.around(x,decimals=2),
+            #      'y',np.around(y,decimals=2))
 
         self.lastx = x * cmperpx
         self.lasty = y * cmperpx
