@@ -325,14 +325,14 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
                 self.pos_counter += 1
 
                 # run positionassignment, pos smoothing, and velocity calculator functions
-                self.smooth_x = self.velCalc.smooth_x_position(datapoint.x)
-                self.smooth_y = self.velCalc.smooth_y_position(datapoint.y)
+                #self.smooth_x = self.velCalc.smooth_x_position(datapoint.x)
+                #self.smooth_y = self.velCalc.smooth_y_position(datapoint.y)
                 self.current_vel = self.velCalc.calculator(datapoint.x, datapoint.y)
                 self.current_pos = self.linPosAssign.assign_position(datapoint.segment, datapoint.position)
                 #print('x smoothing: ',datapoint.x,self.smooth_x)
                 #print('y smoothing: ',datapoint.y,self.smooth_y)
                 
-                #print('linear position: ',self.current_pos, ' velocity: ',self.current_vel)
+                #print('encoder linear position: ',self.current_pos, ' velocity: ',self.current_vel)
                 #print('segment: ',datapoint.segment)
 
                 for encoder in self.encoders.values():
