@@ -433,7 +433,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             # detection of large ripples: 2 tets above rip thresh, velocity below vel thresh, not in lockout (125 msec after previous rip)
             # ideally this would also take in some output from statescript that says whether this time is ripple or content conditioning
             # because this statement is before posterior sum, posterior sum will not run if the two ripple thresholds are the same
-            if (conditioning_num_above >= self._ripple_n_above_thresh) and self.velocity < self.config['encoder']['vel'] and not self._conditioning_in_lockout:            
+            if (conditioning_num_above >= self._ripple_n_above_thresh) and self.velocity < self.config['ripple_conditioning']['ripple_detect_velocity'] and not self._conditioning_in_lockout:            
                 self.big_rip_message_sent = 0
                 print('tets above cond ripple thresh: ',conditioning_num_above,timestamp,
                       self._conditioning_ripple_thresh_states, np.around(self.velocity,decimals=2))
@@ -478,7 +478,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 #self._send_interface.start_stimulation()
 
             # detection of content ripples: 2 tets above rip thresh, velocity below vel thresh, not in lockout (500 msec after previous rip)
-            elif (num_above >= self._ripple_n_above_thresh) and self.velocity < self.config['encoder']['vel'] and not self._in_lockout:
+            elif (num_above >= self._ripple_n_above_thresh) and self.velocity < self.config['ripple_conditioning']['ripple_detect_velocity'] and not self._in_lockout:
                 # add to the ripple count- no should use lockout_count
                 #self.ripple_number += 1
                 # this needs to just turn on light
@@ -586,7 +586,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         self.linearized_position = pos
         self.vel_pos_counter += 1
 
-        if self.velocity < self.config['encoder']['vel']:
+        if self.velocity < self.config['ripple_conditioning']['ripple_detect_velocity']:
             #print('immobile, vel = ',self.velocity)
             pass
         if self.linearized_position >= 3 and self.linearized_position <= 5:
@@ -701,7 +701,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         self.norm_posterior_arm_sum = self.sum_array_sum/self.config['ripple_conditioning']['post_sum_sliding_window']
 
         # start of a ripple: check posterior sum and then send message
-        if self._posterior_in_lockout == True and self.velocity < self.config['encoder']['vel'] and self.shortcut_message_sent == False:
+        if self._posterior_in_lockout == True and self.velocity < self.config['ripple_conditioning']['ripple_detect_velocity'] and self.shortcut_message_sent == False:
             self.posterior_time_bin += 1
             self.shortcut_message_arm = 99
             self.ripple_end = 0
@@ -787,7 +787,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         # running sum of posterior during a ripple
         # marker for ripple detection is: self._in_lockout NO it's self._posterior_in_lockout
         # marker for already reached sum above threshold: self.shortcut_message_sent
-        if self.config['ripple_conditioning']['posterior_sum_rip_only'] and self._posterior_in_lockout == True and self.velocity < self.config['encoder']['vel'] and self.shortcut_message_sent == False:
+        if self.config['ripple_conditioning']['posterior_sum_rip_only'] and self._posterior_in_lockout == True and self.velocity < self.config['ripple_conditioning']['ripple_detect_velocity'] and self.shortcut_message_sent == False:
 
             #if self.ripple_time_bin == 0:
             #    self.ripple_number += 1
