@@ -159,10 +159,13 @@ class OfflinePPEncoder(object):
         del mark_contrib
         observ = np.matmul(all_contrib, pos_distrib_tet)
         del all_contrib
+        #print('observation before occ',[0])
 
         # occupancy normalize 
         # AKG added enc_settings.pos_bin_delta to take into account different bin delta values
         observ = observ / (occupancy * encode_settings.pos_bin_delta)
+        #print('observation',observ[0])
+        print('occupancy',occupancy)
 
         # normalize factor for each row (#dec spks x #pos_bins)
         observ_sum = np.nansum(observ, axis=1)

@@ -251,7 +251,7 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
                         query_mark_hist(amp_marks,
                                         datapoint.timestamp,
                                         datapoint.elec_grp_id)                # type: kernel_encoder.RSTKernelEncoderQuery
-                    #print(query_result)
+                    #print('decoded spike',query_result.query_hist)
 
 
                     # for weight, position in zip(query_result.query_weights, query_result.query_positions):

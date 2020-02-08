@@ -205,6 +205,12 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         self.posterior_sum_time_bin = np.zeros((self.post_sum_bin_length,9))
         self.posterior_sum_result = np.zeros((1,9))
 
+        self.arm_coords = np.array([[0,8],[13,24],[29,40],[45,56],[61,72],[77,88],[93,104],[109,120],[125,136]])
+        # 4 arm version
+        #arm_coords = np.array([[0,8],[13,24],[29,40],[45,56],[61,72]])
+        self.max_pos = self.arm_coords[-1][-1] + 1
+        self.pos_bins_1 = np.arange(0,self.max_pos,1)        
+
     @staticmethod
     def _create_transition_matrix(pos_delta, num_bins, arm_coor, uniform_gain=0.01):
 
@@ -315,6 +321,26 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
 
         return transition_mat
 
+    def apply_no_anim_boundary(self, x_bins, arm_coor, image, fill=0):
+        # from util.py script in offline decoder folder
+
+        # calculate no-animal boundary
+        arm_coor = np.array(arm_coor, dtype='float64')
+        arm_coor[:,0] -= x_bins[1] - x_bins[0]
+        bounds = np.vstack([[x_bins[-1], 0], arm_coor])
+        bounds = np.roll(bounds, -1)
+
+        boundary_ind = np.searchsorted(x_bins, bounds, side='right')
+        #boundary_ind[:,1] -= 1
+
+        for bounds in boundary_ind:
+            if image.ndim == 1:
+                image[bounds[0]:bounds[1]] = fill
+            elif image.ndim == 2:
+                image[bounds[0]:bounds[1], :] = fill
+                image[:, bounds[0]:bounds[1]] = fill
+        return image
+
     def select_ntrodes(self, ntrode_list):
         self.ntrode_list = ntrode_list
         self.firing_rate = {elec_grp_id: np.ones(self.pos_bins)
@@ -325,7 +351,9 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
 
         self.observation *= spk_pos_hist
         #print('decoded spike',spk_pos_hist)
+        #print('observation',self.observation)
         self.observation = self.observation / np.max(self.observation)
+        #print('observation',self.observation)
         self.current_spike_count += 1
 
     def next_observation(self, spk_elec_grp_id, spk_pos_hist):
@@ -338,6 +366,7 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
 
     def update_position(self, pos_timestamp, pos_data, vel_data):
         # Convert position to bin index in histogram count
+        # MEC: added NaN mask with no_anim_boundary
         self.cur_pos_time = pos_timestamp
         self.cur_pos = pos_data
         self.cur_vel = vel_data
@@ -347,10 +376,11 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
 
         if abs(self.cur_vel) >= self.config['encoder']['vel']:
             self.occ[self.cur_pos_ind] += 1
+            self.apply_no_anim_boundary(self.pos_bins_1, self.arm_coords, self.occ, np.nan)
 
             self.pos_counter += 1
             if self.pos_counter % 10000 == 0:
-                #print('prob_no_spike_occupancy: ',self.occ)
+                #print('decoder occupancy: ',self.occ)
                 print('number of position entries decode: ',self.pos_counter)
 
         return self.occ
@@ -366,6 +396,8 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
             #prob_no_spike[tet_id] = np.ones(self.pos_bins)
             prob_no_spike[tet_id] = np.exp(-self.time_bin_size/30000 *
                                            tet_fr_norm / self.occ)
+            prob_no_spike[tet_id][np.isnan(prob_no_spike[tet_id])]=0.0
+            #print('prob no spike',prob_no_spike[tet_id])
 
             global_prob_no *= prob_no_spike[tet_id]
         global_prob_no /= global_prob_no.sum()
@@ -388,6 +420,8 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         # Normalize
         self.posterior = self.posterior / self.posterior.sum()
 
+        #print('likelihood',self.likelihood,np.sum(self.likelihood))
+
         # we can save the no spike likelihood here
         # QUESTION: what happens to the likelihood and the posterior during long times of no spike??
 
@@ -407,6 +441,7 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
             #prob_no_spike[tet_id] = np.ones(self.pos_bins)
             prob_no_spike[tet_id] = np.exp(-self.time_bin_size/30000 *
                                            tet_fr_norm / self.occ)
+            prob_no_spike[tet_id][np.isnan(prob_no_spike[tet_id])]=0.0
 
             global_prob_no *= prob_no_spike[tet_id]
         global_prob_no /= global_prob_no.sum()
@@ -418,14 +453,22 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         # Update last posterior
         self.prev_posterior = self.posterior
 
+        # where should we introduce occupancy normalization of observation????
+
         # Compute likelihood for previous bin with spikes
         self.likelihood = self.observation * global_prob_no
+        #print('observation',self.observation)
 
         # Compute posterior
+        # MEC: switch to nansum
         self.posterior = self.likelihood * (self.transition_mat * self.prev_posterior).sum(axis=1)
+        #self.posterior = self.likelihood * np.nansum(self.transition_mat * self.prev_posterior,axis=1)
         # Normalize
+        # MEC: switch to nansum
         self.posterior = self.posterior / self.posterior.sum()
+        #self.posterior = self.posterior / np.nansum(self.posterior)
 
+        #print('likelihood',self.likelihood,np.sum(self.likelihood))
         # Save resulting posterior
         # self.record.write_record(realtime_base.RecordIDs.DECODER_OUTPUT,
         #                          self.current_time_bin * self.time_bin_size,
@@ -454,6 +497,7 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
             #prob_no_spike[tet_id] = np.ones(self.pos_bins)
             prob_no_spike[tet_id] = np.exp(-self.time_bin_size/30000 *
                                            tet_fr_norm / self.occ)
+            prob_no_spike[tet_id][np.isnan(prob_no_spike[tet_id])]=0.0
 
             global_prob_no *= prob_no_spike[tet_id]
         global_prob_no /= global_prob_no.sum()
@@ -504,6 +548,7 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
             #prob_no_spike[tet_id] = np.ones(self.pos_bins)
             prob_no_spike[tet_id] = np.exp(-self.time_bin_size/30000 *
                                            tet_fr_norm / self.occ)
+            prob_no_spike[tet_id][np.isnan(prob_no_spike[tet_id])]=0.0
 
             global_prob_no *= prob_no_spike[tet_id]
         global_prob_no /= global_prob_no.sum()
@@ -799,6 +844,8 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                     #print('using regular increment_bin')
                     if spike_dec_msg is not None:
                         posterior, likelihood = self.pp_decoder.increment_bin()
+                        #print('posterior',posterior)
+                        #print('likelihood',likelihood)
                     else:
                         posterior, likelihood = self.pp_decoder.increment_no_spike_bin()
 

@@ -96,23 +96,51 @@ class RSTKernelEncoder:
 
         self.occupancy_counter = 0
 
+        # define arm_coords for occupancy
+        self.arm_coords = np.array([[0,8],[13,24],[29,40],[45,56],[61,72],[77,88],[93,104],[109,120],[125,136]])
+        self.max_pos = self.arm_coords[-1][-1] + 1
+        self.pos_bins = np.arange(0,self.max_pos,1)
+
         #print('num bins: ',param.pos_hist_struct.num_bins)
         #print('range: ',param.pos_hist_struct.pos_range)
         #print('bin edges: ',param.pos_hist_struct.pos_bin_edges)
         #print('bin center: ',param.pos_hist_struct.pos_bin_center)
         #print('bin delta: ',param.pos_hist_struct.pos_bin_delta)
 
+    def apply_no_anim_boundary(self, x_bins, arm_coor, image, fill=0):
+        # from util.py script in offline decoder folder
+
+        # calculate no-animal boundary
+        arm_coor = np.array(arm_coor, dtype='float64')
+        arm_coor[:,0] -= x_bins[1] - x_bins[0]
+        bounds = np.vstack([[x_bins[-1], 0], arm_coor])
+        bounds = np.roll(bounds, -1)
+
+        boundary_ind = np.searchsorted(x_bins, bounds, side='right')
+        #boundary_ind[:,1] -= 1
+
+        for bounds in boundary_ind:
+            if image.ndim == 1:
+                image[bounds[0]:bounds[1]] = fill
+            elif image.ndim == 2:
+                image[bounds[0]:bounds[1], :] = fill
+                image[:, bounds[0]:bounds[1]] = fill
+        return image
 
     def update_covariate(self, covariate, current_vel=None):
         self.covariate = covariate
+        #print('position in update position: ',self.covariate)
         self.current_vel = current_vel
         # bin_idx = np.nonzero((self.param.pos_hist_struct.pos_bin_edges - covariate) > 0)[0][0] - 1
         bin_idx = self.param.pos_hist_struct.which_bin(self.covariate)
         #only want to add to pos_hist during movement times - aka vel > 8
         if abs(self.current_vel) >= self.config['encoder']['vel']:
             self.pos_hist[bin_idx] += 1
-            #print(self.pos_hist)
+            #print('occupancy before',self.pos_hist)
             #print('update_covariate current_vel: ',self.current_vel)
+            # put NaNs into arm gaps
+            self.apply_no_anim_boundary(self.pos_bins, self.arm_coords, self.pos_hist, np.nan)
+            #print('occupancy',self.pos_hist)
 
             self.occupancy_counter += 1
         if self.occupancy_counter % 10000 == 0:
@@ -127,7 +155,7 @@ class RSTKernelEncoder:
 
         self.tree.insert_rec(mark[0], mark[1], mark[2],
                              mark[3], self.covariate)
-        #print('position: ',self.covariate)
+        #print('position in new mark: ',self.covariate)
 
     # MEC 7-10-19 try going from 5 to 3, because 3 stdev in 4D space will still get 95% of the points
     def query_mark(self, mark):
@@ -157,21 +185,34 @@ class RSTKernelEncoder:
         query_hist, query_hist_edges = np.histogram(
             a=query_positions, bins=self.param.pos_hist_struct.pos_bin_edges,
             weights=query_weights, normed=False)
+        # print observations before offset
+        #print('weights',query_weights)
+        #print('position',query_positions)
+        #print('observations',query_hist)
 
-        # Offset from zero
+        # Offset from zero - this could be a problem for the gaps between arms
+        # gaps will have high firing rate because of this offset
+        # we may want to remove this, and/or we will put NaNs in the gaps for self.pos_hist
         query_hist += 0.0000001
 
         # occupancy normalize
+        # MEC: added NaNs in the gaps between arms in self.pos_hist
         query_hist = query_hist / (self.pos_hist)
+        query_hist[np.isnan(query_hist)]=0.0
         #print(query_weights.shape)
-        #print(query_hist.shape)
+        #print('obs after normalize',query_hist)
 
         # MEC - turned off convolution because we are using 5cm position bins
         #query_hist = np.convolve(query_hist, self.pos_kernel, mode='same')
         #print(query_hist)
 
         # normalized PDF
+        # MEC: replace sum with nansum - this seems okay now
+        # note: pos_bin_delta is currently 1
+        #print('query hist sum',np.nansum(query_hist))
         query_hist = query_hist / (np.sum(query_hist) * self.param.pos_hist_struct.pos_bin_delta)
+        #print('observation:',query_hist)
+        #print('observ sum',np.nansum(query_hist))
 
         return RSTKernelEncoderQuery(query_time=time,
                                      elec_grp_id=elec_grp_id,
