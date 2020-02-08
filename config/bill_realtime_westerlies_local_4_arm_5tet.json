@@ -29,7 +29,10 @@
 
     "ripple_conditioning": {
         "display_baseline": false,
-        "posterior_sum_threshold": 0.5
+        "posterior_sum_threshold": 0.5,
+        "posterior_sum_rip_only": false,
+        "ripple_detection_shift": 2100,
+        "post_sum_sliding_window": 7
     },
 
     "ripple": {
@@ -136,7 +139,7 @@
         "position_kernel": {
             "std": 5
         },
-        "vel": 8,
+        "vel": 15,
         "spk_amp": 150
     },
 
