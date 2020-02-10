@@ -392,10 +392,11 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         for tet_id, tet_fr in self.firing_rate.items():
             # Normalize firing rate
             tet_fr_norm = tet_fr / tet_fr.sum()
+            # MEC normalize self.occ to match calcuation in offline decoder
             # MEC 9-3-19 to turn off prob_no_spike
             #prob_no_spike[tet_id] = np.ones(self.pos_bins)
             prob_no_spike[tet_id] = np.exp(-self.time_bin_size/30000 *
-                                           tet_fr_norm / self.occ)
+                                           tet_fr_norm / (self.occ / np.nansum(self.occ)) )
             prob_no_spike[tet_id][np.isnan(prob_no_spike[tet_id])]=0.0
             #print('prob no spike',prob_no_spike[tet_id])
 
@@ -437,10 +438,11 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         for tet_id, tet_fr in self.firing_rate.items():
             # Normalize firing rate
             tet_fr_norm = tet_fr / tet_fr.sum()
+            # MEC normalize self.occ to match calcuation in offline decoder
             # MEC 9-3-19 to turn off prob_no_spike
             #prob_no_spike[tet_id] = np.ones(self.pos_bins)
             prob_no_spike[tet_id] = np.exp(-self.time_bin_size/30000 *
-                                           tet_fr_norm / self.occ)
+                                           tet_fr_norm / (self.occ / np.nansum(self.occ)) )
             prob_no_spike[tet_id][np.isnan(prob_no_spike[tet_id])]=0.0
 
             global_prob_no *= prob_no_spike[tet_id]
@@ -490,10 +492,11 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         for tet_id, tet_fr in self.firing_rate.items():
             # Normalize firing rate
             tet_fr_norm = tet_fr / tet_fr.sum()
+            # MEC normalize self.occ to match calcuation in offline decoder
             # MEC 9-3-19 to turn off prob_no_spike
             #prob_no_spike[tet_id] = np.ones(self.pos_bins)
             prob_no_spike[tet_id] = np.exp(-self.time_bin_size/30000 *
-                                           tet_fr_norm / self.occ)
+                                           tet_fr_norm / (self.occ / np.nansum(self.occ)) )
             prob_no_spike[tet_id][np.isnan(prob_no_spike[tet_id])]=0.0
 
             global_prob_no *= prob_no_spike[tet_id]
