@@ -197,7 +197,8 @@ class RSTKernelEncoder:
 
         # occupancy normalize
         # MEC: added NaNs in the gaps between arms in self.pos_hist
-        query_hist = query_hist / (self.pos_hist)
+        # MEC: normalize self.pos_hist to match offline decoder 
+        query_hist = query_hist / (self.pos_hist/np.nansum(self.pos_hist))
         query_hist[np.isnan(query_hist)]=0.0
         #print(query_weights.shape)
         #print('obs after normalize',query_hist)
