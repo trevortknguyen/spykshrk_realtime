@@ -395,7 +395,7 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
             # MEC normalize self.occ to match calcuation in offline decoder
             # MEC 9-3-19 to turn off prob_no_spike
             #prob_no_spike[tet_id] = np.ones(self.pos_bins)
-            prob_no_spike[tet_id] = np.exp(-self.time_bin_size/30000 *
+            prob_no_spike[tet_id] = np.exp(-self.time_bin_size/self.config['encoder']['sampling_rate'] *
                                            tet_fr_norm / (self.occ / np.nansum(self.occ)) )
             prob_no_spike[tet_id][np.isnan(prob_no_spike[tet_id])]=0.0
             #print('prob no spike',prob_no_spike[tet_id])
@@ -404,8 +404,9 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         global_prob_no /= global_prob_no.sum()
         
         # MEC print statement added
-        #if self.pos_counter % 10000 == 0:
+        #if self.pos_counter % 10 == 0:
         #    print('global prob no spike: ',global_prob_no)
+        #    print('norm occupancy',self.occ / np.nansum(self.occ))
 
         # Compute likelihood for all previous 0 spike bins
         # update last posterior
@@ -441,7 +442,7 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
             # MEC normalize self.occ to match calcuation in offline decoder
             # MEC 9-3-19 to turn off prob_no_spike
             #prob_no_spike[tet_id] = np.ones(self.pos_bins)
-            prob_no_spike[tet_id] = np.exp(-self.time_bin_size/30000 *
+            prob_no_spike[tet_id] = np.exp(-self.time_bin_size/self.config['encoder']['sampling_rate'] *
                                            tet_fr_norm / (self.occ / np.nansum(self.occ)) )
             prob_no_spike[tet_id][np.isnan(prob_no_spike[tet_id])]=0.0
 
@@ -495,7 +496,7 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
             # MEC normalize self.occ to match calcuation in offline decoder
             # MEC 9-3-19 to turn off prob_no_spike
             #prob_no_spike[tet_id] = np.ones(self.pos_bins)
-            prob_no_spike[tet_id] = np.exp(-self.time_bin_size/30000 *
+            prob_no_spike[tet_id] = np.exp(-self.time_bin_size/self.config['encoder']['sampling_rate'] *
                                            tet_fr_norm / (self.occ / np.nansum(self.occ)) )
             prob_no_spike[tet_id][np.isnan(prob_no_spike[tet_id])]=0.0
 

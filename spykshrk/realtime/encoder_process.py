@@ -141,13 +141,13 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
                                                                'position'],
                                                               ['timestamp',
                                                                'elec_grp_id',
-                                                               'position'] +
+                                                               'position','velocity'] +
                                                               ['x{:0{dig}d}'.
                                                                format(x, dig=len(str(config['encoder']
                                                                                      ['position']['bins'])))
                                                                for x in range(config['encoder']['position']['bins'])]],
                                                   rec_formats=['qidd',
-                                                               'qid'+'d'*config['encoder']['position']['bins']])
+                                                               'qidd'+'d'*config['encoder']['position']['bins']])
 
         self.rank = rank
         self.config = config
@@ -263,7 +263,7 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
                     self.write_record(realtime_base.RecordIDs.ENCODER_OUTPUT,
                                       query_result.query_time,
                                       query_result.elec_grp_id,
-                                      self.current_pos,
+                                      self.current_pos,self.current_vel,
                                       *query_result.query_hist)
 
                     self.record_timing(timestamp=datapoint.timestamp, elec_grp_id=datapoint.elec_grp_id,
