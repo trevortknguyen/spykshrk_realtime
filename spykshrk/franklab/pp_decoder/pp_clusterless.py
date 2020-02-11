@@ -242,8 +242,14 @@ class OfflinePPEncoder(object):
         """
         prob_no_spike = {}
         for tet_id, tet_fr in firing_rate.items():
+            # original
             prob_no_spike[tet_id] = np.exp(-dec_settings.time_bin_size/enc_settings.sampling_rate * tet_fr / occupancy)
             # prob_no_spike[tet_id] = np.nan_to_num(prob_no_spike[tet_id], copy=False)
+            # MEC: to turn off prob_no_spike
+            #prob_no_spike[tet_id] = np.ones(enc_settings.pos_bins)
+            #prob_no_spike[tet_id] = apply_no_anim_boundary(enc_settings.pos_bins, enc_settings.arm_coordinates, 
+            #                                               prob_no_spike[tet_id], np.nan)
+            #print('prob no spike',prob_no_spike[tet_id])
         return prob_no_spike
 
     
@@ -443,7 +449,7 @@ class OfflinePPDecoder(object):
         print("Beginning posterior calculation")
         self.recalc_posterior()
 
-        return self.posteriors_obj
+        return self.posteriors_obj, self.likelihoods
 
     def recalc_likelihood(self):
         self.likelihoods = self.calc_observation_intensity(self.observ_obj,

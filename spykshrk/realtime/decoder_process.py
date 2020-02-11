@@ -598,14 +598,15 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                                                                                  ['position']['bins'])))
                                                            for x in range(config['encoder']['position']['bins'])], 
                                                           ['timestamp', 'elec_grp_id', 'real_bin', 'late_bin'],
-                                                          ['bin_timestamp','bin']+['x{:0{dig}d}'.
+                                                          ['bin_timestamp','bin','segment','pos_on_seg',
+                                                           'linear_pos','velocity']+['x{:0{dig}d}'.
                                                            format(x, dig=len(str(config['encoder']
                                                                                  ['position']['bins'])))
                                                            for x in range(config['encoder']['position']['bins'])]],
                                               rec_formats=['qdddddddqqqqqqddddddddd'+'d'*config['encoder']['position']['bins'],
                                                            'qddq'+'d'*config['encoder']['position']['bins'],
                                                            'qiii',
-                                                           'qq'+'d'*config['encoder']['position']['bins']])
+                                                           'qqqddd'+'d'*config['encoder']['position']['bins']])
                                                 #i think if you change second q to d above, then you can replace real_pos_time
                                                 # with velocity
                                                 # NOTE: q is symbol for integer, d is symbol for decimal
@@ -1006,12 +1007,14 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                 #current_pos = 0
 
                 # MEC added: return occupancy
-                occupancy = self.pp_decoder.update_position(pos_timestamp=pos_data.timestamp, 
+                occupancy = self.pp_decoder.update_position(pos_timestamp=pos_data.timestamp,
                                                             pos_data=current_pos, vel_data=self.current_vel)
 
                 # save record with occupancy
                 self.write_record(realtime_base.RecordIDs.OCCUPANCY,
-                                  pos_data.timestamp, self.current_time_bin, *occupancy)
+                                  pos_data.timestamp, self.current_time_bin, 
+                                  pos_data.segment, pos_data.position,
+                                  current_pos, self.current_vel, *occupancy)
 
                 #send message VEL_POS to main_process so that shortcut message can by filtered by velocity and position
                 self.mpi_send.send_vel_pos_message(self.current_time_bin * self.time_bin_size,

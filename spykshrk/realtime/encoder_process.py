@@ -140,14 +140,14 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
                                                                'weight',
                                                                'position'],
                                                               ['timestamp',
-                                                               'elec_grp_id',
+                                                               'elec_grp_id','ch1','ch2','ch3','ch4',
                                                                'position','velocity'] +
                                                               ['x{:0{dig}d}'.
                                                                format(x, dig=len(str(config['encoder']
                                                                                      ['position']['bins'])))
                                                                for x in range(config['encoder']['position']['bins'])]],
                                                   rec_formats=['qidd',
-                                                               'qidd'+'d'*config['encoder']['position']['bins']])
+                                                               'qidddddd'+'d'*config['encoder']['position']['bins']])
 
         self.rank = rank
         self.config = config
@@ -243,6 +243,8 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
 
                 # this line calculates the mark for each channel (max of the 40 voltage values)
                 amp_marks = [max(x) for x in datapoint.data]
+                #print('input voltage',datapoint.data)
+                #print('mark',amp_marks[0],amp_marks[1],amp_marks[2],amp_marks[3])
 
                 # this looks up the current spike in the RStar Tree
                 if max(amp_marks) > self.config['encoder']['spk_amp']:
@@ -263,6 +265,7 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
                     self.write_record(realtime_base.RecordIDs.ENCODER_OUTPUT,
                                       query_result.query_time,
                                       query_result.elec_grp_id,
+                                      amp_marks[0],amp_marks[1],amp_marks[2],amp_marks[3],
                                       self.current_pos,self.current_vel,
                                       *query_result.query_hist)
 
