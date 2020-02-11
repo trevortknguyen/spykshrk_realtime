@@ -196,6 +196,7 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
 
         self.current_spike_count = 0
         self.spike_count_next = 0
+        self.total_decoded_spike_count = 0
         self.pos_counter = 0
         self.current_vel = 0
 
@@ -345,9 +346,14 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         self.ntrode_list = ntrode_list
         self.firing_rate = {elec_grp_id: np.ones(self.pos_bins)
                             for elec_grp_id in self.ntrode_list}
+        print('tetrode list',self.ntrode_list)
 
-    def add_observation(self, spk_elec_grp_id, spk_pos_hist):
-        self.firing_rate[spk_elec_grp_id][self.cur_pos_ind] += 1
+    # MEC: need to introduce encoding velocity filter here
+    # firing rate is later used to calculate prob_no_spike
+    def add_observation(self, spk_elec_grp_id, spk_pos_hist, vel_data):
+        if abs(vel_data) >= self.config['encoder']['vel']:
+            #print('firing rate vel thresh',vel_data,'tetrode',spk_elec_grp_id)
+            self.firing_rate[spk_elec_grp_id][self.cur_pos_ind] += 1
 
         self.observation *= spk_pos_hist
         #print('decoded spike',spk_pos_hist)
@@ -355,14 +361,17 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         self.observation = self.observation / np.max(self.observation)
         #print('observation',self.observation)
         self.current_spike_count += 1
+        self.total_decoded_spike_count += 1
 
-    def next_observation(self, spk_elec_grp_id, spk_pos_hist):
-        self.firing_rate[spk_elec_grp_id][self.cur_pos_ind] += 1
+    def next_observation(self, spk_elec_grp_id, spk_pos_hist, vel_data):
+        if abs(vel_data) >= self.config['encoder']['vel']:
+            self.firing_rate[spk_elec_grp_id][self.cur_pos_ind] += 1
 
         self.observation_next *= spk_pos_hist
         #print('decoded spike',spk_pos_hist)
         self.observation_next = self.observation_next / np.max(self.observation_next)
         self.spike_count_next += 1
+        self.total_decoded_spike_count += 1
 
     def update_position(self, pos_timestamp, pos_data, vel_data):
         # Convert position to bin index in histogram count
@@ -382,6 +391,8 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
             if self.pos_counter % 10000 == 0:
                 #print('decoder occupancy: ',self.occ)
                 print('number of position entries decode: ',self.pos_counter)
+                print('firing rates',self.firing_rate)
+                print('total decoded spikes',self.total_decoded_spike_count)
 
         return self.occ
 
@@ -745,7 +756,8 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                 self.decoded_spike += 1
                 # Spike is in current time bin
                 self.pp_decoder.add_observation(spk_elec_grp_id=spike_dec_msg.elec_grp_id,
-                                                spk_pos_hist=spike_dec_msg.pos_hist)
+                                                spk_pos_hist=spike_dec_msg.pos_hist,
+                                                vel_data=self.current_vel)
                 #print('decoded spike message',spike_dec_msg.pos_hist)
                 self.spike_count += 1
                 pass
@@ -760,7 +772,8 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                 self.used_next_bin = True
                 # call a new function: next_observation
                 self.pp_decoder.next_observation(spk_elec_grp_id=spike_dec_msg.elec_grp_id,
-                                                 spk_pos_hist=spike_dec_msg.pos_hist)
+                                                 spk_pos_hist=spike_dec_msg.pos_hist,
+                                                 vel_data=self.current_vel)
                 self.spike_count += 1
 
             # calculate posterior when spike is 2+ bins ahead
@@ -922,7 +935,8 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                     #                                spk_pos_hist=spike_dec_msg.pos_hist)
                     # delay decoder
                     self.pp_decoder.next_observation(spk_elec_grp_id=spike_dec_msg.elec_grp_id,
-                                                     spk_pos_hist=spike_dec_msg.pos_hist)
+                                                     spk_pos_hist=spike_dec_msg.pos_hist,
+                                                     vel_data=self.current_vel)
 
                 # Increment current time bin to latest spike
                 # i think this is a problem - will reverse all the advantage of having a delay

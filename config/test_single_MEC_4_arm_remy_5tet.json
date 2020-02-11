@@ -140,7 +140,7 @@
         "position_kernel": {
             "std": 5
         },
-        "vel": 0,
+        "vel": 8,
         "spk_amp": 150
     },
 
