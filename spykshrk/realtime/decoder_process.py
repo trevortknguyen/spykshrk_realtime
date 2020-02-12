@@ -350,6 +350,9 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
 
     # MEC: need to introduce encoding velocity filter here
     # firing rate is later used to calculate prob_no_spike
+
+    # if you want to do correct prob_no_spike calculation then you
+    # need to keep track of tetrodes here each time you add a spike
     def add_observation(self, spk_elec_grp_id, spk_pos_hist, vel_data):
         if abs(vel_data) >= self.config['encoder']['vel']:
             #print('firing rate vel thresh',vel_data,'tetrode',spk_elec_grp_id)
@@ -991,11 +994,14 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                 #self.pp_decoder.update_position(pos_timestamp=pos_data.timestamp, pos_data=pos_data.x)
                 # we want to use linearized position here
                 # try calculating velocity with smoothed position, see if it looks better
-                self.raw_x = pos_data.x
-                self.raw_y = pos_data.y
-                #self.smooth_x = self.velCalc.smooth_x_position(pos_data.x)
-                #self.smooth_y = self.velCalc.smooth_y_position(pos_data.y)                
-                self.current_vel = self.velCalc.calculator(pos_data.x, pos_data.y)
+                #self.raw_x = pos_data.x
+                #self.raw_y = pos_data.y
+                #self.current_vel = self.velCalc.calculator(pos_data.x, pos_data.y)
+
+                # smooth position not velocity
+                self.smooth_x = self.velCalc.smooth_x_position(pos_data.x)
+                self.smooth_y = self.velCalc.smooth_y_position(pos_data.y)                 
+                self.current_vel = self.velCalc.calculator_no_smooth(self.smooth_x, self.smooth_y)
                 #self.smooth_vel = self.velCalc.calculator(self.smooth_x, self.smooth_y)
                 current_pos = self.linPosAssign.assign_position(pos_data.segment, pos_data.position)
 
@@ -1024,7 +1030,8 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                 # this prints position and velocity every 5 sec (150)
                 if self.pos_msg_counter % 150 == 0:
                     print('position = ',current_pos,' and velocity = ',np.around(self.current_vel,decimals=2),
-                          'smooth velocity = ',np.around(self.smooth_vel,decimals=2),'segment = ',pos_data.segment)
+                          'smooth velocity = ',np.around(self.smooth_vel,decimals=2),'segment = ',pos_data.segment,
+                          'smooth_x',np.around(self.smooth_x,decimals=2),'smooth_y',np.around(self.smooth_y,decimals=2))
 
                 #print(pos_data.x, pos_data.segment)
                 #TODO implement trodes cameramodule update position function
