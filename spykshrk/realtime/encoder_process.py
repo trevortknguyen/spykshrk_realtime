@@ -242,9 +242,35 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
                 self.spk_counter += 1
 
                 # this line calculates the mark for each channel (max of the 40 voltage values)
-                amp_marks = [max(x) for x in datapoint.data]
+                # NO. this does not!!
+                # it should be the max on the highest channel and then the values of the other three in that bin
+                # or this may simply always be bin 14 - but im not sure if the clip is the same as offline
+                # original
+                #old_amp_marks = [max(x) for x in datapoint.data]
+                #print('old mark',old_amp_marks)
                 #print('input voltage',datapoint.data)
                 #print('mark',amp_marks[0],amp_marks[1],amp_marks[2],amp_marks[3])
+                # new method - take 4 values from single bin with highest peak
+                max_0 = max(datapoint.data[0])
+                max_1 = max(datapoint.data[1])
+                max_2 = max(datapoint.data[2])
+                max_3 = max(datapoint.data[3])
+                max_channel = np.argmax([max_0,max_1,max_2,max_3])
+                
+                max_0_ind = np.argmax(datapoint.data[0])
+                max_1_ind = np.argmax(datapoint.data[1])
+                max_2_ind = np.argmax(datapoint.data[2])
+                max_3_ind = np.argmax(datapoint.data[3])
+                
+                if max_channel == 0:
+                    amp_marks = [datapoint.data[0][max_0_ind],datapoint.data[1][max_0_ind],datapoint.data[2][max_0_ind],datapoint.data[3][max_0_ind]]
+                elif max_channel == 1:
+                    amp_marks = [datapoint.data[0][max_1_ind],datapoint.data[1][max_1_ind],datapoint.data[2][max_1_ind],datapoint.data[3][max_1_ind]]
+                elif max_channel == 2:
+                    amp_marks = [datapoint.data[0][max_2_ind],datapoint.data[1][max_2_ind],datapoint.data[2][max_2_ind],datapoint.data[3][max_2_ind]]
+                elif max_channel == 3:
+                    amp_marks = [datapoint.data[0][max_3_ind],datapoint.data[1][max_3_ind],datapoint.data[2][max_3_ind],datapoint.data[3][max_3_ind]]
+                #print('new mark',amp_marks)
 
                 # this looks up the current spike in the RStar Tree
                 if max(amp_marks) > self.config['encoder']['spk_amp']:
