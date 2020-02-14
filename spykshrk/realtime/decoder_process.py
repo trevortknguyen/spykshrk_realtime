@@ -171,6 +171,7 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         self.uniform_gain = self.config['pp_decoder']['trans_mat_uniform_gain']
 
         self.ntrode_list = []
+        self.ntrode_list_array = []
 
         self.cur_pos_time = -1
         self.cur_pos = -1
@@ -346,7 +347,10 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         self.ntrode_list = ntrode_list
         self.firing_rate = {elec_grp_id: np.ones(self.pos_bins)
                             for elec_grp_id in self.ntrode_list}
-        print('tetrode list',self.ntrode_list)
+        #print('tetrode list',self.ntrode_list,len(self.ntrode_list))
+        self.tetrodes_with_spikes = np.zeros((1,len(self.ntrode_list)),dtype=np.bool)
+        self.tets_with_spikes_next = np.zeros((1,len(self.ntrode_list)),dtype=np.bool)
+        self.ntrode_list_array = np.asarray(self.ntrode_list)
 
     # MEC: need to introduce encoding velocity filter here
     # firing rate is later used to calculate prob_no_spike
@@ -361,10 +365,14 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         self.observation *= spk_pos_hist
         #print('decoded spike',spk_pos_hist)
         #print('observation',self.observation)
+        # MEC: i think this should be normalized, not divided by max????
         self.observation = self.observation / np.max(self.observation)
         #print('observation',self.observation)
         self.current_spike_count += 1
         self.total_decoded_spike_count += 1
+        # add marker for tet with observation
+        #print('tetrode',spk_elec_grp_id,'tetrode list',self.ntrode_list_array)
+        self.tetrodes_with_spikes[0][np.where(self.ntrode_list_array==spk_elec_grp_id)] = True
 
     def next_observation(self, spk_elec_grp_id, spk_pos_hist, vel_data):
         if abs(vel_data) >= self.config['encoder']['vel']:
@@ -375,6 +383,8 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         self.observation_next = self.observation_next / np.max(self.observation_next)
         self.spike_count_next += 1
         self.total_decoded_spike_count += 1
+        # add marker for tet with observation
+        self.tets_with_spikes_next[0][np.where(self.ntrode_list_array==spk_elec_grp_id)] = True
 
     def update_position(self, pos_timestamp, pos_data, vel_data):
         # Convert position to bin index in histogram count
@@ -448,19 +458,25 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
     def increment_bin(self):
 
         # Compute conditional intensity function (probability of no spike)
+        tets_with_no_spikes = self.ntrode_list_array[~self.tetrodes_with_spikes[0]]
+        #print('tets with no spikes',tets_with_no_spikes)
         prob_no_spike = {}
         global_prob_no = np.ones(self.pos_bins)
+        # MEC: calculate global_prob_no only for missing tets
         for tet_id, tet_fr in self.firing_rate.items():
-            # Normalize firing rate
-            tet_fr_norm = tet_fr / tet_fr.sum()
-            # MEC normalize self.occ to match calcuation in offline decoder
-            # MEC 9-3-19 to turn off prob_no_spike
-            #prob_no_spike[tet_id] = np.ones(self.pos_bins)
-            prob_no_spike[tet_id] = np.exp(-self.time_bin_size/self.config['encoder']['sampling_rate'] *
-                                           tet_fr_norm / (self.occ / np.nansum(self.occ)) )
-            prob_no_spike[tet_id][np.isnan(prob_no_spike[tet_id])]=0.0
+            if tet_id in tets_with_no_spikes:
+                #print('tetrode with no spikes',tet_id)
+                # Normalize firing rate
+                tet_fr_norm = tet_fr / tet_fr.sum()
+                # MEC normalize self.occ to match calcuation in offline decoder
+                # MEC 9-3-19 to turn off prob_no_spike
+                #prob_no_spike[tet_id] = np.ones(self.pos_bins)
+                prob_no_spike[tet_id] = np.exp(-self.time_bin_size/self.config['encoder']['sampling_rate'] *
+                                               tet_fr_norm / (self.occ / np.nansum(self.occ)) )
+                prob_no_spike[tet_id][np.isnan(prob_no_spike[tet_id])]=0.0
 
-            global_prob_no *= prob_no_spike[tet_id]
+                # MEC: replace with prob_no_spike only for missing tets
+                global_prob_no *= prob_no_spike[tet_id]
         global_prob_no /= global_prob_no.sum()
 
         # MEC print statement added
@@ -474,6 +490,8 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
 
         # Compute likelihood for previous bin with spikes
         self.likelihood = self.observation * global_prob_no
+        # MEC: i think this should also be normalized
+        self.likelihood = self.likelihood / self.likelihood.sum()
         #print('observation',self.observation)
 
         # Compute posterior
@@ -491,10 +509,12 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         #                          self.current_time_bin * self.time_bin_size,
         #                          *self.posterior)
 
+        # reset values for next observation
         self.current_spike_count = 0
         # np.ones is resetting the observation array for the next time bin
         # observation is filled with deocoded spikes above in add_observation
         self.observation = np.ones(self.pos_bins)
+        self.tetrodes_with_spikes = np.zeros((1,len(self.ntrode_list)),dtype=np.bool)
 
         return self.posterior, self.likelihood
 
@@ -502,19 +522,22 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
     def increment_bin_2(self):
 
         # Compute conditional intensity function (probability of no spike)
+        tets_with_no_spikes = self.ntrode_list_array[~self.tetrodes_with_spikes[0]]
         prob_no_spike = {}
         global_prob_no = np.ones(self.pos_bins)
+        # MEC: calculate global_prob_no only for missing tets
         for tet_id, tet_fr in self.firing_rate.items():
-            # Normalize firing rate
-            tet_fr_norm = tet_fr / tet_fr.sum()
-            # MEC normalize self.occ to match calcuation in offline decoder
-            # MEC 9-3-19 to turn off prob_no_spike
-            #prob_no_spike[tet_id] = np.ones(self.pos_bins)
-            prob_no_spike[tet_id] = np.exp(-self.time_bin_size/self.config['encoder']['sampling_rate'] *
-                                           tet_fr_norm / (self.occ / np.nansum(self.occ)) )
-            prob_no_spike[tet_id][np.isnan(prob_no_spike[tet_id])]=0.0
+            if tet_id in tets_with_no_spikes:
+                # Normalize firing rate
+                tet_fr_norm = tet_fr / tet_fr.sum()
+                # MEC normalize self.occ to match calcuation in offline decoder
+                # MEC 9-3-19 to turn off prob_no_spike
+                #prob_no_spike[tet_id] = np.ones(self.pos_bins)
+                prob_no_spike[tet_id] = np.exp(-self.time_bin_size/self.config['encoder']['sampling_rate'] *
+                                               tet_fr_norm / (self.occ / np.nansum(self.occ)) )
+                prob_no_spike[tet_id][np.isnan(prob_no_spike[tet_id])]=0.0
 
-            global_prob_no *= prob_no_spike[tet_id]
+                global_prob_no *= prob_no_spike[tet_id]
         global_prob_no /= global_prob_no.sum()
 
         # MEC print statement added
@@ -527,6 +550,8 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
 
         # Compute likelihood for previous bin with spikes
         self.likelihood = self.observation * global_prob_no
+        # MEC: i think this should also be normalized
+        self.likelihood = self.likelihood / self.likelihood.sum()
 
         # Compute posterior
         self.posterior = self.likelihood * (self.transition_mat * self.prev_posterior).sum(axis=1)
@@ -536,10 +561,12 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         # transfer observation_next and next spike to observation
         self.current_spike_count = np.copy(self.spike_count_next)
         self.observation = np.copy(self.observation_next)
+        self.tetrodes_with_spikes = np.copy(self.tets_with_spikes_next)
 
         # reset next spike count and observation_next
         self.spike_count_next = 0
         self.observation_next = np.ones(self.pos_bins)
+        self.tets_with_spikes_next = np.zeros((1,len(self.ntrode_list)),dtype=np.bool)
 
         return self.posterior, self.likelihood
 
@@ -663,6 +690,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
         self.decode_loop_counter = 1
         self.used_next_bin = False
         self.decoded_spike = 0
+        self.tetrodes_with_spikes = []
 
     def register_pos_interface(self):
         # Register position, right now only one position channel is supported
