@@ -306,7 +306,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         self.running_post_sum_counter = 0
         self.posterior_sum_array = np.zeros((self.config['ripple_conditioning']['post_sum_sliding_window'],9))
         self.sum_array_sum = np.asarray([0,0,0,0,0,0,0,0,0])
-
+        self.posterior_sum_timestamps = np.zeros((self.config['ripple_conditioning']['post_sum_sliding_window'],1))
+        self.post_sum_sliding_window_actual = 0
 
         #if self.config['datasource'] == 'trodes':
         #    self.networkclient = MainProcessClient("SpykshrkMainProc", config['trodes_network']['address'],config['trodes_network']['port'], self.config)
@@ -546,7 +547,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
               'position ',np.around(self.linearized_position,decimals=2),
               'posterior bins in ripple ',self.posterior_time_bin,'ending bin timestamp',self.bin_timestamp,
               'lfp timestamp',self.lfp_timestamp,'delay',(self.lfp_timestamp-self.bin_timestamp)/30,
-              'spike count',self.posterior_spike_count)
+              'spike count',self.posterior_spike_count,'sliding window',self.post_sum_sliding_window_actual)
         #self.shortcut_message_arm = np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0]
         self.shortcut_message_arm = arm
 
@@ -700,6 +701,11 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         self.sum_array_sum = np.sum(self.posterior_sum_array,axis=0)
         self.norm_posterior_arm_sum = self.sum_array_sum/self.config['ripple_conditioning']['post_sum_sliding_window']
 
+        # keep track of decoder bin timestamp for posteriors in the sliding sum - check out many msec is total diff
+        self.posterior_sum_timestamps[np.mod(self.running_post_sum_counter,
+                                             self.config['ripple_conditioning']['post_sum_sliding_window']),:] = self.bin_timestamp
+        self.post_sum_sliding_window_actual = np.ptp(self.posterior_sum_timestamps)/30
+
         # start of a ripple: check posterior sum and then send message
         if self._posterior_in_lockout == True and self.velocity < self.config['ripple_conditioning']['ripple_detect_velocity'] and self.shortcut_message_sent == False:
             self.posterior_time_bin += 1
@@ -719,7 +725,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 # replay detection of box - only send message for arm replays 
                 if np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 0:
                     if self.posterior_time_bin == 1:
-                        print('replay in box - no StateScript message. ripple',self._lockout_count)
+                        print('replay in box - no StateScript message. ripple',self._lockout_count,
+                              'sliding window',self.post_sum_sliding_window_actual)
                         self.shortcut_message_arm = 0
                         self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
                                           bin_timestamp, spike_timestamp, self.lfp_timestamp, time, self.shortcut_message_sent, 

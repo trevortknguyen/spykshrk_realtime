@@ -999,10 +999,11 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                 #self.current_vel = self.velCalc.calculator(pos_data.x, pos_data.y)
 
                 # smooth position not velocity
+                # now try smooth position and then velocity
                 self.smooth_x = self.velCalc.smooth_x_position(pos_data.x)
                 self.smooth_y = self.velCalc.smooth_y_position(pos_data.y)                 
-                self.current_vel = self.velCalc.calculator_no_smooth(self.smooth_x, self.smooth_y)
-                #self.smooth_vel = self.velCalc.calculator(self.smooth_x, self.smooth_y)
+                #self.current_vel = self.velCalc.calculator_no_smooth(self.smooth_x, self.smooth_y)
+                self.current_vel = self.velCalc.calculator(self.smooth_x, self.smooth_y)
                 current_pos = self.linPosAssign.assign_position(pos_data.segment, pos_data.position)
 
                 # try turning off all of these calculations

@@ -21,6 +21,7 @@ class LinearPositionAssignment:
         self.shift_linear_distance_by_arm_dictionary = dict()
         #this line runs the arm_shift_dict during __init__
         self.arm_shift_dictionary()
+        self.box_correction_count = 1
 
     def arm_shift_dictionary(self):
         # max_pos: 8 arm - 136 | 4 arm - 72
@@ -110,15 +111,18 @@ class LinearPositionAssignment:
 
         # for 8 arms
         if segment < 8:
-           self.assigned_pos = math.floor(segment_pos*9 + self.shift_linear_distance_by_arm_dictionary[segment])
-           if self.assigned_pos == 9:
-               self.assigned_pos = 8
-               #print('edge of box position binning correction')
-           if self.assigned_pos == -1:
-               self.assigned_pos = 0
-               #print('position was -1')
+            self.assigned_pos = math.floor(segment_pos*9 + self.shift_linear_distance_by_arm_dictionary[segment])
+            if self.assigned_pos == 9:
+                self.box_correction_count += 1
+                self.assigned_pos = 8
+                #print('edge of box position binning correction')
+            if self.assigned_pos == -1:
+                self.assigned_pos = 0
+                #print('position was -1')
+            if self.box_correction_count % 1000 == 0:
+                print('edge of box pos correction count',self.box_correction_count)
         else:
-           self.assigned_pos = math.ceil(segment_pos*12 + self.shift_linear_distance_by_arm_dictionary[segment])
+            self.assigned_pos = math.ceil(segment_pos*12 + self.shift_linear_distance_by_arm_dictionary[segment])
 
         # for 4 arms with multiple paths from home
         #if segment < 4:
