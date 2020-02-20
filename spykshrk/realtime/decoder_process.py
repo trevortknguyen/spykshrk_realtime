@@ -395,8 +395,12 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         #print('update position result:',self.cur_pos)
         self.cur_pos_ind = int((self.cur_pos - self.pos_range[0]) /
                                self.pos_delta)
+        #print('current position',self.cur_pos)
+        #print('pos index added to occupancy',self.cur_pos_ind)
 
         if abs(self.cur_vel) >= self.config['encoder']['vel']:
+        # MEC test: add all positions to occupancy to compare to offline
+        #if abs(self.cur_vel) >= 0:
             self.occ[self.cur_pos_ind] += 1
             self.apply_no_anim_boundary(self.pos_bins_1, self.arm_coords, self.occ, np.nan)
 
@@ -628,7 +632,8 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                                                                                  ['position']['bins'])))
                                                            for x in range(config['encoder']['position']['bins'])], 
                                                           ['timestamp', 'elec_grp_id', 'real_bin', 'late_bin'],
-                                                          ['bin_timestamp','bin','segment','pos_on_seg',
+                                                          ['bin_timestamp','bin','raw_x','raw_y',
+                                                           'segment','pos_on_seg',
                                                            'linear_pos','velocity']+['x{:0{dig}d}'.
                                                            format(x, dig=len(str(config['encoder']
                                                                                  ['position']['bins'])))
@@ -636,7 +641,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                                               rec_formats=['qdddddddqqqqqqddddddddd'+'d'*config['encoder']['position']['bins'],
                                                            'qddq'+'d'*config['encoder']['position']['bins'],
                                                            'qiii',
-                                                           'qqqddd'+'d'*config['encoder']['position']['bins']])
+                                                           'qqqqqddd'+'d'*config['encoder']['position']['bins']])
                                                 #i think if you change second q to d above, then you can replace real_pos_time
                                                 # with velocity
                                                 # NOTE: q is symbol for integer, d is symbol for decimal
@@ -1046,8 +1051,10 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                                                             pos_data=current_pos, vel_data=self.current_vel)
 
                 # save record with occupancy
+                # TO DO: save raw X and raw Y also
                 self.write_record(realtime_base.RecordIDs.OCCUPANCY,
-                                  pos_data.timestamp, self.current_time_bin, 
+                                  pos_data.timestamp, self.current_time_bin,
+                                  pos_data.x,pos_data.y, 
                                   pos_data.segment, pos_data.position,
                                   current_pos, self.current_vel, *occupancy)
 

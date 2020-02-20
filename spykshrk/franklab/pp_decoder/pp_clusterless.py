@@ -600,6 +600,7 @@ class OfflinePPDecoder(object):
                 obv_in_bin = obv_in_bin / (np.nansum(obv_in_bin) * enc_settings.pos_bin_delta)
 
             # Contribution for electrodes that no spikes in this bin
+            # MEC: NOTE 2-17-20 Loren says we should multiply by global_prob_no spike here
             for elec_grp_id in elec_set.symmetric_difference(elec_grp_list):
                 obv_in_bin = obv_in_bin * prob_no_spike[elec_grp_id]
                 obv_in_bin = obv_in_bin / (np.nansum(obv_in_bin) * enc_settings.pos_bin_delta)   # AKG added, normalize

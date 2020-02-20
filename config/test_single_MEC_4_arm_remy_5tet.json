@@ -16,7 +16,7 @@
 
     "files": {
         "output_dir": "/mnt/stelmo/mcoulter/spykshrk_output/greenflash",
-        "prefix": "remy_2_13_prob_no_test",
+        "prefix": "remy_2_19_spike_fix",
         "rec_postfix": "bin_rec",
         "profile_postfix": "pstats",
         "timing_postfix": "timing",
@@ -141,7 +141,7 @@
             "std": 5
         },
         "vel": 8,
-        "spk_amp": 150
+        "spk_amp": 100
     },
 
     "decoder": "pp_decoder",
