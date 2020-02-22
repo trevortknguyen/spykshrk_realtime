@@ -707,6 +707,8 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         self.post_sum_sliding_window_actual = np.ptp(self.posterior_sum_timestamps)/30
 
         # start of a ripple: check posterior sum and then send message
+        # spike count for stim_message is a little inflated - but only by about 5-8 spikes
+        # seems like adding more record writing (box and <0.5 replays) slowed down the system
         if self._posterior_in_lockout == True and self.velocity < self.config['ripple_conditioning']['ripple_detect_velocity'] and self.shortcut_message_sent == False:
             self.posterior_time_bin += 1
             self.shortcut_message_arm = 99
@@ -723,13 +725,13 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             if len(np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold) == 1):
                 
                 # replay detection of box - only send message for arm replays
-                # save post sum every time bin
+                # save post sum every time bin - turned off 2-22
                 if np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 0:
                     if self.posterior_time_bin == 1:
                         print('replay in box - no StateScript message. ripple',self._lockout_count,
                               'sliding window',self.post_sum_sliding_window_actual)
-                    self.shortcut_message_arm = 0
-                    self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
+                        self.shortcut_message_arm = 0
+                        self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
                                           bin_timestamp, spike_timestamp, self.lfp_timestamp, time, self.shortcut_message_sent, 
                                           self._lockout_count, self.posterior_time_bin, 
                                           (self.lfp_timestamp-self.bin_timestamp)/30,
@@ -739,30 +741,31 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                                           self.norm_posterior_arm_sum[3],self.norm_posterior_arm_sum[4],self.norm_posterior_arm_sum[5],
                                           self.norm_posterior_arm_sum[6],self.norm_posterior_arm_sum[7],self.norm_posterior_arm_sum[8])
 
+                # add filter to only send message after 15 msec within ripple
                 # replay detection of arm 1
-                elif np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 1:
+                elif np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 1  and self.posterior_time_bin>3:
                     # function to send statescript message and save STIM_MESSAGE record
                     self.posterior_sum_statescript_message(1,networkclient)
                 # replay detection of arm 2
-                elif np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 2:
+                elif np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 2 and self.posterior_time_bin>3:
                     self.posterior_sum_statescript_message(2,networkclient)
                 # replay detection of arm 3
-                elif np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 3:
+                elif np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 3 and self.posterior_time_bin>3:
                     self.posterior_sum_statescript_message(3,networkclient)
                 # replay detection of arm 4
-                elif np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 4:
+                elif np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 4 and self.posterior_time_bin>3:
                     self.posterior_sum_statescript_message(4,networkclient)
                 # replay detection of arm 5
-                elif np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 5:
+                elif np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 5 and self.posterior_time_bin>3:
                     self.posterior_sum_statescript_message(5,networkclient)
                 # replay detection of arm 6
-                elif np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 6:
+                elif np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 6 and self.posterior_time_bin>3:
                     self.posterior_sum_statescript_message(6,networkclient)
                 # replay detection of arm 7
-                elif np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 7:
+                elif np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 7 and self.posterior_time_bin>3:
                     self.posterior_sum_statescript_message(7,networkclient)
                 # replay detection of arm 8
-                elif np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 8:
+                elif np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 8 and self.posterior_time_bin>3:
                     self.posterior_sum_statescript_message(8,networkclient)
 
             # no maximum location for whole ripple
@@ -770,7 +773,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             else:
                 if self.posterior_time_bin == 1:
                     print('no segment above 0.5 - no StateScript message. ripple',self._lockout_count)
-                self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
+                    self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
                                       bin_timestamp, spike_timestamp, self.lfp_timestamp, time, self.shortcut_message_sent, 
                                       self._lockout_count, self.posterior_time_bin, 
                                       (self.lfp_timestamp-self.bin_timestamp)/30,
