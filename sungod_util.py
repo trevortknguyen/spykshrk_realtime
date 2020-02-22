@@ -125,7 +125,10 @@ def change_to_directory_make_if_nonexistent(directory_path):
 
 def run_linearization_routine(animal, day, epoch, linearization_path, raw_path, gap_size=20):
 
-    node_ref = linearization_path + 'set_arm_nodes.mat'
+    # original
+    #node_ref = linearization_path + 'set_arm_nodes.mat'
+    # to use new nodes
+    node_ref = linearization_path + 'remy_20_2_new_arm_nodes.mat'
     linearcoord = sio.loadmat(node_ref)['linearcoord_one_box'][0]
 
     animalinfo  = {animal: Animal(directory=raw_path, short_name=animal)}
