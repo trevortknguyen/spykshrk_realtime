@@ -722,13 +722,14 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             # check if current posterior sum is above 0.5 in any segment
             if len(np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold) == 1):
                 
-                # replay detection of box - only send message for arm replays 
+                # replay detection of box - only send message for arm replays
+                # save post sum every time bin
                 if np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 0:
                     if self.posterior_time_bin == 1:
                         print('replay in box - no StateScript message. ripple',self._lockout_count,
                               'sliding window',self.post_sum_sliding_window_actual)
-                        self.shortcut_message_arm = 0
-                        self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
+                    self.shortcut_message_arm = 0
+                    self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
                                           bin_timestamp, spike_timestamp, self.lfp_timestamp, time, self.shortcut_message_sent, 
                                           self._lockout_count, self.posterior_time_bin, 
                                           (self.lfp_timestamp-self.bin_timestamp)/30,
@@ -764,12 +765,12 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 elif np.argwhere(self.norm_posterior_arm_sum>self.posterior_arm_threshold)[0][0] == 8:
                     self.posterior_sum_statescript_message(8,networkclient)
 
-                # need to add elif for no maximum location for whole ripple
-                # use the model from below
+            # no maximum location for whole ripple
+            # save post sum every time bin
             else:
                 if self.posterior_time_bin == 1:
                     print('no segment above 0.5 - no StateScript message. ripple',self._lockout_count)
-                    self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
+                self.write_record(realtime_base.RecordIDs.STIM_MESSAGE,
                                       bin_timestamp, spike_timestamp, self.lfp_timestamp, time, self.shortcut_message_sent, 
                                       self._lockout_count, self.posterior_time_bin, 
                                       (self.lfp_timestamp-self.bin_timestamp)/30,
