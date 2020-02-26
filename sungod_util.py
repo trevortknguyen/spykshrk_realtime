@@ -127,7 +127,7 @@ def run_linearization_routine(animal, day, epoch, linearization_path, raw_path, 
 
     node_ref = linearization_path + 'set_arm_nodes.mat'
     #node_ref = linearization_path + 'fievel_new_arm_nodes.mat'
-    #node_ref = linearization_path + 'remy_nodes_20.mat'
+    #node_ref = linearization_path + 'remy_20_2_new_arm_nodes.mat'
     linearcoord = sio.loadmat(node_ref)['linearcoord_one_box'][0]
 
     animalinfo  = {animal: Animal(directory=raw_path, short_name=animal)}
