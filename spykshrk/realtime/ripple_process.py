@@ -267,7 +267,7 @@ class RippleFilter(rt_logging.LoggingClass):
         self.last_val.append(d)
         return mn
 
-    def process_data(self, timestamp, data):
+    def process_data(self, timestamp, data, rank):
 
         self.current_time = timestamp
 
@@ -305,6 +305,7 @@ class RippleFilter(rt_logging.LoggingClass):
             self.ripple_std += (abs(y - self.ripple_mean) - self.ripple_std) / self.param.samp_divisor
             self.lfp_display_counter += 1
             # display every 1 sec during baseline, every 10 sec during run session
+            # only display from process rank 3
             if self.config['ripple_conditioning']['display_baseline'] == True:
                 if self.lfp_display_counter % 1500 == 0:
                     print('mean',self.elec_grp_id,' = ',np.around(self.ripple_mean,decimals=2),
@@ -329,9 +330,11 @@ class RippleFilter(rt_logging.LoggingClass):
                 self.conditioning_ripple_threshold = np.int(new_ripple_threshold[0:3])/10
                 # next three after space are normal thresh (content)
                 self.param.ripple_threshold = np.int(new_ripple_threshold[4:7])/10
-                # could try to only print for one ripple node - if using number of the node
-                print('conditioning ripple threshold = ',self.conditioning_ripple_threshold,
-                      'content ripple threshold = ',self.param.ripple_threshold)
+
+                # only print for one ripple process, rank 3
+                if rank == 3:
+                    print('conditioning ripple threshold = ',self.conditioning_ripple_threshold,
+                          'content ripple threshold = ',self.param.ripple_threshold)
 
             if not self.stim_enabled:
                 self.ripple_mean += (y - self.ripple_mean) / self.param.samp_divisor
@@ -575,7 +578,7 @@ class RippleManager(realtime_base.BinaryRecordBaseWithTiming, rt_logging.Logging
 
                 filter_state, conditioning_filter_state = (self.ripple_filters[datapoint.elec_grp_id].
                                                            process_data(timestamp=datapoint.timestamp,
-                                                           data=datapoint.data))
+                                                           data=datapoint.data, rank=self.rank))
 
                 #print('at ripple: ',datapoint.timestamp,datapoint.data)
 

@@ -646,6 +646,14 @@ class SpikeFeatures(DayEpochElecTimeSeries):
                                          timestamp, timestamp/float(sampling_rate)],
                                         names=['day', 'epoch', 'elec_grp_id', 'timestamp', 'time'])
 
+        return cls(sampling_rate=sampling_rate, data=amps, index=ind)    
+
+    @classmethod
+    def from_numpy_single_epoch_elec_MEC(cls, day, epoch, elec_grp, timestamp, amps, sampling_rate):
+        ind = pd.MultiIndex.from_arrays([day, epoch, elec_grp,
+                                         timestamp, timestamp/float(sampling_rate)],
+                                        names=['day', 'epoch', 'elec_grp_id', 'timestamp', 'time'])
+
         return cls(sampling_rate=sampling_rate, data=amps, index=ind)
 
     def get_above_threshold(self, threshold):
@@ -1158,6 +1166,15 @@ class FlatLinearPosition(LinearPosition):
         time = timestamp/float(sampling_rate)
         return cls(pd.DataFrame(list(zip(lin_pos, lin_vel)), columns=['linpos_flat', 'linvel_flat'],
                                 index=pd.MultiIndex.from_arrays([[day]*len(timestamp), [epoch]*len(timestamp),
+                                                                 timestamp, time],
+                                                                names=['day', 'epoch', 'timestamp', 'time'])),
+                   sampling_rate=sampling_rate, arm_coord=arm_coord)
+
+    @classmethod
+    def from_numpy_single_epoch_MEC(cls, day, epoch, timestamp, lin_pos, lin_vel, sampling_rate, arm_coord):
+        time = timestamp/float(sampling_rate)
+        return cls(pd.DataFrame(list(zip(lin_pos, lin_vel)), columns=['linpos_flat', 'linvel_flat'],
+                                index=pd.MultiIndex.from_arrays([day, epoch,
                                                                  timestamp, time],
                                                                 names=['day', 'epoch', 'timestamp', 'time'])),
                    sampling_rate=sampling_rate, arm_coord=arm_coord)

@@ -159,10 +159,13 @@ class OfflinePPEncoder(object):
         del mark_contrib
         observ = np.matmul(all_contrib, pos_distrib_tet)
         del all_contrib
+        #print('observation before occ',[0])
 
         # occupancy normalize 
         # AKG added enc_settings.pos_bin_delta to take into account different bin delta values
         observ = observ / (occupancy * encode_settings.pos_bin_delta)
+        #print('observation',observ[0])
+        #print('occupancy',occupancy)
 
         # normalize factor for each row (#dec spks x #pos_bins)
         observ_sum = np.nansum(observ, axis=1)
@@ -239,8 +242,14 @@ class OfflinePPEncoder(object):
         """
         prob_no_spike = {}
         for tet_id, tet_fr in firing_rate.items():
+            # original
             prob_no_spike[tet_id] = np.exp(-dec_settings.time_bin_size/enc_settings.sampling_rate * tet_fr / occupancy)
             # prob_no_spike[tet_id] = np.nan_to_num(prob_no_spike[tet_id], copy=False)
+            # MEC: to turn off prob_no_spike
+            #prob_no_spike[tet_id] = np.ones(enc_settings.pos_bins)
+            #prob_no_spike[tet_id] = apply_no_anim_boundary(enc_settings.pos_bins, enc_settings.arm_coordinates, 
+            #                                               prob_no_spike[tet_id], np.nan)
+            #print('prob no spike',prob_no_spike[tet_id])
         return prob_no_spike
 
     
@@ -440,7 +449,7 @@ class OfflinePPDecoder(object):
         print("Beginning posterior calculation")
         self.recalc_posterior()
 
-        return self.posteriors_obj
+        return self.posteriors_obj, self.likelihoods
 
     def recalc_likelihood(self):
         self.likelihoods = self.calc_observation_intensity(self.observ_obj,
@@ -591,6 +600,7 @@ class OfflinePPDecoder(object):
                 obv_in_bin = obv_in_bin / (np.nansum(obv_in_bin) * enc_settings.pos_bin_delta)
 
             # Contribution for electrodes that no spikes in this bin
+            # MEC: NOTE 2-17-20 Loren says we should multiply by global_prob_no spike here
             for elec_grp_id in elec_set.symmetric_difference(elec_grp_list):
                 obv_in_bin = obv_in_bin * prob_no_spike[elec_grp_id]
                 obv_in_bin = obv_in_bin / (np.nansum(obv_in_bin) * enc_settings.pos_bin_delta)   # AKG added, normalize

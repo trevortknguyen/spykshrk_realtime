@@ -171,6 +171,7 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         self.uniform_gain = self.config['pp_decoder']['trans_mat_uniform_gain']
 
         self.ntrode_list = []
+        self.ntrode_list_array = []
 
         self.cur_pos_time = -1
         self.cur_pos = -1
@@ -179,6 +180,7 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
 
         # Initialize major PP variables
         self.observation = np.ones(self.pos_bins)
+        self.observation_next = np.ones(self.pos_bins)
         self.occ = np.ones(self.pos_bins)
         self.likelihood = np.ones(self.pos_bins)
         self.posterior = np.ones(self.pos_bins)
@@ -194,6 +196,8 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         self.transition_mat = PointProcessDecoder._sungod_transition_matrix(self.uniform_gain)        
 
         self.current_spike_count = 0
+        self.spike_count_next = 0
+        self.total_decoded_spike_count = 0
         self.pos_counter = 0
         self.current_vel = 0
 
@@ -202,6 +206,12 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         self.post_sum_bin_length = 20
         self.posterior_sum_time_bin = np.zeros((self.post_sum_bin_length,9))
         self.posterior_sum_result = np.zeros((1,9))
+
+        self.arm_coords = np.array([[0,8],[13,24],[29,40],[45,56],[61,72],[77,88],[93,104],[109,120],[125,136]])
+        # 4 arm version
+        #arm_coords = np.array([[0,8],[13,24],[29,40],[45,56],[61,72]])
+        self.max_pos = self.arm_coords[-1][-1] + 1
+        self.pos_bins_1 = np.arange(0,self.max_pos,1)        
 
     @staticmethod
     def _create_transition_matrix(pos_delta, num_bins, arm_coor, uniform_gain=0.01):
@@ -313,35 +323,95 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
 
         return transition_mat
 
+    def apply_no_anim_boundary(self, x_bins, arm_coor, image, fill=0):
+        # from util.py script in offline decoder folder
+
+        # calculate no-animal boundary
+        arm_coor = np.array(arm_coor, dtype='float64')
+        arm_coor[:,0] -= x_bins[1] - x_bins[0]
+        bounds = np.vstack([[x_bins[-1], 0], arm_coor])
+        bounds = np.roll(bounds, -1)
+
+        boundary_ind = np.searchsorted(x_bins, bounds, side='right')
+        #boundary_ind[:,1] -= 1
+
+        for bounds in boundary_ind:
+            if image.ndim == 1:
+                image[bounds[0]:bounds[1]] = fill
+            elif image.ndim == 2:
+                image[bounds[0]:bounds[1], :] = fill
+                image[:, bounds[0]:bounds[1]] = fill
+        return image
+
     def select_ntrodes(self, ntrode_list):
         self.ntrode_list = ntrode_list
         self.firing_rate = {elec_grp_id: np.ones(self.pos_bins)
                             for elec_grp_id in self.ntrode_list}
+        #print('tetrode list',self.ntrode_list,len(self.ntrode_list))
+        self.tetrodes_with_spikes = np.zeros((1,len(self.ntrode_list)),dtype=np.bool)
+        self.tets_with_spikes_next = np.zeros((1,len(self.ntrode_list)),dtype=np.bool)
+        self.ntrode_list_array = np.asarray(self.ntrode_list)
 
-    def add_observation(self, spk_elec_grp_id, spk_pos_hist):
-        self.firing_rate[spk_elec_grp_id][self.cur_pos_ind] += 1
+    # MEC: need to introduce encoding velocity filter here
+    # firing rate is later used to calculate prob_no_spike
+
+    # if you want to do correct prob_no_spike calculation then you
+    # need to keep track of tetrodes here each time you add a spike
+    def add_observation(self, spk_elec_grp_id, spk_pos_hist, vel_data):
+        if abs(vel_data) >= self.config['encoder']['vel']:
+            #print('firing rate vel thresh',vel_data,'tetrode',spk_elec_grp_id)
+            self.firing_rate[spk_elec_grp_id][self.cur_pos_ind] += 1
 
         self.observation *= spk_pos_hist
         #print('decoded spike',spk_pos_hist)
+        #print('observation',self.observation)
+        # MEC: i think this should be normalized, not divided by max????
         self.observation = self.observation / np.max(self.observation)
+        #print('observation',self.observation)
         self.current_spike_count += 1
+        self.total_decoded_spike_count += 1
+        # add marker for tet with observation
+        #print('tetrode',spk_elec_grp_id,'tetrode list',self.ntrode_list_array)
+        self.tetrodes_with_spikes[0][np.where(self.ntrode_list_array==spk_elec_grp_id)] = True
+
+    def next_observation(self, spk_elec_grp_id, spk_pos_hist, vel_data):
+        if abs(vel_data) >= self.config['encoder']['vel']:
+            self.firing_rate[spk_elec_grp_id][self.cur_pos_ind] += 1
+
+        self.observation_next *= spk_pos_hist
+        #print('decoded spike',spk_pos_hist)
+        self.observation_next = self.observation_next / np.max(self.observation_next)
+        self.spike_count_next += 1
+        self.total_decoded_spike_count += 1
+        # add marker for tet with observation
+        self.tets_with_spikes_next[0][np.where(self.ntrode_list_array==spk_elec_grp_id)] = True
 
     def update_position(self, pos_timestamp, pos_data, vel_data):
         # Convert position to bin index in histogram count
+        # MEC: added NaN mask with no_anim_boundary
         self.cur_pos_time = pos_timestamp
         self.cur_pos = pos_data
         self.cur_vel = vel_data
         #print('update position result:',self.cur_pos)
         self.cur_pos_ind = int((self.cur_pos - self.pos_range[0]) /
                                self.pos_delta)
+        #print('current position',self.cur_pos)
+        #print('pos index added to occupancy',self.cur_pos_ind)
 
         if abs(self.cur_vel) >= self.config['encoder']['vel']:
+        # MEC test: add all positions to occupancy to compare to offline
+        #if abs(self.cur_vel) >= 0:
             self.occ[self.cur_pos_ind] += 1
+            self.apply_no_anim_boundary(self.pos_bins_1, self.arm_coords, self.occ, np.nan)
 
             self.pos_counter += 1
             if self.pos_counter % 10000 == 0:
-                #print('prob_no_spike_occupancy: ',self.occ)
+                #print('decoder occupancy: ',self.occ)
                 print('number of position entries decode: ',self.pos_counter)
+                print('firing rates',self.firing_rate)
+                print('total decoded spikes',self.total_decoded_spike_count)
+
+        return self.occ
 
     def increment_no_spike_bin(self):
 
@@ -350,17 +420,21 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         for tet_id, tet_fr in self.firing_rate.items():
             # Normalize firing rate
             tet_fr_norm = tet_fr / tet_fr.sum()
+            # MEC normalize self.occ to match calcuation in offline decoder
             # MEC 9-3-19 to turn off prob_no_spike
             #prob_no_spike[tet_id] = np.ones(self.pos_bins)
-            prob_no_spike[tet_id] = np.exp(-self.time_bin_size/30000 *
-                                           tet_fr_norm / self.occ)
+            prob_no_spike[tet_id] = np.exp(-self.time_bin_size/self.config['encoder']['sampling_rate'] *
+                                           tet_fr_norm / (self.occ / np.nansum(self.occ)) )
+            prob_no_spike[tet_id][np.isnan(prob_no_spike[tet_id])]=0.0
+            #print('prob no spike',prob_no_spike[tet_id])
 
             global_prob_no *= prob_no_spike[tet_id]
         global_prob_no /= global_prob_no.sum()
         
         # MEC print statement added
-        #if self.pos_counter % 10000 == 0:
+        #if self.pos_counter % 10 == 0:
         #    print('global prob no spike: ',global_prob_no)
+        #    print('norm occupancy',self.occ / np.nansum(self.occ))
 
         # Compute likelihood for all previous 0 spike bins
         # update last posterior
@@ -376,26 +450,37 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         # Normalize
         self.posterior = self.posterior / self.posterior.sum()
 
+        #print('likelihood',self.likelihood,np.sum(self.likelihood))
+
         # we can save the no spike likelihood here
         # QUESTION: what happens to the likelihood and the posterior during long times of no spike??
 
 
         return self.posterior, self.likelihood
 
+    # original version
     def increment_bin(self):
 
         # Compute conditional intensity function (probability of no spike)
+        tets_with_no_spikes = self.ntrode_list_array[~self.tetrodes_with_spikes[0]]
+        #print('tets with no spikes',tets_with_no_spikes)
         prob_no_spike = {}
         global_prob_no = np.ones(self.pos_bins)
+        # MEC: calculate global_prob_no only for missing tets
         for tet_id, tet_fr in self.firing_rate.items():
-            # Normalize firing rate
-            tet_fr_norm = tet_fr / tet_fr.sum()
-            # MEC 9-3-19 to turn off prob_no_spike
-            #prob_no_spike[tet_id] = np.ones(self.pos_bins)
-            prob_no_spike[tet_id] = np.exp(-self.time_bin_size/30000 *
-                                           tet_fr_norm / self.occ)
+            if tet_id in tets_with_no_spikes:
+                #print('tetrode with no spikes',tet_id)
+                # Normalize firing rate
+                tet_fr_norm = tet_fr / tet_fr.sum()
+                # MEC normalize self.occ to match calcuation in offline decoder
+                # MEC 9-3-19 to turn off prob_no_spike
+                #prob_no_spike[tet_id] = np.ones(self.pos_bins)
+                prob_no_spike[tet_id] = np.exp(-self.time_bin_size/self.config['encoder']['sampling_rate'] *
+                                               tet_fr_norm / (self.occ / np.nansum(self.occ)) )
+                prob_no_spike[tet_id][np.isnan(prob_no_spike[tet_id])]=0.0
 
-            global_prob_no *= prob_no_spike[tet_id]
+                # MEC: replace with prob_no_spike only for missing tets
+                global_prob_no *= prob_no_spike[tet_id]
         global_prob_no /= global_prob_no.sum()
 
         # MEC print statement added
@@ -405,25 +490,87 @@ class PointProcessDecoder(realtime_logging.LoggingClass):
         # Update last posterior
         self.prev_posterior = self.posterior
 
+        # where should we introduce occupancy normalization of observation????
+
         # Compute likelihood for previous bin with spikes
         self.likelihood = self.observation * global_prob_no
+        # MEC: i think this should also be normalized
+        self.likelihood = self.likelihood / self.likelihood.sum()
+        #print('observation',self.observation)
+
+        # Compute posterior
+        # MEC: switch to nansum
+        self.posterior = self.likelihood * (self.transition_mat * self.prev_posterior).sum(axis=1)
+        #self.posterior = self.likelihood * np.nansum(self.transition_mat * self.prev_posterior,axis=1)
+        # Normalize
+        # MEC: switch to nansum
+        self.posterior = self.posterior / self.posterior.sum()
+        #self.posterior = self.posterior / np.nansum(self.posterior)
+
+        #print('likelihood',self.likelihood,np.sum(self.likelihood))
+        # Save resulting posterior
+        # self.record.write_record(realtime_base.RecordIDs.DECODER_OUTPUT,
+        #                          self.current_time_bin * self.time_bin_size,
+        #                          *self.posterior)
+
+        # reset values for next observation
+        self.current_spike_count = 0
+        # np.ones is resetting the observation array for the next time bin
+        # observation is filled with deocoded spikes above in add_observation
+        self.observation = np.ones(self.pos_bins)
+        self.tetrodes_with_spikes = np.zeros((1,len(self.ntrode_list)),dtype=np.bool)
+
+        return self.posterior, self.likelihood
+
+    # 1 bin delay decoder: this is used for n+2 bin
+    def increment_bin_2(self):
+
+        # Compute conditional intensity function (probability of no spike)
+        tets_with_no_spikes = self.ntrode_list_array[~self.tetrodes_with_spikes[0]]
+        prob_no_spike = {}
+        global_prob_no = np.ones(self.pos_bins)
+        # MEC: calculate global_prob_no only for missing tets
+        for tet_id, tet_fr in self.firing_rate.items():
+            if tet_id in tets_with_no_spikes:
+                # Normalize firing rate
+                tet_fr_norm = tet_fr / tet_fr.sum()
+                # MEC normalize self.occ to match calcuation in offline decoder
+                # MEC 9-3-19 to turn off prob_no_spike
+                #prob_no_spike[tet_id] = np.ones(self.pos_bins)
+                prob_no_spike[tet_id] = np.exp(-self.time_bin_size/self.config['encoder']['sampling_rate'] *
+                                               tet_fr_norm / (self.occ / np.nansum(self.occ)) )
+                prob_no_spike[tet_id][np.isnan(prob_no_spike[tet_id])]=0.0
+
+                global_prob_no *= prob_no_spike[tet_id]
+        global_prob_no /= global_prob_no.sum()
+
+        # MEC print statement added
+        #if self.pos_counter % 10000 == 0:
+        #    print('global prob no spike: ',global_prob_no)
+
+        #print(self.observation_next)
+        # Update last posterior
+        self.prev_posterior = self.posterior
+
+        # Compute likelihood for previous bin with spikes
+        self.likelihood = self.observation * global_prob_no
+        # MEC: i think this should also be normalized
+        self.likelihood = self.likelihood / self.likelihood.sum()
 
         # Compute posterior
         self.posterior = self.likelihood * (self.transition_mat * self.prev_posterior).sum(axis=1)
         # Normalize
         self.posterior = self.posterior / self.posterior.sum()
 
-        # we can save the likelihood here
+        # transfer observation_next and next spike to observation
+        self.current_spike_count = np.copy(self.spike_count_next)
+        self.observation = np.copy(self.observation_next)
+        self.tetrodes_with_spikes = np.copy(self.tets_with_spikes_next)
 
-        # Save resulting posterior
-        # self.record.write_record(realtime_base.RecordIDs.DECODER_OUTPUT,
-        #                          self.current_time_bin * self.time_bin_size,
-        #                          *self.posterior)
-
-        self.current_spike_count = 0
-        # np.ones is resetting the observation array for the next time bin
-        # observation is filled with deocoded spikes above in add_observation
-        self.observation = np.ones(self.pos_bins)
+        # reset next spike count and observation_next
+        self.spike_count_next = 0
+        self.observation_next = np.ones(self.pos_bins)
+        self.tets_with_spikes_next = np.zeros((1,len(self.ntrode_list)),dtype=np.bool)
 
         return self.posterior, self.likelihood
 
@@ -469,9 +616,10 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                                               send_interface=send_interface,
                                               rec_ids=[realtime_base.RecordIDs.DECODER_OUTPUT,
                                                        realtime_base.RecordIDs.LIKELIHOOD_OUTPUT,
-                                                       realtime_base.RecordIDs.DECODER_MISSED_SPIKES],
+                                                       realtime_base.RecordIDs.DECODER_MISSED_SPIKES,
+                                                       realtime_base.RecordIDs.OCCUPANCY],
                                               rec_labels=[['bin_timestamp','wall_time', 'velocity', 'real_pos',
-                                                            'raw_x','raw_y','smooth_x','smooth_y','spike_count',
+                                                            'raw_x','raw_y','smooth_x','smooth_y','spike_count','next_bin',
                                                             'ripple','ripple_number','ripple_length','shortcut_message',
                                                             'box','arm1','arm2','arm3','arm4','arm5','arm6','arm7','arm8'] +
                                                           ['x{:0{dig}d}'.
@@ -483,10 +631,17 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                                                            format(x, dig=len(str(config['encoder']
                                                                                  ['position']['bins'])))
                                                            for x in range(config['encoder']['position']['bins'])], 
-                                                          ['timestamp', 'elec_grp_id', 'real_bin', 'late_bin']],
-                                              rec_formats=['qdddddddqqqqqddddddddd'+'d'*config['encoder']['position']['bins'],
+                                                          ['timestamp', 'elec_grp_id', 'real_bin', 'late_bin'],
+                                                          ['bin_timestamp','bin','raw_x','raw_y',
+                                                           'segment','pos_on_seg',
+                                                           'linear_pos','velocity']+['x{:0{dig}d}'.
+                                                           format(x, dig=len(str(config['encoder']
+                                                                                 ['position']['bins'])))
+                                                           for x in range(config['encoder']['position']['bins'])]],
+                                              rec_formats=['qdddddddqqqqqqddddddddd'+'d'*config['encoder']['position']['bins'],
                                                            'qddq'+'d'*config['encoder']['position']['bins'],
-                                                           'qiii'])
+                                                           'qiii',
+                                                           'qqqqqddd'+'d'*config['encoder']['position']['bins']])
                                                 #i think if you change second q to d above, then you can replace real_pos_time
                                                 # with velocity
                                                 # NOTE: q is symbol for integer, d is symbol for decimal
@@ -538,6 +693,9 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
         self.lfp_timekeeper_counter = 1
         self.lfp_msg_counter = 0
         self.decode_loop_counter = 1
+        self.used_next_bin = False
+        self.decoded_spike = 0
+        self.tetrodes_with_spikes = []
 
     def register_pos_interface(self):
         # Register position, right now only one position channel is supported
@@ -578,17 +736,18 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
         # also want to run this if too much time has passed based on lfp_timekeeper
         # this seems to run now based on the lfp timekeeper, but there are many more dropped spikes
 
-        # this is old version of decoder
-        #if spike_dec_msg is not None:
+        # decoder with no lfp timekeeper
+        if spike_dec_msg is not None:
         # this is new version, that uses lfp timekeeper
-        if spike_dec_msg is not None or (self.msg_counter > 0 and lfp_timekeeper is not None and 
-                                         lfp_timekeeper.timestamp > self.previous_spike_timestamp+
-                                         (self.config['pp_decoder']['bin_size']*2*self.lfp_timekeeper_counter)):
+        #if spike_dec_msg is not None or (self.msg_counter > 0 and lfp_timekeeper is not None and 
+        #                                 lfp_timekeeper.timestamp > self.previous_spike_timestamp+
+        #                                 (self.config['pp_decoder']['bin_size']*2*self.lfp_timekeeper_counter)):
 
             self.lfp_timekeeper_counter +=1
             self.decode_loop_counter += 1
             #if self.decode_loop_counter % 100 == 0:
             #    print('runs through decoder calcuation',self.decode_loop_counter)
+            #    print('decoded spikes',self.decoded_spike)            
 
             # turn off timing message for now becuase it depends on spike message
             #if lfp_timekeeper is not None:
@@ -630,31 +789,75 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
 
             
             if spike_time_bin == self.current_time_bin and spike_dec_msg is not None:
+                # added for spike tracking
+                self.decoded_spike += 1
                 # Spike is in current time bin
                 self.pp_decoder.add_observation(spk_elec_grp_id=spike_dec_msg.elec_grp_id,
-                                                spk_pos_hist=spike_dec_msg.pos_hist)
+                                                spk_pos_hist=spike_dec_msg.pos_hist,
+                                                vel_data=self.current_vel)
                 #print('decoded spike message',spike_dec_msg.pos_hist)
                 self.spike_count += 1
                 pass
 
-            elif spike_time_bin > self.current_time_bin:
+            # for next_bin decoding - can just toggle this paragraph and first line in next paragraph
+            # i think this is backwards - want to collect spikes of next bin, then with +2 bins and posterior
+            # is calculated, transfer these spikes back to observation
+            elif spike_time_bin == self.current_time_bin + 1 and spike_dec_msg is not None:
+                # added for spike tracking
+                self.decoded_spike += 1
+                #print('spike 1 bin ahead')
+                self.used_next_bin = True
+                # call a new function: next_observation
+                self.pp_decoder.next_observation(spk_elec_grp_id=spike_dec_msg.elec_grp_id,
+                                                 spk_pos_hist=spike_dec_msg.pos_hist,
+                                                 vel_data=self.current_vel)
+                self.spike_count += 1
+
+            # calculate posterior when spike is 2+ bins ahead
+            elif spike_time_bin > self.current_time_bin + 1:
+                # added for spike tracking
+                self.decoded_spike += 1
+            # original
+            #elif spike_time_bin > self.current_time_bin:
                 # Spike is in next time bin, compute posterior based on observations, advance to tracking next time bin
                 
                 # problem for lfp_timekeeper: this function runs on empty bins - so observation always = 1
                 # need to run increment_no_spike when no spike_dec_msg - see next if statement below
 
-                # increment last bin with spikes
-                # to turn off posterior calculation comment out next line and replace with list of ones
-                if spike_dec_msg is not None:
-                    posterior, likelihood = self.pp_decoder.increment_bin()
-                    #posterior = np.ones(137)
-                    #likelihood = np.ones(137)
+                # if just ran observation_next, use increment_bin_2
+                # do we still need this conditional? or should we always run increment_bin_2???
+                if self.used_next_bin:
+                    #print('next bin decoder ON')
+                    #self.used_next_bin = False
 
+                    if spike_dec_msg is not None:
+                        posterior, likelihood = self.pp_decoder.increment_bin_2()
+                        #print(posterior)
+                    else:
+                        posterior, likelihood = self.pp_decoder.increment_no_spike_bin()               
+                
+                # otherwise use regular increment_bin
                 else:
-                    #print('lfp_timekeeper')
-                    posterior, likelihood = self.pp_decoder.increment_no_spike_bin()
-                    #posterior = np.ones(137)
-                    #likelihood = np.ones(137)
+                    #print('using regular increment_bin')
+                    if spike_dec_msg is not None:
+                        posterior, likelihood = self.pp_decoder.increment_bin()
+                        #print('posterior',posterior)
+                        #print('likelihood',likelihood)
+                    else:
+                        posterior, likelihood = self.pp_decoder.increment_no_spike_bin()
+
+                ## increment last bin with spikes
+                ## to turn off posterior calculation comment out next line and replace with list of ones
+                #if spike_dec_msg is not None:
+                #    posterior, likelihood = self.pp_decoder.increment_bin()
+                #    #posterior = np.ones(137)
+                #    #likelihood = np.ones(137)
+
+                #else:
+                #    #print('lfp_timekeeper')
+                #    posterior, likelihood = self.pp_decoder.increment_no_spike_bin()
+                #    #posterior = np.ones(137)
+                #    #likelihood = np.ones(137)
                 
                 self.posterior_arm_sum = self.pp_decoder.calculate_posterior_arm_sum(posterior, self.ripple_time_bin)
                 #self.posterior_arm_sum = np.zeros((1,9))
@@ -693,7 +896,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                                   self.current_time_bin * self.time_bin_size, time,
                                   self.current_vel,
                                   self.pp_decoder.cur_pos,self.raw_x,self.raw_y,self.smooth_x,self.smooth_y,
-                                  self.spike_count,
+                                  self.spike_count,self.used_next_bin,
                                   self.ripple_thresh_decoder, self.ripple_number, self.ripple_time_bin,self.shortcut_message_sent,
                                   self.posterior_arm_sum[0][0],self.posterior_arm_sum[0][1],
                                   self.posterior_arm_sum[0][2],self.posterior_arm_sum[0][3],self.posterior_arm_sum[0][4],
@@ -703,7 +906,12 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
 
                 self.current_time_bin += 1
                 self.shortcut_message_sent = False
+                #self.used_next_bin = False
 
+                #MEC: edited this line to try and get back missing bins in decoder_data record - seems to work!
+                # original: no extra bin subtraction (removed -1)
+                #for no_spk_ii in range(spike_time_bin - self.current_time_bin):
+                # for 1 bin delay version: try switching to -1
                 for no_spk_ii in range(spike_time_bin - self.current_time_bin - 1):
                     #spike_count is set to 0 for no_spike_bins
                     # need to make sure this loop actually runs with lfp_timekeeper - seems okay
@@ -740,7 +948,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                                       self.current_time_bin * self.time_bin_size, time,
                                       self.current_vel,
                                       self.pp_decoder.cur_pos,self.raw_x,self.raw_y,self.smooth_x,self.smooth_y,
-                                      0,
+                                      0,self.used_next_bin,
                                       self.ripple_thresh_decoder, self.ripple_number, self.ripple_time_bin,self.shortcut_message_sent,
                                       self.posterior_arm_sum[0][0],self.posterior_arm_sum[0][1],
                                       self.posterior_arm_sum[0][2],self.posterior_arm_sum[0][3],self.posterior_arm_sum[0][4],
@@ -749,22 +957,34 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                                       *posterior)
 
                     #print('wall time at decoder',self.current_time_bin * self.time_bin_size,time*1000)
-
                     self.current_time_bin += 1
-                    self.shortcut_message_sent = False
 
-                # this will not happen with lfp timestamp trigger - is that a problem?
+                # yes, we need it here because if spike is 1 bin ahead the for loop inside else is empty
+                self.used_next_bin = False
+                self.shortcut_message_sent = False
+
+                # this adds the current spike to the next observation
+                # for bin delay decoder this should be added to observation_next as the n+1 bin
+                # will not run if no spike (lfp timekeeper) - that's okay
                 if spike_dec_msg is not None:
-                    self.pp_decoder.add_observation(spk_elec_grp_id=spike_dec_msg.elec_grp_id,
-                                                    spk_pos_hist=spike_dec_msg.pos_hist)
+                    # original
+                    #self.pp_decoder.add_observation(spk_elec_grp_id=spike_dec_msg.elec_grp_id,
+                    #                                spk_pos_hist=spike_dec_msg.pos_hist)
+                    # delay decoder
+                    self.pp_decoder.next_observation(spk_elec_grp_id=spike_dec_msg.elec_grp_id,
+                                                     spk_pos_hist=spike_dec_msg.pos_hist,
+                                                     vel_data=self.current_vel)
 
                 # Increment current time bin to latest spike
-                self.current_time_bin = spike_time_bin
+                # i think this is a problem - will reverse all the advantage of having a delay
+                # try commenting out this line - works to restore all decoder bins with delay 
+                #self.current_time_bin = spike_time_bin
 
                 # reset spike count to 0
                 self.spike_count = 0
                 pass
 
+            # no update for next bin decoder, because current bin only advances when spike is 2 bins ahead
             elif spike_time_bin < self.current_time_bin and spike_dec_msg is not None:
                 self.dropped_spikes += 1
                 self.write_record(realtime_base.RecordIDs.DECODER_MISSED_SPIKES,
@@ -807,12 +1027,16 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                 #self.pp_decoder.update_position(pos_timestamp=pos_data.timestamp, pos_data=pos_data.x)
                 # we want to use linearized position here
                 # try calculating velocity with smoothed position, see if it looks better
-                self.raw_x = pos_data.x
-                self.raw_y = pos_data.y
+                #self.raw_x = pos_data.x
+                #self.raw_y = pos_data.y
+                #self.current_vel = self.velCalc.calculator(pos_data.x, pos_data.y)
+
+                # smooth position not velocity
+                # now try smooth position and then velocity
                 self.smooth_x = self.velCalc.smooth_x_position(pos_data.x)
-                self.smooth_y = self.velCalc.smooth_y_position(pos_data.y)                
-                self.current_vel = self.velCalc.calculator(pos_data.x, pos_data.y)
-                self.smooth_vel = self.velCalc.calculator(self.smooth_x, self.smooth_y)
+                self.smooth_y = self.velCalc.smooth_y_position(pos_data.y)                 
+                #self.current_vel = self.velCalc.calculator_no_smooth(self.smooth_x, self.smooth_y)
+                self.current_vel = self.velCalc.calculator(self.smooth_x, self.smooth_y)
                 current_pos = self.linPosAssign.assign_position(pos_data.segment, pos_data.position)
 
                 # try turning off all of these calculations
@@ -822,17 +1046,28 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                 #self.smooth_vel = 0
                 #current_pos = 0
 
-                self.pp_decoder.update_position(pos_timestamp=pos_data.timestamp, pos_data=current_pos, vel_data=self.current_vel)
+                # MEC added: return occupancy
+                occupancy = self.pp_decoder.update_position(pos_timestamp=pos_data.timestamp,
+                                                            pos_data=current_pos, vel_data=self.current_vel)
+
+                # save record with occupancy
+                # TO DO: save raw X and raw Y also
+                self.write_record(realtime_base.RecordIDs.OCCUPANCY,
+                                  pos_data.timestamp, self.current_time_bin,
+                                  pos_data.x,pos_data.y, 
+                                  pos_data.segment, pos_data.position,
+                                  current_pos, self.current_vel, *occupancy)
 
                 #send message VEL_POS to main_process so that shortcut message can by filtered by velocity and position
                 self.mpi_send.send_vel_pos_message(self.current_time_bin * self.time_bin_size,
                                                    current_pos, self.current_vel)                
 
                 self.pos_msg_counter += 1
-                # this prints position and velocity every 5 sec
+                # this prints position and velocity every 5 sec (150)
                 if self.pos_msg_counter % 150 == 0:
                     print('position = ',current_pos,' and velocity = ',np.around(self.current_vel,decimals=2),
-                          'smooth velocity = ',np.around(self.smooth_vel,decimals=2),'segment = ',pos_data.segment)
+                          'smooth velocity = ',np.around(self.smooth_vel,decimals=2),'segment = ',pos_data.segment,
+                          'smooth_x',np.around(self.smooth_x,decimals=2),'smooth_y',np.around(self.smooth_y,decimals=2))
 
                 #print(pos_data.x, pos_data.segment)
                 #TODO implement trodes cameramodule update position function

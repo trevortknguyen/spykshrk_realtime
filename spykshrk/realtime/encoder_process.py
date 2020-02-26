@@ -140,14 +140,14 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
                                                                'weight',
                                                                'position'],
                                                               ['timestamp',
-                                                               'elec_grp_id',
-                                                               'position'] +
+                                                               'elec_grp_id','ch1','ch2','ch3','ch4',
+                                                               'position','velocity'] +
                                                               ['x{:0{dig}d}'.
                                                                format(x, dig=len(str(config['encoder']
                                                                                      ['position']['bins'])))
                                                                for x in range(config['encoder']['position']['bins'])]],
                                                   rec_formats=['qidd',
-                                                               'qid'+'d'*config['encoder']['position']['bins']])
+                                                               'qidddddd'+'d'*config['encoder']['position']['bins']])
 
         self.rank = rank
         self.config = config
@@ -242,7 +242,35 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
                 self.spk_counter += 1
 
                 # this line calculates the mark for each channel (max of the 40 voltage values)
-                amp_marks = [max(x) for x in datapoint.data]
+                # NO. this does not!!
+                # it should be the max on the highest channel and then the values of the other three in that bin
+                # or this may simply always be bin 14 - but im not sure if the clip is the same as offline
+                # original
+                #old_amp_marks = [max(x) for x in datapoint.data]
+                #print('old mark',old_amp_marks)
+                #print('input voltage',datapoint.data)
+                #print('mark',amp_marks[0],amp_marks[1],amp_marks[2],amp_marks[3])
+                # new method - take 4 values from single bin with highest peak
+                max_0 = max(datapoint.data[0])
+                max_1 = max(datapoint.data[1])
+                max_2 = max(datapoint.data[2])
+                max_3 = max(datapoint.data[3])
+                max_channel = np.argmax([max_0,max_1,max_2,max_3])
+                
+                max_0_ind = np.argmax(datapoint.data[0])
+                max_1_ind = np.argmax(datapoint.data[1])
+                max_2_ind = np.argmax(datapoint.data[2])
+                max_3_ind = np.argmax(datapoint.data[3])
+                
+                if max_channel == 0:
+                    amp_marks = [datapoint.data[0][max_0_ind],datapoint.data[1][max_0_ind],datapoint.data[2][max_0_ind],datapoint.data[3][max_0_ind]]
+                elif max_channel == 1:
+                    amp_marks = [datapoint.data[0][max_1_ind],datapoint.data[1][max_1_ind],datapoint.data[2][max_1_ind],datapoint.data[3][max_1_ind]]
+                elif max_channel == 2:
+                    amp_marks = [datapoint.data[0][max_2_ind],datapoint.data[1][max_2_ind],datapoint.data[2][max_2_ind],datapoint.data[3][max_2_ind]]
+                elif max_channel == 3:
+                    amp_marks = [datapoint.data[0][max_3_ind],datapoint.data[1][max_3_ind],datapoint.data[2][max_3_ind],datapoint.data[3][max_3_ind]]
+                #print('new mark',amp_marks)
 
                 # this looks up the current spike in the RStar Tree
                 if max(amp_marks) > self.config['encoder']['spk_amp']:
@@ -251,7 +279,7 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
                         query_mark_hist(amp_marks,
                                         datapoint.timestamp,
                                         datapoint.elec_grp_id)                # type: kernel_encoder.RSTKernelEncoderQuery
-                    #print(query_result)
+                    #print('decoded spike',query_result.query_hist)
 
 
                     # for weight, position in zip(query_result.query_weights, query_result.query_positions):
@@ -263,7 +291,8 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
                     self.write_record(realtime_base.RecordIDs.ENCODER_OUTPUT,
                                       query_result.query_time,
                                       query_result.elec_grp_id,
-                                      self.current_pos,
+                                      amp_marks[0],amp_marks[1],amp_marks[2],amp_marks[3],
+                                      self.current_pos,self.current_vel,
                                       *query_result.query_hist)
 
                     self.record_timing(timestamp=datapoint.timestamp, elec_grp_id=datapoint.elec_grp_id,
@@ -325,14 +354,16 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
                 self.pos_counter += 1
 
                 # run positionassignment, pos smoothing, and velocity calculator functions
+                # currently smooth position and velocity
                 self.smooth_x = self.velCalc.smooth_x_position(datapoint.x)
                 self.smooth_y = self.velCalc.smooth_y_position(datapoint.y)
-                self.current_vel = self.velCalc.calculator(datapoint.x, datapoint.y)
+                #self.current_vel = self.velCalc.calculator_no_smooth(self.smooth_x, self.smooth_y)
+                self.current_vel = self.velCalc.calculator(self.smooth_x, self.smooth_y)
                 self.current_pos = self.linPosAssign.assign_position(datapoint.segment, datapoint.position)
                 #print('x smoothing: ',datapoint.x,self.smooth_x)
                 #print('y smoothing: ',datapoint.y,self.smooth_y)
                 
-                #print('linear position: ',self.current_pos, ' velocity: ',self.current_vel)
+                #print('encoder linear position: ',self.current_pos, ' velocity: ',self.current_vel)
                 #print('segment: ',datapoint.segment)
 
                 for encoder in self.encoders.values():

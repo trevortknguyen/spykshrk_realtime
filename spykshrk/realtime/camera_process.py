@@ -21,6 +21,7 @@ class LinearPositionAssignment:
         self.shift_linear_distance_by_arm_dictionary = dict()
         #this line runs the arm_shift_dict during __init__
         self.arm_shift_dictionary()
+        self.box_correction_count = 1
 
     def arm_shift_dictionary(self):
         # max_pos: 8 arm - 136 | 4 arm - 72
@@ -43,13 +44,14 @@ class LinearPositionAssignment:
 
         # with this setup max position is 136
         for arm in hardcode_armorder: # for each outer arm
+            # not using inner vs outer box for remy
             # if inner box, do nothing
-            if arm == 0:
-               temporary_variable_shift = 0
+            #if arm == 0:
+            #   temporary_variable_shift = 0
 
             # if outer box segments add inner box
-            elif arm < 9 and arm > 0:
-               temporary_variable_shift = 4
+            #elif arm < 9 and arm > 0:
+            #   temporary_variable_shift = 4
 
             # replace inner and outer box with 8 parallel segments
             
@@ -94,6 +96,7 @@ class LinearPositionAssignment:
 
     def assign_position(self, segment, segment_pos):
         self.assigned_pos = 0
+        #print('segment',segment,'location',np.around(segment_pos,decimals=2))        
 
         # now we can use the good linearization, so box is 8 bins with 4 inner (segment 0) and 4 outer (segments 1-8)
         # bin position here - use math.ceil to round UP for arms and math.floor to round down for box
@@ -109,15 +112,18 @@ class LinearPositionAssignment:
 
         # for 8 arms
         if segment < 8:
-           self.assigned_pos = math.floor(segment_pos*9 + self.shift_linear_distance_by_arm_dictionary[segment])
-           if self.assigned_pos == 9:
-               self.assigned_pos = 8
-               #print('edge of box position binning correction')
-           if self.assigned_pos == -1:
-               self.assigned_pos = 0
-               #print('position was -1')
+            self.assigned_pos = math.floor(segment_pos*9 + self.shift_linear_distance_by_arm_dictionary[segment])
+            if self.assigned_pos == 9:
+                self.box_correction_count += 1
+                self.assigned_pos = 8
+                #print('edge of box position binning correction')
+            if self.assigned_pos == -1:
+                self.assigned_pos = 0
+                #print('position was -1')
+            if self.box_correction_count % 1000 == 0:
+                print('edge of box pos correction count',self.box_correction_count)
         else:
-           self.assigned_pos = math.ceil(segment_pos*12 + self.shift_linear_distance_by_arm_dictionary[segment])
+            self.assigned_pos = math.ceil(segment_pos*12 + self.shift_linear_distance_by_arm_dictionary[segment])
 
         # for 4 arms with multiple paths from home
         #if segment < 4:
@@ -151,9 +157,11 @@ class VelocityCalculator:
         self.y = 0
         self.lastx = 0
         self.lasty = 0
+        self.smooth_x = 0
+        self.smooth_y = 0
 
-        #this is the number of speed or position measurements used to smooth
-        self.NSPEED_FILT_POINTS = 30
+        #this is the number of speed or position measurements used to smooth - original = 30
+        self.NSPEED_FILT_POINTS = 6
         self.speed = [0] * self.NSPEED_FILT_POINTS
         self.speedFilt = [0] * self.NSPEED_FILT_POINTS
         self.x_pos = [0] * self.NSPEED_FILT_POINTS
@@ -163,9 +171,17 @@ class VelocityCalculator:
 
 
         #this is a half-gaussian kernel used to smooth the instanteous speed
-        self.speedFilterValues = [0.0393,0.0392,0.0391,0.0389,0.0387,0.0385,0.0382,0.0379,
-        0.0375,0.0371,0.0367,0.0362,0.0357,0.0352,0.0347,0.0341,0.0334,0.0328,0.0321,
-        0.0315,0.0307,0.0300,0.0293,0.0285,0.0278,0.0270,0.0262,0.0254,0.0246,0.0238]
+        #self.speedFilterValues = [0.0393,0.0392,0.0391,0.0389,0.0387,0.0385,0.0382,0.0379,
+        #0.0375,0.0371,0.0367,0.0362,0.0357,0.0352,0.0347,0.0341,0.0334,0.0328,0.0321,
+        #0.0315,0.0307,0.0300,0.0293,0.0285,0.0278,0.0270,0.0262,0.0254,0.0246,0.0238]
+
+        # new filter for 6 points instead of 30
+        # for this filter need velocity cut-off of about 6 cm/sec
+        self.speedFilterValues = [0.21491511, 0.20760799, 0.1891253, 0.16161616, 0.12894907, 0.09778637]
+
+        # new filter for 8 points instead of 30
+        #self.speedFilterValues = [0.14753615, 0.14606078, 0.14148716, 0.13425789, 0.12540572, 0.11404544,
+        #                          0.10194748, 0.08925937]
 
         for i in np.arange(0,self.NSPEED_FILT_POINTS,1):
             self.speedFilt[i] = self.speedFilterValues[i]
@@ -178,7 +194,9 @@ class VelocityCalculator:
 
     # this smoothes x position - okay this works, but the positions really dont match well...
     def smooth_x_position(self, x):
+        # i think this should go above in init, so it remembers old position each bin - nope
         self.smooth_x = 0
+
         i = 0
         tmpind = 0
         cmperpx = 0.2
@@ -202,7 +220,9 @@ class VelocityCalculator:
 
     # this smoothes y position
     def smooth_y_position(self, y):
+        # i think this should go above in init, so it remembers old position each bin - nope
         self.smooth_y = 0
+
         i = 0
         tmpind = 0
         cmperpx = 0.2
@@ -222,6 +242,7 @@ class VelocityCalculator:
 
     # this is the velocity calculator
     def calculator(self, x, y):
+        #print(x,y)
         self.smoothSpeed = 0
         i = 0
         tmpind = 0
@@ -229,7 +250,7 @@ class VelocityCalculator:
         #cmperpx = 1/network.pxpercm
         cmperpx = 0.2
 
-        # note: for remy cmperpx should be <0.2 
+        # note: for remy cmperpx should be 0.2 
         # it seems like the speed is still pretty high with jittering of headstage...
         # maybe this is because positon isnt smoothed??
 
@@ -241,6 +262,8 @@ class VelocityCalculator:
         # this is distance / time - because 1/0.03 = 30
         if self.speed[self.ind] != 0:
             self.speed[self.ind] = np.sqrt(self.speed[self.ind])*30
+            #print('raw speed',np.around(self.speed[self.ind],decimals=2),'x',np.around(x,decimals=2),
+            #      'y',np.around(y,decimals=2))
 
         self.lastx = x * cmperpx
         self.lasty = y * cmperpx
@@ -257,6 +280,48 @@ class VelocityCalculator:
 
         #print('speed',self.smoothSpeed)
         return self.smoothSpeed
+
+    # this is the velocity calculator with no smoothing
+    # should use this with smoothed position
+    def calculator_no_smooth(self, x, y):
+        #print(x,y)
+        self.smoothSpeed = 0
+        #i = 0
+        #tmpind = 0
+        #need to bring in network.pxpercm from trodes
+        #cmperpx = 1/network.pxpercm
+        cmperpx = 0.2
+
+        # note: for remy cmperpx should be 0.2 
+        # it seems like the speed is still pretty high with jittering of headstage...
+        # maybe this is because positon isnt smoothed??
+
+        # this line calcualates distance between the last 2 points
+        self.speed = ((x * cmperpx - self.lastx) * (x * cmperpx - self.lastx) +
+                      (y * cmperpx - self.lasty) * (y * cmperpx - self.lasty))
+        #print(x,y,self.lastx,self.lasty,network.pxpercm,self.speed[0])
+
+        # this is distance / time - because 1/0.03 = 30
+        if self.speed != 0:
+            self.speed = np.sqrt(self.speed)*30
+            #print('raw speed',np.around(self.speed[self.ind],decimals=2),'x',np.around(x,decimals=2),
+            #      'y',np.around(y,decimals=2))
+
+        self.lastx = x * cmperpx
+        self.lasty = y * cmperpx
+
+        #for i in np.arange(0,self.NSPEED_FILT_POINTS,1):
+        #    tmpind = (self.ind + i) % self.NSPEED_FILT_POINTS
+        #    #print('speed filt',self.speedFilt)
+        #    self.smoothSpeed = self.smoothSpeed + self.speed[tmpind]*self.speedFilt[i]
+
+        #self.ind = self.ind - 1
+
+        #if self.ind < 0:
+        #    self.ind = self.NSPEED_FILT_POINTS - 1
+
+        ##print('speed',self.smoothSpeed)
+        return self.speed        
 
 #initialize VelocityCalculator
 velCalc = VelocityCalculator()
