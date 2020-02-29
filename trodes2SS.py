@@ -161,6 +161,7 @@ class TrodesImport:
 				marks[channame].mask(marks['elec_grp_id']==tet,0,inplace=True)
 
 		marks.set_index(['day','epoch','elec_grp_id','timestamp','time'],inplace=True,drop=True)
+		marks = marks.astype(np.int16, copy=False) 
 		return marks
 
 
