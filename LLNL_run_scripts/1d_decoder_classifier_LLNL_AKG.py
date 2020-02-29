@@ -75,7 +75,8 @@ def main(path_base, rat_name, day, epoch, shift_amt, path_out):
     print('original length: '+str(marks.shape[0]))
 
     # fill in any deadchans with zeros
-    marks = datasrc.fill_dead_chans(marks, tetinfo)
+    specific_tetinfo = tetinfo.query('tetrode_number==@tetrodes')  # pull the tetinfo for tets in list 
+    marks = datasrc.fill_dead_chans(marks, specific_tetinfo)
     
     # OPTIONAL: to reduce mark number, can filter by size. Current detection threshold is 100  
     marks = trodes2SS.threshold_marks(marks, maxthresh=2000,minthresh=100)
