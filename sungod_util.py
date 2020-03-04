@@ -531,7 +531,7 @@ def shift_enc_marks_for_shuffle(marks_obj, shift):
 
     return encoding_marks_shifted, shift_amount
 
-def decode_with_classifier(likelihoods_obj, sungod_transmat, occupancy, discrete_tm_val=.99):
+def decode_with_classifier(likelihoods_obj, sungod_transmat, occupancy, discrete_tm_val=.99,velmask = None):
         
     '''
     '''
@@ -560,12 +560,28 @@ def decode_with_classifier(likelihoods_obj, sungod_transmat, occupancy, discrete
     acausal_state1 = likelihoods.copy()
     acausal_state2 = likelihoods.copy()
     acausal_state3 = likelihoods.copy() 
-    posbin1 = np.isnan(likelihoods['x000'])  # use the first posbin to find nan time chunks
-    blocks = (posbin1 != posbin1.shift()).cumsum()   # define each group of non-nan values as a block
+    # nan out all the values
+    causal_state1.loc[:] = 0   # continuous
+    causal_state2.loc[:] = 0   # fragmented
+    causal_state3.loc[:] = 0  # hover 
+    acausal_state1.loc[:] = 0
+    acausal_state2.loc[:] = 0
+    acausal_state3.loc[:] = 0
+
+    if velmask is None: 
+        print('using first row nans')
+        nanbins = np.isnan(likelihoods['x000'])  # use the first posbin to find nan time chunks
+        blocks = (nanbins != nanbins.shift()).cumsum()   # define each group of non-nan values as a block
+        immoblocks = np.unique(blocks.loc[~nanbins])
+
+    else:
+        print('using velmask')  #if a mask has been provided, use it to decide when to run. mask = 1 when vel>thresh; 0 otherwise
+        blocks = (velmask != velmask.shift()).cumsum()
+        immoblocks = np.unique(blocks.loc[~velmask])
 
     # run classifier
-    for b in range(1,max(blocks)+1):    #  iterate through non-nan blocks
-        print('running block '+ str(b) +' of ' + str(max(blocks)))
+    for b in immoblocks:    #  iterate through non-nan blocks
+        print('running valid block '+ str(b) +' of ' + str(max(blocks)))
         chunk = likelihoods.loc[blocks==b].fillna(0).values   # get rid of the gap nans
         chunk_expanded = chunk[:,np.newaxis,:,np.newaxis] * np.ones((1,3,num_bins,1))   # put things in the right shape
         causal_posterior = _causal_classify(initial_conditions, continuous_state_transition,discrete_state_transition,chunk_expanded)
