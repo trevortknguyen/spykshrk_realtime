@@ -123,9 +123,13 @@ def change_to_directory_make_if_nonexistent(directory_path):
     os.getcwd()
     
 
-def run_linearization_routine(animal, day, epoch, linearization_path, raw_path, gap_size=20):
+def run_linearization_routine(animal, day, epoch, linearization_path, raw_path, gap_size=20, optional_alternate_nodes=None, optional_output_suffix=None):
 
-    node_ref = linearization_path + 'set_arm_nodes.mat'
+    if optional_alternate_nodes:
+        node_ref = optional_alternate_nodes
+    else:
+        node_ref = linearization_path + 'set_arm_nodes.mat'
+
     #node_ref = linearization_path + 'fievel_new_arm_nodes.mat'
     #node_ref = linearization_path + 'remy_20_2_new_arm_nodes.mat'
     linearcoord = sio.loadmat(node_ref)['linearcoord_one_box'][0]
@@ -196,8 +200,12 @@ def run_linearization_routine(animal, day, epoch, linearization_path, raw_path, 
 
     #save outputs
     output_base = linearization_path + animal + '_' + str(day) + '_' +str(epoch) + '_'
-    lin_output1 = output_base + 'linearized_distance.npy'
-    lin_output2 = output_base + 'linearized_track_segments.npy'
+    if optional_output_suffix:
+        lin_output1 = output_base + optional_output_suffix + '_distance.npy'
+        lin_output2 = output_base + optional_output_suffix + '_track_segments.npy'
+    else:
+        lin_output1 = output_base + 'linearized_distance.npy'
+        lin_output2 = output_base + 'linearized_track_segments.npy'
     #lin_output3 = output_base + 'linearization_variables.mat'
     np.save(lin_output1, linear_distance_arm_shift)
     np.save(lin_output2, track_segment_id)
