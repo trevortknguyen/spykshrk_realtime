@@ -123,7 +123,7 @@ def change_to_directory_make_if_nonexistent(directory_path):
     os.getcwd()
     
 
-def run_linearization_routine(animal, day, epoch, linearization_path, raw_path, gap_size=20, optional_alternate_nodes=None, optional_output_suffix=None):
+def run_linearization_routine(animal, day, epoch, linearization_path, raw_path, gap_size=20, optional_alternate_nodes=None, optional_output_suffix=None,lfdp_v9=False):
 
     if optional_alternate_nodes:
         node_ref = optional_alternate_nodes
@@ -163,15 +163,35 @@ def run_linearization_routine(animal, day, epoch, linearization_path, raw_path, 
     #lfdp.track_segment_classification.plot_track(track_graph)
 
     position = position_info.loc[:, ['x_position', 'y_position']].values
-
-    track_segment_id = lfdp.track_segment_classification.classify_track_segments(
-            track_graph, position,
-            route_euclidean_distance_scaling=1,
-            sensor_std_dev=1)
-
     center_well_id = 0
-    linear_distance = lfdp.track_segment_classification.calculate_linear_distance(
-                track_graph, track_segment_id, center_well_id, position)
+
+    if lfdp_v9:  # slight change in syntax and params for the new version
+        position_info['track_segment_id'] = lfdp.track_segment_classification.classify_track_segments(
+                track_graph, position,
+                route_euclidean_distance_scaling=1,
+                sensor_std_dev=3, diagonal_bias=0)
+        
+        (position_info['linear_distance'], position_info['projected_x'], position_info['projected_y']) = lfdp.track_segment_classification.calculate_linear_distance(
+                    track_graph, position_info['track_segment_id'], center_well_id, position)
+
+        #backfill nans, and report how many
+        print('Nans backfilled in linearization routine:' +str(len(np.where(np.isnan(position_info['track_segment_id'])))))
+        position_info['track_segment_id'].fillna(method='backfill',inplace=True)
+        position_info['linear_distance'].fillna(method='backfill',inplace=True)
+
+        track_segment_id = np.copy(position_info['track_segment_id'])
+        linear_distance_arm_shift = np.copy(position_info['linear_distance'])
+
+    else:
+        track_segment_id = lfdp.track_segment_classification.classify_track_segments(
+                track_graph, position,
+                route_euclidean_distance_scaling=1,
+                sensor_std_dev=1)
+
+        linear_distance = lfdp.track_segment_classification.calculate_linear_distance(
+                    track_graph, track_segment_id, center_well_id, position)
+
+        linear_distance_arm_shift = np.copy(linear_distance)
 
         # this section calculates the shift amounts for each arm
     arm_distances = (edge_distances[1],edge_distances[3],edge_distances[5],edge_distances[7],
@@ -194,7 +214,6 @@ def run_linearization_routine(animal, day, epoch, linearization_path, raw_path, 
     newseg[(newseg < 8)] = 0
 
         # 2) Shift linear distance for each arm 
-    linear_distance_arm_shift = np.copy(linear_distance)
     for seg in shift_linear_distance_by_arm_dictionary:
         linear_distance_arm_shift[(newseg==(seg+8))]+=shift_linear_distance_by_arm_dictionary[(seg)]  
 
