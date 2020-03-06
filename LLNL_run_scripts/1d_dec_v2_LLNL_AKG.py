@@ -272,6 +272,11 @@ def main(path_base, rat_name, day, epoch, shift_amt, path_out):
     print('Classifier started at %s'%str(time_started))
     print('Classifier finished at %s'%str(time_finished))
     
+
+    if 'ripple_grp' in acausal_state1.columns:
+        print('dropping ripple_grp column from acausal_s1')
+        acausal_state1.drop(columns='ripple_grp')    
+
     #cell 17
     ## save classifier output
     base_name = os.path.join(path_out, rat_name + '_' + day_ep + '_shuffle_' + str(shift_amount) + '_posterior_')
