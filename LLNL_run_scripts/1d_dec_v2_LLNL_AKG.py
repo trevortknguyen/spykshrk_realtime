@@ -122,7 +122,7 @@ def main(path_base, rat_name, day, epoch, shift_amt, path_out):
     binned_linear_pos, binned_arm_coords, pos_bins = sungod_util.bin_position_data(linear_pos_raw, arm_coords, pos_bin_size)
 
     # important for new arm nodes:
-    binned_arm_coords[:,1] = 1+binned_arm_coords[:,1]
+    #binned_arm_coords[:,1] = 1+binned_arm_coords[:,1]
 
     # calculate bin coverage based on determined binned arm bounds   TO DO: prevent the annnoying "copy of a slice" error [prob need .values rather than a whole column]
     #pos_bin_delta = sungod_util.define_pos_bin_delta(binned_arm_coords, pos_bins, linear_pos_raw, pos_bin_size)
@@ -276,7 +276,7 @@ def main(path_base, rat_name, day, epoch, shift_amt, path_out):
     ## save classifier output
     base_name = os.path.join(path_out, rat_name + '_' + day_ep + '_shuffle_' + str(shift_amount) + '_posterior_')
 
-    fname = 'acausalv2'
+    fname = 'acausal_v2'
     trodes2SS.convert_save_classifier(base_name, fname, acausal_state1, acausal_state2, acausal_state3, tetrodes, decoder.likelihoods,
                                       encode_settings, decode_settings, rips, velocity_thresh_for_enc_dec, velocity_buffer, sungod_no_offset, order, shift_amount)
 
