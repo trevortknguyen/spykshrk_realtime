@@ -104,11 +104,16 @@ def main(path_base, rat_name, day, epoch, shift_amt, path_out):
     print('linearization file 1: ',lin_output1)
     if os.path.exists(lin_output1) == False:
         print('Linearization result doesnt exist. Doing linearization calculation!')
+        time_started = datetime.now()
         nodepath = linearization_path+'new_arm_nodes.mat'
         sungod_util.run_linearization_routine(rat_name, day, epoch, linearization_path, raw_directory, 
             gap_size=20, optional_alternate_nodes=nodepath, optional_output_suffix='linv2')
         linear_pos_raw['linpos_flat'] = np.load(lin_output1)   #replace x pos with linerized 
         track_segment_ids = np.load(lin_output2)
+        
+        time_finished = datetime.now()
+        print('linearization started at: %s'%str(time_started))
+        print('linearization finished at: %s'%str(time_finished))
        
     else: 
         print('Linearization found. Loading it!')
@@ -212,7 +217,7 @@ def main(path_base, rat_name, day, epoch, shift_amt, path_out):
 
     time_finished =datetime.now()
 
-    print('Enocder finished!')
+    print('Encoder finished!')
     print('Encoder started at: %s'%str(time_started))
     print('Encoder finished at: %s'%str(time_finished))
 
