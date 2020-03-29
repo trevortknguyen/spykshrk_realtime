@@ -16,7 +16,7 @@
 
     "files": {
         "output_dir": "/media/lorenlab/34e4605c-c436-46d4-b43a-80da18b12d97/spykshrk_output",
-        "prefix": "20200325_remy_tet_ch_1_westerlies",
+        "prefix": "20200327_remy_update_westerlies",
         "rec_postfix": "bin_rec",
         "profile_postfix": "pstats",
         "timing_postfix": "timing",
@@ -141,7 +141,10 @@
             "std": 5
         },
         "vel": 15,
-        "spk_amp": 150
+        "spk_amp": 150,
+        "dead_channels": {
+            "4": 0
+        }
     },
 
     "decoder": "pp_decoder",

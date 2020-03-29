@@ -135,7 +135,10 @@
             "std": 5
         },
         "vel": 5,
-        "spk_amp": 150
+        "spk_amp": 150,
+        "dead_channels": {
+            "4": 0
+        }
     },
 
     "decoder": "pp_decoder",
