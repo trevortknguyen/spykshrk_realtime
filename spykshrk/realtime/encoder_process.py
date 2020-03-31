@@ -388,8 +388,9 @@ class RStarEncoderManager(realtime_base.BinaryRecordBaseWithTiming):
                               pass
                           new_taskState = taskState_file_line
                       # final 1 character in line is task state
-                      self.taskState = new_taskState[11:12]
-                      print('task state =',self.taskState)
+                      self.taskState = np.int(new_taskState[11:12])
+                      if self.rank == 10:
+                          print('task state =',self.taskState)
 
                 # run positionassignment, pos smoothing, and velocity calculator functions
                 # currently smooth position and velocity
