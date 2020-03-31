@@ -9,7 +9,7 @@ from mpi4py import MPI
 from spykshrk.franklab.pp_decoder.util import apply_no_anim_boundary
 from spykshrk.realtime import (binary_record, datatypes, encoder_process,
                                main_process, realtime_base)
-from spykshrk.realtime import realtime_logging as rt_logging
+#from spykshrk.realtime import realtime_logging as rt_logging
 from spykshrk.realtime import ripple_process
 from spykshrk.realtime.camera_process import (LinearPositionAssignment,
                                               VelocityCalculator)
@@ -179,7 +179,7 @@ class LFPTimekeeperRecvInterface(realtime_base.RealtimeMPIClass):
                 return None
 
 
-class PointProcessDecoder(realtime_logging.LoggingClass):
+class PointProcessDecoder(rt_logging.LoggingClass):
 
     def __init__(self, pos_range, pos_bins, time_bin_size, arm_coor, config, uniform_gain=0.01):
         self.pos_range = pos_range

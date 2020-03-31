@@ -16,7 +16,7 @@
 
     "files": {
         "output_dir": "/media/lorenlab/34e4605c-c436-46d4-b43a-80da18b12d97/spykshrk_output",
-        "prefix": "remy_decoder_19tet_3_30_5_lfp_tets_check_nodead",
+        "prefix": "remy_decoder_19tet_3_30_check_again",
         "rec_postfix": "bin_rec",
         "profile_postfix": "pstats",
         "timing_postfix": "timing",
