@@ -278,6 +278,7 @@ class RippleFilter(rt_logging.LoggingClass):
 
         if self.in_lockout:
             # MEC: i dont understand these lines and they might be setting the current_val to 0 during lockout
+            # MEC: okay this does not appear to be used at all
             # lets just try the normal calculations during lockout times
             # or could try lowering the lockout time to 7500
             #rd = self.update_filter(((self.current_time - self.last_stim_time) / self.param.lockout_time)
@@ -286,14 +287,21 @@ class RippleFilter(rt_logging.LoggingClass):
             ##rd = 1
             #self.current_val = self.ripple_mean
             #self.thresh_crossed = False
+            #print('ripple process lockout time')
 
             rd = self.update_filter(data)
             self.current_val = self.custom_baseline_mean
             self.thresh_crossed = False
 
         else:
-
+            # this doesnt work - no timer in this class
+            #if self.lfp_display_counter % 100 == 0:
+            #    self.record_timing(timestamp=timestamp, elec_grp_id=self.elec_grp_id,
+            #                           datatype=datatypes.Datatypes.LFP, label='rip_filt_1')
             rd = self.update_filter(data)
+            #if self.lfp_display_counter % 100 == 0:
+            #    self.record_timing(timestamp=timestamp, elec_grp_id=self.elec_grp_id,
+            #                           datatype=datatypes.Datatypes.LFP, label='rip_filt_2')
             #to turn off ripple filter use next line and comment out line above
             #print(rd)
             #rd = 1
