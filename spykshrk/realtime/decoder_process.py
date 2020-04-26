@@ -794,11 +794,11 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
         # this seems to run now based on the lfp timekeeper, but there are many more dropped spikes
 
         # decoder with no lfp timekeeper
-        if spike_dec_msg is not None:
-            # this is new version, that uses lfp timekeeper
-            # if spike_dec_msg is not None or (self.msg_counter > 0 and lfp_timekeeper is not None and
-            #                                 lfp_timekeeper.timestamp > self.previous_spike_timestamp+
-            #                                 (self.config['pp_decoder']['bin_size']*2*self.lfp_timekeeper_counter)):
+        #if spike_dec_msg is not None:
+        # this is new version, that uses lfp timekeeper
+        if spike_dec_msg is not None or (self.msg_counter > 0 and lfp_timekeeper is not None and
+                                        lfp_timekeeper.timestamp > self.previous_spike_timestamp+
+                                        (self.config['pp_decoder']['bin_size']*2*self.lfp_timekeeper_counter)):
 
             self.lfp_timekeeper_counter += 1
             self.decode_loop_counter += 1

@@ -733,10 +733,11 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         # we only want this to happen once, so regardless of message, set self.shortcut_message_sent to True
         if (self._posterior_in_lockout == True and np.count_nonzero(self.spk_count_avg < self.spk_count_thresh) > 1 
             and self.velocity < self.config['ripple_conditioning']['ripple_detect_velocity'] 
-            and self.shortcut_message_sent == False):
+            and self.shortcut_message_sent == False and self.ripple_bin_count > 0):
 
             # calculate sum of previous bins and then decide whether or not to send message
             self.norm_posterior_arm_sum = self.posterior_sum_ripple / self.ripple_bin_count
+            print('sum of normalized posterior:',np.sum(self.norm_posterior_arm_sum),'bin count:',self.ripple_bin_count)
 
             # send shortcut message
             # check if current posterior sum is above 0.5 in any segment
@@ -747,6 +748,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 if detected_region == 0:
                     print('replay in box - no StateScript message. ripple', self._lockout_count,
                           'ripple time bin:',self.ripple_bin_count)
+                    print('time delay:', np.around((self.lfp_timestamp - self.bin_timestamp) / 30, decimals=1))
                     self.shortcut_message_arm = 0
                     self.write_record(realtime_base.RecordIDs.STIM_MESSAGE, bin_timestamp, spike_timestamp, 
                                     self.lfp_timestamp, time, self.shortcut_message_sent, self._lockout_count,
@@ -766,6 +768,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                     other_arms_sum = np.delete(posterior_sum_arms, detected_region - 1)
                     if len(np.argwhere(other_arms_sum>=self.other_arm_thresh)):
                         print('other arm filter. ripple:', self._lockout_count)
+                        print('time delay:', np.around((self.lfp_timestamp - self.bin_timestamp) / 30, decimals=1))
                         self.shortcut_message_arm = 98
                         self.write_record(realtime_base.RecordIDs.STIM_MESSAGE, bin_timestamp, spike_timestamp, 
                                     self.lfp_timestamp, time, self.shortcut_message_sent, self._lockout_count, 
@@ -787,6 +790,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             else:
                 print('no segment above 0.5 - no StateScript message. ripple:', self._lockout_count,
                       'ripple time bin:',self.ripple_bin_count)
+                print('time delay:', np.around((self.lfp_timestamp - self.bin_timestamp) / 30, decimals=1))
                 self.write_record(realtime_base.RecordIDs.STIM_MESSAGE, bin_timestamp, spike_timestamp, 
                                 self.lfp_timestamp, time, self.shortcut_message_sent, self._lockout_count, 
                                 self.posterior_time_bin,(self.lfp_timestamp - self.bin_timestamp) / 30,

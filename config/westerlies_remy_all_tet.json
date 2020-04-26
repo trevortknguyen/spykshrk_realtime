@@ -16,7 +16,7 @@
 
     "files": {
         "output_dir": "/media/lorenlab/34e4605c-c436-46d4-b43a-80da18b12d97/spykshrk_output",
-        "prefix": "remy_20_4_19tet_10lfp_4_23_offset",
+        "prefix": "remy_20_4_19tet_10lfp_4_25_replay_check_2",
         "rec_postfix": "bin_rec",
         "profile_postfix": "pstats",
         "timing_postfix": "timing",
@@ -43,9 +43,9 @@
             "ripple_threshold": 4,
             "samp_divisor": 10000,
             "n_above_thresh": 4,
-            "lockout_time": 6000,
-            "posterior_lockout_time": 1500,
-            "ripple_conditioning_lockout_time": 1500,
+            "lockout_time": 9000,
+            "posterior_lockout_time": 8800,
+            "ripple_conditioning_lockout_time": 8800,
             "detect_no_ripples": false,
             "detect_no_ripple_time": 60000,
             "dio_gate": false,
