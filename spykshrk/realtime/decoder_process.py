@@ -1145,7 +1145,7 @@ class PPDecodeManager(realtime_base.BinaryRecordBaseWithTiming):
                 # need to add reading in of taskState text file
                 # check new_ripple text file for taskState - needs to be updated manually
                 # 1 = first cued arm trials, 2 = content trials, 3 = second cued arm trials
-                if self.pos_msg_counter % 600 == 0:
+                if self.pos_msg_counter % 60 == 0:
                   #if self.vel_pos_counter % 1000 == 0:
                       #print('thresh_counter: ',self.thresh_counter)
                       with open('config/new_ripple_threshold.txt') as taskState_file:

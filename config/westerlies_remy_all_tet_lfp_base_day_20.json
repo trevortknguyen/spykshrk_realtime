@@ -16,7 +16,7 @@
 
     "files": {
         "output_dir": "/media/lorenlab/34e4605c-c436-46d4-b43a-80da18b12d97/spykshrk_output",
-        "prefix": "remy_20_2_19tet_4_30_20lfp_5min_base",
+        "prefix": "remy_21_2_19tet_4_28_20lfp_base",
         "rec_postfix": "bin_rec",
         "profile_postfix": "pstats",
         "timing_postfix": "timing",
@@ -28,13 +28,12 @@
     },
 
     "ripple_conditioning": {
-        "display_baseline": false,
+        "display_baseline": true,
         "posterior_sum_threshold": 0.5,
         "posterior_sum_rip_only": false,
         "ripple_detection_shift": 2100,
         "post_sum_sliding_window": 11,
-        "ripple_detect_velocity": 5,
-        "spike_count_window_sec": 60
+        "ripple_detect_velocity": 5
     },
 
     "ripple": {
@@ -42,7 +41,7 @@
             "rip_coeff1": 1.2,
             "rip_coeff2": 0.2,
             "ripple_threshold": 4,
-            "samp_divisor": 450000,
+            "samp_divisor": 10000,
             "n_above_thresh": 6,
             "lockout_time": 1500,
             "posterior_lockout_time": 1000,
