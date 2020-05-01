@@ -306,7 +306,6 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         self.posterior_time_bin = 0
         self.posterior_spike_count = 0
         self.posterior_arm_threshold = self.config['ripple_conditioning']['posterior_sum_threshold']
-        self.spike_count_base_avg = 0
         # set max repeats allowed at each arm during content trials
         self.max_arm_repeats = 1
         # marker for stim_message to note end of ripple (message sent or end of lockout)
@@ -329,7 +328,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         # for spike count average
         # 4-30 replaced spk_count_thresh with spike_count_base_avg
         self.spk_count_thresh = 1.5
-        self.spike_count_base_avg = 1.5
+        self.spike_count_base_avg = 2
         self.spk_count_window_len = 3
         self.spk_count_avg_history = 5
         self.spk_count_window = np.zeros((1,self.spk_count_window_len))
@@ -422,7 +421,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             # new using spike count avg - 3 of 5 below, so it is after posterior sum ends
             # also using a timer - 50 msec
             if (self._in_lockout and timestamp > self._last_lockout_timestamp + self._lockout_time
-                and np.count_nonzero(self.spk_count_avg < self.spike_count_base_avg) > 2):
+                and np.count_nonzero(self.spk_count_avg < 0.75*self.spike_count_base_avg) > 2):
             #original
             #if self._in_lockout and (timestamp > self._last_lockout_timestamp + self._lockout_time):
                 # End lockout
@@ -753,7 +752,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         #    and self.velocity < self.config['ripple_conditioning']['ripple_detect_velocity'] 
         #    and self.shortcut_message_sent == False and self.ripple_bin_count > 0):
         # no velocity filter
-        if (self._in_lockout == True and np.count_nonzero(self.spk_count_avg < self.spike_count_base_avg) > 1 
+        if (self._in_lockout == True and np.count_nonzero(self.spk_count_avg < 0.75*self.spike_count_base_avg) > 1 
             and self.shortcut_message_sent == False and self.ripple_bin_count > 0):        
 
             # calculate sum of previous bins and then decide whether or not to send message
