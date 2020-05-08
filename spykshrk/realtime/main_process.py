@@ -233,15 +233,15 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                                   realtime_base.RecordIDs.STIM_LOCKOUT,
                                   realtime_base.RecordIDs.STIM_MESSAGE],
                          rec_labels=[['timestamp', 'elec_grp_id', 'threshold_state'],
-                                     ['timestamp', 'time', 'lockout_num', 'lockout_state', 'tets_above_thresh',
-                                      'big_rip_message_sent'],
+                                     ['timestamp', 'velocity', 'lockout_num', 'lockout_state', 'tets_above_thresh',
+                                      'big_rip_message_sent','spike_count'],
                                      ['bin_timestamp', 'spike_timestamp', 'lfp_timestamp', 'time',
-                                      'shortcut_message_sent', 'ripple_number', 'ripple_time_bin', 'delay', 'velocity',
+                                      'shortcut_message_sent', 'ripple_number', 'posterior_time_bin', 'delay', 'velocity',
                                       'real_pos','spike_count', 'spike_count_avg',
                                       'posterior_max_arm', 'content_threshold', 'ripple_end',
                                       'max_arm_repeats', 'box', 'arm1', 'arm2', 'arm3', 'arm4', 'arm5', 'arm6', 'arm7', 'arm8']],
                          rec_formats=['Iii',
-                                      'Idiiqi',
+                                      'Idiiddi',
                                       'IIidiiidddididiiddddddddd'])
         # NOTE: for binary files: I,i means integer, d means decimal
 
@@ -326,13 +326,17 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         self.other_arm_thresh = 0.2
 
         # for spike count average
-        # 4-30 replaced spk_count_thresh with spike_count_base_avg
-        self.spk_count_thresh = 1.5
-        self.spike_count_base_avg = 2
+        if self.config['ripple_conditioning']['session_type'] == 'run':
+            self.spike_count_base_avg = self.config['ripple_conditioning']['previous_spike_count_avg']
+            self.spike_count_base_std = self.config['ripple_conditioning']['previous_spike_count_std']
+        else:
+            self.spike_count_base_avg = 0
+            self.spike_count_base_std = 0
         self.spk_count_window_len = 3
         self.spk_count_avg_history = 5
         self.spk_count_window = np.zeros((1,self.spk_count_window_len))
         self.spk_count_avg = np.zeros((1,self.spk_count_avg_history))
+        self.spike_count = 0
 
         # used to pring out number of replays during session
         self.arm1_replay_counter = 0
@@ -376,7 +380,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
 
     def update_ripple_threshold_state(self, timestamp, elec_grp_id, threshold_state, conditioning_thresh_state, networkclient):
         # Log timing
-        if self.thresh_counter % 100 == 0:
+        if self.thresh_counter % 100 == 0  and self.config['ripple_conditioning']['session_type'] == 'run':
             self.record_timing(timestamp=timestamp, elec_grp_id=elec_grp_id,
                                datatype=datatypes.Datatypes.LFP, label='stim_rip_state')
         time = MPI.Wtime()
@@ -386,7 +390,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
 
         #print('received thresh states: ',threshold_state,conditioning_thresh_state)
 
-        if self._enabled:
+        if self._enabled and self.config['ripple_conditioning']['session_type'] == 'run':
             self.thresh_counter += 1
 
             # if self.thresh_counter % 1500 == 0 and self._in_lockout:
@@ -419,16 +423,20 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
 
             # end lockout for content ripples
             # new using spike count avg - 3 of 5 below, so it is after posterior sum ends
+            # loren said this should match posterior sum, so only require 2 of 5
+            # should happen after posterior sum for every new data point
             # also using a timer - 50 msec
+            # replace threshold with spike count st dev, before: avg*0.75
             if (self._in_lockout and timestamp > self._last_lockout_timestamp + self._lockout_time
-                and np.count_nonzero(self.spk_count_avg < 0.75*self.spike_count_base_avg) > 2):
+                and np.count_nonzero(self.spk_count_avg < self.spike_count_base_avg-(0.5*self.spike_count_base_std)) > 1):
+            
             #original
             #if self._in_lockout and (timestamp > self._last_lockout_timestamp + self._lockout_time):
                 # End lockout
                 self._in_lockout = False
                 self.write_record(realtime_base.RecordIDs.STIM_LOCKOUT,
                                   timestamp, time, self._lockout_count, self._in_lockout,
-                                  num_above, self.big_rip_message_sent)
+                                  num_above, self.big_rip_message_sent, self.spike_count)
                 print('ripple end. ripple num:',self._lockout_count,'timestamp',timestamp)
                 self._lockout_count += 1
                 #print('ripple lockout ended. time:',np.around(timestamp/30,decimals=2))
@@ -452,7 +460,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
                 self._conditioning_in_lockout = False
                 self.write_record(realtime_base.RecordIDs.STIM_LOCKOUT,
                                   timestamp, time, self._lockout_count, self._conditioning_in_lockout,
-                                  num_above, self.big_rip_message_sent)
+                                  num_above, self.big_rip_message_sent, self.spike_count)
                 self._lockout_count += 1
                 print('end of lockout big ripple')
 
@@ -472,7 +480,9 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             # detection of large ripples: 2 tets above rip thresh, velocity below vel thresh, not in lockout (125 msec after previous rip)
             # ideally this would also take in some output from statescript that says whether this time is ripple or content conditioning
             # because this statement is before posterior sum, posterior sum will not run if the two ripple thresholds are the same
-            if (conditioning_num_above >= self._ripple_n_above_thresh) and self.velocity < self.config['ripple_conditioning']['ripple_detect_velocity'] and not self._conditioning_in_lockout:
+            if ((conditioning_num_above >= self._ripple_n_above_thresh) and 
+                self.velocity < self.config['ripple_conditioning']['ripple_detect_velocity'] and 
+                not self._conditioning_in_lockout):
                 self.big_rip_message_sent = 0
                 print('tets above cond ripple thresh: ', conditioning_num_above, timestamp,
                       self._conditioning_ripple_thresh_states, np.around(self.velocity, decimals=2))
@@ -510,13 +520,16 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
 
                 self.write_record(realtime_base.RecordIDs.STIM_LOCKOUT,
                                   timestamp, self.velocity, self._lockout_count, self._conditioning_in_lockout,
-                                  conditioning_num_above, self.big_rip_message_sent)
+                                  conditioning_num_above, self.big_rip_message_sent, self.spike_count)
 
                 # dan's way of sending stim to trodes - not using this.
                 # self._send_interface.start_stimulation()
 
-            # detection of content ripples: 2 tets above rip thresh, velocity below vel thresh, not in lockout (500 msec after previous rip)
-            elif (num_above >= self._ripple_n_above_thresh) and self.velocity < self.config['ripple_conditioning']['ripple_detect_velocity'] and not self._in_lockout:
+            # detection of content ripples: 2 tets above rip thresh, velocity below vel thresh, 
+            # not in lockout (50 msec after previous rip)
+            elif ((num_above >= self._ripple_n_above_thresh) and 
+                self.velocity < self.config['ripple_conditioning']['ripple_detect_velocity'] and 
+                not self._in_lockout):
                 # add to the ripple count- no should use lockout_count
                 #self.ripple_number += 1
                 # this needs to just turn on light
@@ -543,7 +556,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
 
                 self.write_record(realtime_base.RecordIDs.STIM_LOCKOUT,
                                   timestamp, self.velocity, self._lockout_count, self._in_lockout,
-                                  num_above, self.big_rip_message_sent)
+                                  num_above, self.big_rip_message_sent, self.spike_count)
 
             # this is where sending the statescript message should be triggered if lockout is over
             # this should force message to be sent on time, without a delay from empty decoder bins
@@ -665,7 +678,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         # so matching will happen less often - 5x , 10x - not sure???
         # this will depend on the number of spikes, so that is not ideal
         # should probably use a lockout instead...
-        if self.thresh_counter % 10000 == 0:
+        if self.thresh_counter % 10000 == 0  and self.config['ripple_conditioning']['session_type'] == 'run':
             # if self.vel_pos_counter % 1000 == 0:
             #print('thresh_counter: ',self.thresh_counter)
             with open('config/new_ripple_threshold.txt') as posterior_threshold_file:
@@ -683,7 +696,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
 
         # read arm_reward text file written by trodes to find last rewarded arm
         # use this to prevent repeated rewards to a specific arm (set arm1_replay_counter)
-        if self.thresh_counter % 10000 == 0:
+        if self.thresh_counter % 10000 == 0  and self.config['ripple_conditioning']['session_type'] == 'run':
             # reset counters each time you read the file - b/c file might not change
             self.arm_replay_counter = np.zeros((8,))
 
@@ -735,11 +748,25 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         self.post_sum_sliding_window_actual = np.ptp(self.posterior_sum_timestamps) / 30
 
         # spike count baseline average
-        self.spike_count_base_avg += ((spike_count - self.spike_count_base_avg) 
+        if self.running_post_sum_counter == 1:
+            print('initial spike count baseline:', np.around(self.spike_count_base_avg,decimals=3))
+        self.spike_count_base_avg += ((self.spike_count - self.spike_count_base_avg) 
                                         / ((1000/(self.config['pp_decoder']['bin_size']/30))
                                             *self.config['ripple_conditioning']['spike_count_window_sec']))
+        self.spike_count_base_std += ((abs(self.spike_count - self.spike_count_base_avg)  - self.spike_count_base_std)
+                                        / ((1000/(self.config['pp_decoder']['bin_size']/30))
+                                            *self.config['ripple_conditioning']['spike_count_window_sec']))        
+        if self.running_post_sum_counter % 2000 == 0:
+            print('spike count baseline', np.around(self.spike_count_base_avg,decimals=3),
+                  np.around(self.spike_count_base_std,decimals=3),
+                  np.around(self.spike_count_base_avg-(0.5*self.spike_count_base_std),decimals=3))
+
+        if self.running_post_sum_counter % 30 == 0:
+            self.write_record(realtime_base.RecordIDs.STIM_LOCKOUT, self.lfp_timestamp, 0, 0, 2,
+                                  self.spike_count_base_avg, self.spike_count_base_std, self.spike_count)
+
         # sliding window sum of spike count
-        self.spk_count_window[0,np.mod(self.running_post_sum_counter,self.spk_count_window_len)] = spike_count
+        self.spk_count_window[0,np.mod(self.running_post_sum_counter,self.spk_count_window_len)] = self.spike_count
         self.spk_count_avg[0,np.mod(self.running_post_sum_counter,
                                     self.spk_count_avg_history)] = np.average(self.spk_count_window)
 
@@ -752,13 +779,17 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
         #    and self.velocity < self.config['ripple_conditioning']['ripple_detect_velocity'] 
         #    and self.shortcut_message_sent == False and self.ripple_bin_count > 0):
         # no velocity filter
-        if (self._in_lockout == True and np.count_nonzero(self.spk_count_avg < 0.75*self.spike_count_base_avg) > 1 
-            and self.shortcut_message_sent == False and self.ripple_bin_count > 0):        
+        # replace spike count threshold with st dev, before: 0.75*self.spike_count_base_avg 
+        # replace ripple_time_bin with posterior_time_bin
+        if (self._in_lockout == True and 
+            np.count_nonzero(self.spk_count_avg < self.spike_count_base_avg-(0.5*self.spike_count_base_std)) > 1 
+            and self.shortcut_message_sent == False and self.posterior_time_bin > 0 and 
+            self.velocity < self.config['ripple_conditioning']['ripple_detect_velocity']):     
 
             # calculate sum of previous bins and then decide whether or not to send message
             self.norm_posterior_arm_sum = self.posterior_sum_ripple / self.ripple_bin_count
             print('sum of normalized posterior:',np.sum(self.norm_posterior_arm_sum),'bin count:',self.ripple_bin_count)
-            print('spike count baseline:',self.spike_count_base_avg)
+            print('spike count baseline:',np.around(self.spike_count_base_avg,decimals=3))
 
             # send shortcut message
             # check if current posterior sum is above 0.5 in any segment
@@ -845,7 +876,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             self.posterior_time_bin += 1
             self.shortcut_message_arm = 99
             self.ripple_end = 0
-            self.posterior_spike_count = self.posterior_spike_count + spike_count
+            self.posterior_spike_count = self.posterior_spike_count + self.spike_count
 
             if self.posterior_time_bin == 1:
                 # print('start of ripple. sum is ',np.around(self.norm_posterior_arm_sum,decimals=1),
@@ -914,7 +945,7 @@ class StimDecider(realtime_base.BinaryRecordBaseWithTiming):
             self.posterior_arm_sum = self.posterior_arm_sum + new_posterior_sum
 
             # also add up spikes in the replay
-            self.posterior_spike_count = self.posterior_spike_count + spike_count
+            self.posterior_spike_count = self.posterior_spike_count + self.spike_count
 
             # MEC: 10-27-19: try turning off stim_message record to see if that helps record saving problem
             self.ripple_end = 0

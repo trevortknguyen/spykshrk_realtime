@@ -180,8 +180,10 @@ class RippleFilter(rt_logging.LoggingClass):
         self.lfp_display_counter = 0
         self.config = config
 
-        self.conditioning_ripple_threshold = 4
+        self.conditioning_ripple_threshold = self.config['ripple']['RippleParameterMessage']['ripple_threshold']
         self.condition_thresh_crossed = False
+
+        self.session_type = self.config['ripple_conditioning']['session_type']
 
         # i think we need to open the ripple threshold file here in the init
         # this doesnt work because the file is closed when i try to use it below - try moving this down
@@ -309,24 +311,30 @@ class RippleFilter(rt_logging.LoggingClass):
             y = abs(rd)
 
             # set mean and std to match values from config
-            if self.lfp_display_counter == 0:
+            if self.lfp_display_counter == 0 and self.session_type == 'sleep':
+                self.ripple_mean = 0.0
+                self.ripple_std = 0.0
+                print('sleep, initial LFP mean:',self.ripple_mean,'std:',self.ripple_std)            
+            elif self.lfp_display_counter == 0:
                 self.ripple_mean = self.custom_baseline_mean
                 self.ripple_std = self.custom_baseline_std
-                print('rip loop 0. mean:',self.ripple_mean,'std:',self.ripple_std)
+                print('run, initial LFP mean:',self.ripple_mean,'std:',self.ripple_std)
             # calculate and display lfp baseline
             self.ripple_mean += (y - self.ripple_mean) / self.param.samp_divisor
             self.ripple_std += (abs(y - self.ripple_mean) - self.ripple_std) / self.param.samp_divisor
             self.lfp_display_counter += 1
             # display every 1 sec during baseline, every 10 sec during run session
             # only display from process rank 3
-            if self.config['ripple_conditioning']['display_baseline'] == True:
-                if self.lfp_display_counter % 1500 == 0:
-                    print('mean',self.elec_grp_id,' = ',np.around(self.ripple_mean,decimals=2),
-                          ' stdev',self.elec_grp_id,' = ',np.around(self.ripple_std,decimals=2))
+            #if self.config['ripple_conditioning']['display_baseline'] == True:
+            if self.session_type == 'sleep':
+                if self.lfp_display_counter % 7500 == 0:
+                    #print('mean')
+                    print('mean -','"',self.elec_grp_id,'":',np.around(self.ripple_mean,decimals=2),',',
+                    '- stdev -','"',self.elec_grp_id,'":',np.around(self.ripple_std,decimals=2),',')
             else:
-                if self.lfp_display_counter % 15000 == 0:
-                    print('mean',self.elec_grp_id,' = ',np.around(self.ripple_mean,decimals=2),
-                          ' stdev',self.elec_grp_id,' = ',np.around(self.ripple_std,decimals=2))
+                if self.lfp_display_counter % 90000 == 0:
+                    print('mean -','"',self.elec_grp_id,'":',np.around(self.ripple_mean,decimals=2),',',
+                    '- stdev -','"',self.elec_grp_id,'":',np.around(self.ripple_std,decimals=2),',')
 
             # open and read text file that will allow you to update ripple threshold
             # looks for three digits, 055 > 5.5 sd

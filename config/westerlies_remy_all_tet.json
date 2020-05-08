@@ -16,7 +16,7 @@
 
     "files": {
         "output_dir": "/media/lorenlab/34e4605c-c436-46d4-b43a-80da18b12d97/spykshrk_output",
-        "prefix": "remy_20_2_19tet_5_1_20lfp_5minlfp_5minspk",
+        "prefix": "remy_20_2_19tet_5_7_vel4_sd5",
         "rec_postfix": "bin_rec",
         "profile_postfix": "pstats",
         "timing_postfix": "timing",
@@ -28,13 +28,14 @@
     },
 
     "ripple_conditioning": {
-        "display_baseline": false,
+        "session_type": "run",
         "posterior_sum_threshold": 0.5,
         "posterior_sum_rip_only": false,
-        "ripple_detection_shift": 2100,
         "post_sum_sliding_window": 11,
-        "ripple_detect_velocity": 5,
-        "spike_count_window_sec": 300
+        "ripple_detect_velocity": 4,
+        "spike_count_window_sec": 300,
+        "previous_spike_count_avg": 2.06,
+        "previous_spike_count_std": 1.43
     },
 
     "ripple": {
@@ -44,7 +45,7 @@
             "ripple_threshold": 4,
             "samp_divisor": 450000,
             "n_above_thresh": 6,
-            "lockout_time": 1500,
+            "lockout_time": 6000,
             "posterior_lockout_time": 1000,
             "ripple_conditioning_lockout_time": 1000,
             "detect_no_ripples": false,
@@ -53,51 +54,53 @@
             "dio_gate_port": -1,
             "enabled": true,
             "use_custom_baseline": true,
-            "update_custom_baseline": false
+            "update_custom_baseline": true
         },
         "CustomRippleBaselineMeanMessage": {
-            "4": 7.91,
-            "6": 14.52,
-            "9": 10.2,
-            "10": 7.82,
-            "13": 7.35,
-            "17": 7.56,
-            "19": 6.86,
-            "22": 8.19,
-            "26": 9.05,
-            "29": 6.6,
-            "2": 15.54,
-            "11": 6.39,
-            "12": 8.76,
-            "14": 5.97,
-            "15": 6.06,
-            "20": 8.34,
-            "21": 11.11,
-            "23": 13.06,
-            "24": 12.28,
-            "30": 11.92
+            " 17 ": 8.73 , 
+            " 13 ": 9.18 , 
+            " 19 ": 7.65 , 
+            " 22 ": 8.5 , 
+            " 9 ": 10.97 , 
+            " 12 ": 10.04 , 
+            " 14 ": 6.54 , 
+            " 6 ": 13.93 , 
+            " 11 ": 6.57 , 
+            " 24 ": 12.77 , 
+            " 23 ": 14.12 , 
+            " 21 ": 11.61 , 
+            " 10 ": 8.71 , 
+            " 4 ": 8.89 , 
+            " 2 ": 16.33 , 
+            " 20 ": 9.27 , 
+            " 29 ": 7.01 , 
+            " 26 ": 10.08 , 
+            " 15 ": 6.04 , 
+            " 30 ": 13.6 
+
         },
         "CustomRippleBaselineStdMessage": {
-            "4": 4.95,
-            "6": 8.88,
-            "9": 6.38,
-            "10": 4.88,
-            "13": 4.65,
-            "17": 4.68,
-            "19": 4.35,
-            "22": 5.4,
-            "26": 5.79,
-            "29": 4.11,
-            "2": 9.98,
-            "11": 4.02,
-            "12": 5.57,
-            "14": 3.75,
-            "15": 4.03,
-            "20": 5.41,
-            "21": 7.51,
-            "23": 8.08,
-            "24": 7.55,
-            "30": 7.83
+            " 17 ": 5.72 ,
+            " 13 ": 6.28 ,
+            " 19 ": 5.07 ,
+            " 22 ": 5.61 ,
+            " 9 ": 7.18 ,
+            " 12 ": 6.93 ,
+            " 14 ": 4.49 ,
+            " 6 ": 9.07 ,
+            " 11 ": 4.34 ,
+            " 24 ": 8.37 ,
+            " 23 ": 9.11 ,
+            " 21 ": 8.18 ,
+            " 10 ": 5.96 ,
+            " 4 ": 5.96 ,
+            " 2 ": 10.59 ,
+            " 20 ": 6.43 ,
+            " 29 ": 4.58 ,
+            " 26 ": 6.87 ,
+            " 15 ": 4.04 ,
+            " 30 ": 9.45 
+
         }
     },
 
@@ -121,7 +124,7 @@
         "position_kernel": {
             "std": 5
         },
-        "vel": 5,
+        "vel": 4,
         "spk_amp": 150,
         "dead_channels": {
         },
