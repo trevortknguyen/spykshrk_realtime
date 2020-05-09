@@ -376,7 +376,7 @@ class RippleFilter(rt_logging.LoggingClass):
             else:
                 gain = self.param.rip_coeff2
                 self.pos_gain = self.update_envelop(gain)
-                self.current_val += df * gain
+                self.current_val += df * self.pos_gain
 
             # try to use updated mean and std instead of custom here
             if self.param.use_custom_baseline:
